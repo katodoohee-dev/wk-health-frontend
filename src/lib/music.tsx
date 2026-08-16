@@ -8,6 +8,7 @@ import {
   useState,
   type ReactNode,
 } from "react";
+import { useQueryClient } from "@tanstack/react-query";
 import { apiMusicPlayed, type Track } from "@/lib/api";
 
 type MusicCtx = {
@@ -63,6 +64,7 @@ function loadYouTubeApi(): Promise<void> {
 }
 
 export function MusicProvider({ children }: { children: ReactNode }) {
+  const qc = useQueryClient();
   const [current, setCurrent] = useState<Track | null>(null);
   const [queue, setQueue] = useState<Track[]>([]);
   const [isPlaying, setIsPlaying] = useState(false);
@@ -136,9 +138,13 @@ export function MusicProvider({ children }: { children: ReactNode }) {
       if (list) setQueue(list);
       setCurrent(track);
       playTrack(track);
-      void apiMusicPlayed(track).catch(() => undefined);
+      // ต้อง invalidate cache ของหน้า "ประวัติการฟัง" เอง เพราะ MusicProvider อยู่นอก route
+      // ของหน้า /music — ถ้าไม่ invalidate ประวัติจะไม่อัปเดตจนกว่าจะออกแล้วกลับเข้าหน้าใหม่
+      void apiMusicPlayed(track)
+        .then(() => void qc.invalidateQueries({ queryKey: ["music", "history"] }))
+        .catch(() => undefined);
     },
-    [playTrack],
+    [playTrack, qc],
   );
 
   const toggle = useCallback(() => {
