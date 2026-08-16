@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { createFileRoute } from "@tanstack/react-router";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Bar, BarChart, ResponsiveContainer, XAxis } from "recharts";
@@ -138,6 +138,8 @@ function PedometerPage() {
         )}
       </GlassCard>
 
+      <AutoStepCounter onLogged={() => void qc.invalidateQueries({ queryKey: ["pedometer"] })} />
+
       <GpsTracker />
 
       {p.hourly.length > 0 && (
@@ -161,6 +163,156 @@ function fmtDuration(sec: number) {
   const m = Math.floor(sec / 60);
   const ss = sec % 60;
   return `${String(m).padStart(2, "0")}:${String(ss).padStart(2, "0")}`;
+}
+
+/**
+ * ADDED (ของเดิมไม่มีเลย): ตัวนับก้าวอัตโนมัติจริงจากเซ็นเซอร์ accelerometer ของมือถือ
+ * (DeviceMotion) — ก่อนหน้านี้หน้า Pedometer มีแค่ช่องกรอกตัวเลขเอง ไม่มีโค้ดอ่านเซ็นเซอร์เลยสักบรรทัด
+ * จึงไม่มีทาง "นับก้าว" ที่เดินจริงได้เอง ต้องพิมพ์มือทุกครั้ง
+ *
+ * วิธีทำงาน: อ่านค่าความเร่งรวม (magnitude) จาก devicemotion event แล้วตรวจจับจังหวะ "พีค"
+ * ที่ข้าม threshold ขึ้นมา (เทียบกับ dip ก่อนหน้า) พร้อม debounce ขั้นต่ำ 280ms ต่อก้าว
+ * เพื่อกันนับซ้ำจากการสั่นสะเทือนเล็กๆ — เป็นอัลกอริทึมนับก้าวแบบพื้นฐานที่ใช้กันทั่วไปบนเว็บ
+ * (ความแม่นยำจะสู้ native pedometer API ของ iOS/Android ไม่ได้ 100% แต่ทำงานได้จริงบนเบราว์เซอร์)
+ *
+ * ต้องขอ permission ผ่าน user gesture บน iOS 13+ (DeviceMotionEvent.requestPermission)
+ */
+function AutoStepCounter({ onLogged }: { onLogged: () => void }) {
+  const [counting, setCounting] = useState(false);
+  const [liveSteps, setLiveSteps] = useState(0);
+  const [seconds, setSeconds] = useState(0);
+  const [error, setError] = useState<string | null>(null);
+  const [supported, setSupported] = useState(true);
+
+  const lastStepAtRef = useRef(0);
+  const wasBelowRef = useRef(true);
+  const handlerRef = useRef<((e: DeviceMotionEvent) => void) | null>(null);
+
+  const log = useMutation({
+    mutationFn: (n: number) => apiPedometerLog(n, { seconds }),
+    onSuccess: onLogged,
+  });
+
+  useEffect(() => {
+    if (typeof window === "undefined" || typeof DeviceMotionEvent === "undefined") {
+      setSupported(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    if (!counting) return;
+    const t = window.setInterval(() => setSeconds((s) => s + 1), 1000);
+    return () => window.clearInterval(t);
+  }, [counting]);
+
+  const handleMotion = useCallback((e: DeviceMotionEvent) => {
+    const a = e.accelerationIncludingGravity;
+    if (!a || a.x === null || a.y === null || a.z === null) return;
+    const magnitude = Math.sqrt(a.x * a.x + a.y * a.y + a.z * a.z);
+    const delta = magnitude - 9.8; // หักแรงโน้มถ่วงคงที่คร่าวๆ
+    const THRESHOLD = 2.2; // ปรับตามความไวที่ต้องการ
+    const now = Date.now();
+
+    if (delta < THRESHOLD * 0.4) {
+      wasBelowRef.current = true;
+    } else if (delta > THRESHOLD && wasBelowRef.current) {
+      if (now - lastStepAtRef.current > 280) {
+        lastStepAtRef.current = now;
+        setLiveSteps((s) => s + 1);
+      }
+      wasBelowRef.current = false;
+    }
+  }, []);
+
+  const start = async () => {
+    setError(null);
+    const DME = window.DeviceMotionEvent as unknown as {
+      requestPermission?: () => Promise<"granted" | "denied">;
+    };
+    try {
+      if (typeof DME.requestPermission === "function") {
+        const perm = await DME.requestPermission();
+        if (perm !== "granted") {
+          setError("ต้องอนุญาตให้เข้าถึงเซ็นเซอร์การเคลื่อนไหวก่อนถึงจะนับก้าวอัตโนมัติได้");
+          return;
+        }
+      }
+      lastStepAtRef.current = 0;
+      wasBelowRef.current = true;
+      setLiveSteps(0);
+      setSeconds(0);
+      handlerRef.current = handleMotion;
+      window.addEventListener("devicemotion", handleMotion);
+      setCounting(true);
+    } catch {
+      setError("เปิดเซ็นเซอร์ไม่สำเร็จ ลองใหม่อีกครั้ง");
+    }
+  };
+
+  const stop = () => {
+    if (handlerRef.current) window.removeEventListener("devicemotion", handlerRef.current);
+    handlerRef.current = null;
+    setCounting(false);
+    if (liveSteps > 0) log.mutate(liveSteps);
+  };
+
+  useEffect(() => {
+    return () => {
+      if (handlerRef.current) window.removeEventListener("devicemotion", handlerRef.current);
+    };
+  }, []);
+
+  if (!supported) {
+    return (
+      <GlassCard className="mt-4 p-4">
+        <SectionTitle title="นับก้าวอัตโนมัติ" />
+        <p className="text-sm text-muted-foreground">
+          อุปกรณ์/เบราว์เซอร์นี้ไม่รองรับเซ็นเซอร์การเคลื่อนไหว (DeviceMotion) — ใช้ช่อง
+          &quot;บันทึกก้าวเพิ่ม&quot; ด้านบนแทนได้
+        </p>
+      </GlassCard>
+    );
+  }
+
+  return (
+    <GlassCard className="mt-4 p-4">
+      <SectionTitle title="นับก้าวอัตโนมัติ (เซ็นเซอร์มือถือ)" />
+      <div className="flex items-center gap-4">
+        <span
+          className={`grid size-14 shrink-0 place-items-center rounded-3xl ${
+            counting ? "bg-sky-soft text-sky animate-pulse" : "bg-muted text-muted-foreground"
+          }`}
+        >
+          <Footprints className="size-6" />
+        </span>
+        <div className="min-w-0 flex-1">
+          <p className="font-display text-3xl font-bold tabular-nums">{liveSteps.toLocaleString()} ก้าว</p>
+          <p className="truncate text-xs text-muted-foreground">
+            {counting ? `กำลังนับ · ${fmtDuration(seconds)}` : "ถือมือถือไว้กับตัวแล้วกดเริ่ม"}
+          </p>
+        </div>
+        <button
+          onClick={() => void (counting ? stop() : start())}
+          disabled={log.isPending}
+          className={`press flex shrink-0 items-center gap-2 rounded-2xl px-4 py-3 text-sm font-medium shadow-glow disabled:opacity-60 ${
+            counting ? "bg-destructive text-destructive-foreground" : "bg-mint-gradient text-primary-foreground"
+          }`}
+        >
+          {counting ? <Square className="size-4" /> : <Play className="size-4" />}
+          {counting ? "หยุด & บันทึก" : "เริ่มนับ"}
+        </button>
+      </div>
+      {error && <p className="mt-3 rounded-2xl bg-destructive/10 px-3 py-2.5 text-sm text-destructive">{error}</p>}
+      {log.isError && (
+        <p className="mt-3 rounded-2xl bg-destructive/10 px-3 py-2.5 text-sm text-destructive">
+          {log.error instanceof Error ? log.error.message : "บันทึกก้าวไม่สำเร็จ"}
+        </p>
+      )}
+      {log.isSuccess && !counting && (
+        <p className="mt-3 rounded-2xl bg-mint-soft px-3 py-2.5 text-sm text-mint">บันทึกก้าวที่นับได้แล้ว ✓</p>
+      )}
+    </GlassCard>
+  );
 }
 
 function GpsTracker() {

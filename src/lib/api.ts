@@ -1,5 +1,3 @@
-
-Api · TS
 // ชั้นเชื่อมต่อ REST API จริง (Express + SQLite แยกโปรเจกต์)
 // base URL ตั้งค่าได้ผ่าน VITE_API_BASE_URL
  
@@ -120,8 +118,8 @@ function normalizeUser(u: ApiUser | null): ApiUser | null {
   return {
     ...u,
     name: pick<string>(u, ["name", "displayName", "display_name"], ""),
-    weightKg: num(pick(u, ["weightKg", "weight_kg"], 0)) || undefined,
-    heightCm: num(pick(u, ["heightCm", "height_cm"], 0)) || undefined,
+    ...(num(pick(u, ["weightKg", "weight_kg"], 0)) ? { weightKg: num(pick(u, ["weightKg", "weight_kg"], 0)) } : {}),
+    ...(num(pick(u, ["heightCm", "height_cm"], 0)) ? { heightCm: num(pick(u, ["heightCm", "height_cm"], 0)) } : {}),
     goalKcal: num(pick(u, ["goalKcal", "goal_kcal"], 2000), 2000),
   };
 }
@@ -394,7 +392,7 @@ export async function apiBudgetPlan(input: BudgetPlanInput): Promise<BudgetPlan>
           slot: slotLabel(slot),
         } satisfies BudgetMeal;
       })
-      .filter((m): m is BudgetMeal => m !== null);
+      .filter((m): m is NonNullable<typeof m> => m !== null);
     return {
       day: `วันที่ ${i + 1}`,
       meals,
@@ -697,14 +695,25 @@ export type Track = {
   ytId?: string;
 };
  
+/**
+ * FIX: บั๊กใหญ่ 🔴 — เพลง YouTube เล่นแล้ว "เงียบ" ไม่มีเสียง (ปุ่ม pause ขึ้นเหมือนกำลังเล่น)
+ * สาเหตุจริง: backend เก็บ/คืนแค่ {url, title, type} เท่านั้น ไม่มี field yt_id กลับมาด้วย
+ * (ตรวจสอบจาก backend route จริงแล้ว — POST /api/music/library และ GET /api/music/library
+ * ไม่มี yt_id ในทั้ง input schema และ SELECT ที่คืนกลับ)
+ * เดิม readTrack() หา yt_id/ytId/... ไม่เจอ เลยได้ ytId="" แล้ว loadVideoById("") ก็ไม่ทำอะไรเลย
+ * (ไม่ error ด้วย เพราะ YouTube iframe API เงียบเมื่อส่ง id ว่าง) — UI เข้าใจผิดว่ากำลังเล่นอยู่
+ * แก้โดย derive ytId จาก url ฝั่ง client เองเสมอ เป็น fallback เมื่อ backend ไม่ได้ส่งมาให้
+ */
 function readTrack(raw: Json): Track {
   const type = String(pick(raw, ["type", "kind"], "audio"));
+  const url = pick<string>(raw, ["url", "src", "link"], "");
+  const ytIdFromBackend = pick<string>(raw, ["yt_id", "ytId", "youtubeId", "videoId"], "");
   return {
     id: String(pick(raw, ["id", "_id"], Math.random().toString(36).slice(2))),
-    url: pick<string>(raw, ["url", "src", "link"], ""),
+    url,
     title: pick<string>(raw, ["title", "name"], "ไม่มีชื่อ"),
     type: type === "youtube" || type === "yt" ? "youtube" : "audio",
-    ytId: pick<string>(raw, ["yt_id", "ytId", "youtubeId", "videoId"], ""),
+    ytId: ytIdFromBackend || parseYouTubeId(url),
   };
 }
  

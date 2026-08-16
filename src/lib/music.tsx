@@ -90,6 +90,12 @@ export function MusicProvider({ children }: { children: ReactNode }) {
     if (track.type === "youtube") {
       audio?.pause();
       const vid = track.ytId || "";
+      // FIX: ถ้าไม่มี video id จริง (parseYouTubeId คืนค่าว่าง เพราะลิงก์ไม่ใช่รูปแบบ YouTube ที่รู้จัก)
+      // อย่าแสร้งว่ากำลังเล่น — โชว์สถานะไม่เล่นไปเลย ดีกว่าปุ่ม pause ค้างแบบไม่มีเสียงจริง
+      if (!vid) {
+        setIsPlaying(false);
+        return;
+      }
       void loadYouTubeApi().then(() => {
         if (!window.YT?.Player || !ytHostRef.current) return;
         if (!ytRef.current) {
@@ -100,6 +106,8 @@ export function MusicProvider({ children }: { children: ReactNode }) {
             playerVars: { autoplay: 1, playsinline: 1 },
             events: {
               onReady: (e: { target: YTPlayer }) => e.target.playVideo(),
+              // FIX: isPlaying มาจาก event onStateChange จริงเท่านั้น ไม่ใช่ optimistic setIsPlaying(true)
+              // ก่อนหน้านี้ (เดิมเซ็ต true ทันทีตอนกดเล่น ทำให้ UI โชว์ปุ่ม pause แม้เสียงไม่ออกจริง)
               onStateChange: (e: { data: number }) => {
                 if (e.data === 1) setIsPlaying(true);
                 if (e.data === 2 || e.data === 0) setIsPlaying(false);
@@ -111,14 +119,15 @@ export function MusicProvider({ children }: { children: ReactNode }) {
           ytRef.current.playVideo();
         }
       });
-      setIsPlaying(true);
     } else {
       ytRef.current?.pauseVideo();
       if (audio) {
         audio.src = track.url;
-        void audio.play().catch(() => setIsPlaying(false));
+        audio
+          .play()
+          .then(() => setIsPlaying(true))
+          .catch(() => setIsPlaying(false));
       }
-      setIsPlaying(true);
     }
   }, []);
 
