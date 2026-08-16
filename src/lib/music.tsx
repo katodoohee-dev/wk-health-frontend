@@ -127,7 +127,7 @@ export function MusicProvider({ children }: { children: ReactNode }) {
       if (list) setQueue(list);
       setCurrent(track);
       playTrack(track);
-      void apiMusicPlayed(track.id).catch(() => undefined);
+      void apiMusicPlayed(track).catch(() => undefined);
     },
     [playTrack],
   );
