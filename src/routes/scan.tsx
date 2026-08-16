@@ -1,4 +1,4 @@
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { createFileRoute } from "@tanstack/react-router";
 import { useQueryClient } from "@tanstack/react-query";
 import { Barcode, Camera, Check, Loader2, Search, Sparkles } from "lucide-react";
@@ -28,6 +28,47 @@ function detectSlotByTime(date = new Date()): string {
   return SLOTS[3]!;
 }
 
+/**
+ * คิวอัปโหลดรูปแบบ persistent (localStorage) — กันรูปหายเวลาเน็ตหลุด/ปิดแอปกลางคัน
+ * flow: เลือกรูป -> เข้าคิวทันที (เขียนลง localStorage ก่อนยิง network) -> ลองอัปโหลดทันที
+ *       -> ถ้าพลาด อยู่ในคิวต่อ ลองใหม่อัตโนมัติเมื่อเน็ตกลับมา (event "online") หรือเปิดแอปใหม่
+ */
+const UPLOAD_QUEUE_KEY = "wk_pending_photo_uploads";
+type QueuedUpload = { id: string; base64: string; attempts: number; createdAt: number };
+
+function readQueue(): QueuedUpload[] {
+  if (typeof window === "undefined") return [];
+  try {
+    const raw = window.localStorage.getItem(UPLOAD_QUEUE_KEY);
+    return raw ? (JSON.parse(raw) as QueuedUpload[]) : [];
+  } catch {
+    return [];
+  }
+}
+
+function writeQueue(items: QueuedUpload[]) {
+  if (typeof window === "undefined") return;
+  try {
+    window.localStorage.setItem(UPLOAD_QUEUE_KEY, JSON.stringify(items));
+  } catch {
+    // localStorage เต็ม/ปิดใช้งาน — ข้ามได้ ไม่ทำให้แอปพัง
+  }
+}
+
+function enqueueUpload(base64: string): QueuedUpload {
+  const item: QueuedUpload = { id: `${Date.now()}-${Math.random().toString(36).slice(2)}`, base64, attempts: 0, createdAt: Date.now() };
+  writeQueue([...readQueue(), item]);
+  return item;
+}
+
+function dequeueUpload(id: string) {
+  writeQueue(readQueue().filter((i) => i.id !== id));
+}
+
+function bumpAttempts(id: string) {
+  writeQueue(readQueue().map((i) => (i.id === id ? { ...i, attempts: i.attempts + 1 } : i)));
+}
+
 function ScanPage() {
   const qc = useQueryClient();
   const fileRef = useRef<HTMLInputElement>(null);
@@ -41,8 +82,42 @@ function ScanPage() {
   const [saved, setSaved] = useState(false);
   const [slot, setSlot] = useState(() => detectSlotByTime());
 
+  // สถานะอัปโหลดรูป: แยกจาก busy หลัก เพราะอัปโหลดรูปทำงานคู่ขนานกับการวิเคราะห์ AI
+  const [photoUrl, setPhotoUrl] = useState<string | null>(null);
+  const [photoStatus, setPhotoStatus] = useState<"idle" | "uploading" | "uploaded" | "queued" | "failed">("idle");
+  const pendingIdRef = useRef<string | null>(null);
+
+  const tryUpload = async (item: QueuedUpload): Promise<string | null> => {
+    setPhotoStatus("uploading");
+    try {
+      const url = await apiGalleryUpload(item.base64);
+      dequeueUpload(item.id);
+      if (pendingIdRef.current === item.id) {
+        setPhotoUrl(url);
+        setPhotoStatus("uploaded");
+      }
+      return url;
+    } catch {
+      bumpAttempts(item.id);
+      if (pendingIdRef.current === item.id) setPhotoStatus("queued");
+      return null;
+    }
+  };
+
+  // เปิดหน้ามา / เน็ตกลับมา -> ลองอัปโหลดรูปที่ค้างคิวจากรอบก่อนอัตโนมัติ (กันรูปหาย)
+  useEffect(() => {
+    const flush = () => {
+      for (const item of readQueue()) void tryUpload(item);
+    };
+    flush();
+    window.addEventListener("online", flush);
+    return () => window.removeEventListener("online", flush);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
   const onPick = async (file: File) => {
     setError(null); setResult(null); setSaved(false);
+    setPhotoUrl(null); setPhotoStatus("idle"); pendingIdRef.current = null;
     const base64 = await new Promise<string>((resolve, reject) => {
       const r = new FileReader();
       r.onload = () => resolve(String(r.result));
@@ -50,6 +125,12 @@ function ScanPage() {
       r.readAsDataURL(file);
     });
     setPreview(base64);
+
+    // อัปโหลดรูปก่อนเป็นอันดับแรก (เข้าคิว persistent ทันทีกันรูปหาย) — ทำคู่ขนานกับ AI vision ด้านล่าง ไม่ต้องรอ
+    const queued = enqueueUpload(base64);
+    pendingIdRef.current = queued.id;
+    void tryUpload(queued);
+
     try {
       setBusy("vision");
       const desc = await apiVision(base64);
@@ -79,20 +160,29 @@ function ScanPage() {
     }
   };
 
-  const save = async () => {
+  const save = async (opts: { skipPhoto?: boolean } = {}) => {
     if (!result) return;
     setError(null);
     try {
       setBusy("save");
-      let photoUrl: string | undefined;
-      if (preview) {
-        try {
-          photoUrl = await apiGalleryUpload(preview);
-        } catch {
-          // อัปโหลดรูปไม่สำเร็จก็ยังบันทึกมื้ออาหารต่อได้ (ไม่มีรูปในแกลเลอรีเท่านั้น)
+      let finalPhotoUrl = photoUrl ?? undefined;
+
+      // ถ้ารูปยังอัปโหลดไม่เสร็จ (uploading/queued) และผู้ใช้ไม่ได้เลือกข้ามรูป -> ลองอัปโหลดอีกครั้งก่อนบันทึก
+      if (!finalPhotoUrl && !opts.skipPhoto && pendingIdRef.current) {
+        const pending = readQueue().find((i) => i.id === pendingIdRef.current);
+        if (pending) {
+          const retried = await tryUpload(pending);
+          if (retried) finalPhotoUrl = retried;
         }
       }
-      await apiScanSave({ ...result, description, slot, meal: slot, photoUrl });
+
+      if (!finalPhotoUrl && !opts.skipPhoto && photoStatus !== "idle") {
+        setError('รูปยังอัปโหลดไม่สำเร็จ — ลองใหม่อีกครั้ง หรือกด "บันทึกโดยไม่มีรูป" ด้านล่าง');
+        setBusy(null);
+        return;
+      }
+
+      await apiScanSave({ ...result, description, slot, meal: slot, photoUrl: finalPhotoUrl });
       setSaved(true);
       void qc.invalidateQueries({ queryKey: ["diary"] });
       void qc.invalidateQueries({ queryKey: ["stats"] });
@@ -204,15 +294,30 @@ function ScanPage() {
                 <Sparkles className="mt-0.5 size-4 shrink-0 text-peach" /><span>{result.tips}</span>
               </p>
             )}
+            {photoStatus === "uploading" && (
+              <p className="mt-3 flex items-center gap-1.5 text-xs text-muted-foreground"><Loader2 className="size-3.5 animate-spin" /> กำลังอัปโหลดรูป…</p>
+            )}
+            {photoStatus === "queued" && (
+              <p className="mt-3 text-xs text-peach">อัปโหลดรูปยังไม่สำเร็จ (จะลองใหม่อัตโนมัติเมื่อเน็ตกลับมา หรือกดบันทึกอีกครั้งเพื่อลองทันที)</p>
+            )}
+            {photoStatus === "uploaded" && (
+              <p className="mt-3 flex items-center gap-1.5 text-xs text-mint"><Check className="size-3.5" /> อัปโหลดรูปสำเร็จแล้ว</p>
+            )}
             <div className="mt-4 flex gap-2">
               <button onClick={() => void save()} disabled={Boolean(busy) || saved}
                 className="press bg-mint-gradient flex flex-1 items-center justify-center gap-2 rounded-2xl py-3 font-medium text-primary-foreground shadow-glow disabled:opacity-60">
                 {busy === "save" ? <Loader2 className="size-4 animate-spin" /> : <Check className="size-4" />} {saved ? "บันทึกแล้ว" : "บันทึกลงไดอารี"}
               </button>
-              <button onClick={() => { setResult(null); setPreview(null); setSaved(false); setDescription(""); }} className="press glass rounded-2xl px-4 py-3 text-sm font-medium">
+              <button onClick={() => { setResult(null); setPreview(null); setSaved(false); setDescription(""); setPhotoUrl(null); setPhotoStatus("idle"); pendingIdRef.current = null; }} className="press glass rounded-2xl px-4 py-3 text-sm font-medium">
                 สแกนใหม่
               </button>
             </div>
+            {photoStatus === "queued" && !saved && (
+              <button onClick={() => void save({ skipPhoto: true })} disabled={Boolean(busy)}
+                className="press mt-2 w-full rounded-2xl py-2.5 text-xs font-medium text-muted-foreground underline underline-offset-2 disabled:opacity-60">
+                บันทึกโดยไม่มีรูป (รูปจะลองอัปโหลดใหม่อัตโนมัติในพื้นหลัง)
+              </button>
+            )}
           </GlassCard>
         </div>
       )}
