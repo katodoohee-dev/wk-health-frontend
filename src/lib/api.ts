@@ -299,7 +299,7 @@ export async function apiMoodList(): Promise<MoodOption[]> {
   const data = await apiFetch("/api/mood/list");
   const list = pick<Json[]>(data, ["moods", "items", "data", "list"], []);
   return (Array.isArray(list) ? list : []).map((m) => {
-    const key = String(pick(m, ["key", "id", "value", "mood", "name"], ""));
+    const key = String(pick(m, ["mood_id", "key", "id", "value", "mood", "name"], ""));
     return {
       key,
       label: pick<string>(m, ["label", "name", "title"], key),
