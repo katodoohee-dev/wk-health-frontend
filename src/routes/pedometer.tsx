@@ -315,6 +315,56 @@ function AutoStepCounter({ onLogged }: { onLogged: () => void }) {
   );
 }
 
+/** วาดเส้นทาง GPS เป็น SVG polyline โดย normalize lat/lng ให้พอดี viewBox (ไม่พึ่ง map tile ภายนอก) */
+function RouteMap({ points }: { points: GeoPoint[] }) {
+  if (points.length < 2) {
+    return (
+      <div className="grid h-40 w-full place-items-center rounded-2xl bg-muted/60 text-xs text-muted-foreground">
+        {points.length === 0 ? "ยังไม่มีพิกัด — เริ่มเดินเพื่อดูเส้นทาง" : "กำลังรอพิกัดเพิ่มเติม…"}
+      </div>
+    );
+  }
+
+  const lats = points.map((p) => p.lat);
+  const lngs = points.map((p) => p.lng);
+  const minLat = Math.min(...lats);
+  const maxLat = Math.max(...lats);
+  const minLng = Math.min(...lngs);
+  const maxLng = Math.max(...lngs);
+  const latSpan = maxLat - minLat || 0.0001;
+  const lngSpan = maxLng - minLng || 0.0001;
+  const W = 300;
+  const H = 160;
+  const pad = 16;
+
+  const toXY = (p: GeoPoint) => {
+    const x = pad + ((p.lng - minLng) / lngSpan) * (W - pad * 2);
+    // กลับแกน y เพราะ lat มากกว่า = ทิศเหนือ = อยู่บนสุด
+    const y = H - pad - ((p.lat - minLat) / latSpan) * (H - pad * 2);
+    return { x, y };
+  };
+
+  const pathD = points
+    .map((p, i) => {
+      const { x, y } = toXY(p);
+      return `${i === 0 ? "M" : "L"}${x.toFixed(1)},${y.toFixed(1)}`;
+    })
+    .join(" ");
+
+  const start = toXY(points[0]!);
+  const end = toXY(points[points.length - 1]!);
+
+  return (
+    <div className="w-full overflow-hidden rounded-2xl bg-muted/60">
+      <svg viewBox={`0 0 ${W} ${H}`} className="h-40 w-full" role="img" aria-label="แผนที่เส้นทางที่บันทึกไว้">
+        <path d={pathD} fill="none" stroke="var(--mint)" strokeWidth={3} strokeLinecap="round" strokeLinejoin="round" />
+        <circle cx={start.x} cy={start.y} r={5} fill="var(--sky)" />
+        <circle cx={end.x} cy={end.y} r={5} fill="var(--peach)" />
+      </svg>
+    </div>
+  );
+}
+
 function GpsTracker() {
   const qc = useQueryClient();
   const [routeId, setRouteId] = useState<string | null>(null);
@@ -429,6 +479,11 @@ function GpsTracker() {
         </div>
         {error && (
           <p className="mt-3 rounded-2xl bg-destructive/10 px-3 py-2.5 text-sm text-destructive">{error}</p>
+        )}
+        {(routeId || points.length > 0) && (
+          <div className="mt-4">
+            <RouteMap points={points} />
+          </div>
         )}
       </GlassCard>
 

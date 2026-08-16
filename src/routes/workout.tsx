@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { createFileRoute } from "@tanstack/react-router";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { Dumbbell, Flame, History, Loader2, Plus, Wand2 } from "lucide-react";
+import { Check, Dumbbell, Flame, History, Loader2, Plus, Wand2 } from "lucide-react";
 import { PageHeader, GlassCard, SectionTitle, Chip } from "@/components/app/ui-bits";
 import { useAuth } from "@/lib/auth";
 import {
@@ -40,6 +40,8 @@ function WorkoutPage() {
   const [level, setLevel] = useState<WorkoutLevel>(WORKOUT_LEVEL_OPTIONS[0]!.value);
   const [equipment, setEquipment] = useState(EQUIPMENT[0]!);
   const [daysPerWeek, setDaysPerWeek] = useState(3);
+  const [loggedKeys, setLoggedKeys] = useState<Set<string>>(new Set());
+  const [pendingKey, setPendingKey] = useState<string | null>(null);
 
   const burn = useQuery({
     queryKey: ["workout", "burn"],
@@ -63,10 +65,12 @@ function WorkoutPage() {
         minutes: e.minutes && e.minutes > 0 ? e.minutes : 20,
         sourceKey: e.sourceKey || "plan",
       }),
-    onSuccess: () => {
+    onSuccess: (_data, e) => {
+      setLoggedKeys((prev) => new Set(prev).add(e.sourceKey || e.name));
       void qc.invalidateQueries({ queryKey: ["workout"] });
       void qc.invalidateQueries({ queryKey: ["stats"] });
     },
+    onSettled: () => setPendingKey(null),
   });
 
   return (
@@ -159,24 +163,40 @@ function WorkoutPage() {
                 </div>
               </div>
               <div className="space-y-2">
-                {d.exercises.map((e, j) => (
-                  <div key={`${e.name}-${j}`} className="flex items-center gap-3 rounded-2xl bg-muted/60 px-3 py-2">
-                    <div className="min-w-0 flex-1">
-                      <p className="truncate text-sm font-medium">{e.name}</p>
-                      <p className="truncate text-xs text-muted-foreground">
-                        {[e.sets, e.minutes ? `${e.minutes} นาที` : "", e.note].filter(Boolean).join(" · ")}
-                      </p>
+                {d.exercises.map((e, j) => {
+                  const key = e.sourceKey || e.name;
+                  const isLogged = loggedKeys.has(key);
+                  const isPending = pendingKey === key;
+                  return (
+                    <div key={`${e.name}-${j}`} className="flex items-center gap-3 rounded-2xl bg-muted/60 px-3 py-2">
+                      <div className="min-w-0 flex-1">
+                        <p className="truncate text-sm font-medium">{e.name}</p>
+                        <p className="truncate text-xs text-muted-foreground">
+                          {[e.sets, e.minutes ? `${e.minutes} นาที` : "", e.note].filter(Boolean).join(" · ")}
+                        </p>
+                      </div>
+                      <button
+                        onClick={() => {
+                          setPendingKey(key);
+                          log.mutate(e);
+                        }}
+                        disabled={isPending}
+                        aria-label={isLogged ? `บันทึกซ้ำ ${e.name}` : `บันทึก ${e.name}`}
+                        className={`press grid size-9 shrink-0 place-items-center rounded-xl text-primary-foreground shadow-glow disabled:opacity-60 ${
+                          isLogged ? "bg-mint text-mint-foreground" : "bg-mint-gradient"
+                        }`}
+                      >
+                        {isPending ? (
+                          <Loader2 className="size-4 animate-spin" />
+                        ) : isLogged ? (
+                          <Check className="size-4" />
+                        ) : (
+                          <Plus className="size-4" />
+                        )}
+                      </button>
                     </div>
-                    <button
-                      onClick={() => log.mutate(e)}
-                      disabled={log.isPending}
-                      aria-label={`บันทึก ${e.name}`}
-                      className="press bg-mint-gradient grid size-9 shrink-0 place-items-center rounded-xl text-primary-foreground shadow-glow disabled:opacity-60"
-                    >
-                      <Plus className="size-4" />
-                    </button>
-                  </div>
-                ))}
+                  );
+                })}
               </div>
             </GlassCard>
           ))}

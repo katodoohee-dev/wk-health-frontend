@@ -19,6 +19,15 @@ export const Route = createFileRoute("/scan")({
 
 const SLOTS = ["มื้อเช้า", "มื้อกลางวัน", "มื้อเย็น", "ของว่าง"];
 
+/** เดามื้ออาหารจากเวลาปัจจุบัน: 05-10 เช้า, 10-14 กลางวัน, 17-21 เย็น, นอกนั้นของว่าง */
+function detectSlotByTime(date = new Date()): string {
+  const h = date.getHours();
+  if (h >= 5 && h < 10) return SLOTS[0]!;
+  if (h >= 10 && h < 14) return SLOTS[1]!;
+  if (h >= 17 && h < 21) return SLOTS[2]!;
+  return SLOTS[3]!;
+}
+
 function ScanPage() {
   const qc = useQueryClient();
   const fileRef = useRef<HTMLInputElement>(null);
@@ -30,7 +39,7 @@ function ScanPage() {
   const [result, setResult] = useState<NutritionResult | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [saved, setSaved] = useState(false);
-  const [slot, setSlot] = useState(SLOTS[1]!);
+  const [slot, setSlot] = useState(() => detectSlotByTime());
 
   const onPick = async (file: File) => {
     setError(null); setResult(null); setSaved(false);
