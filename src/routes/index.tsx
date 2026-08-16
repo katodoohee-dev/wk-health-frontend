@@ -1,14 +1,14 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
-import { useQuery } from "@tanstack/react-query";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import {
   Brain, Droplets, Flame, Footprints, LogOut, MessageSquareHeart, Sparkle, Wallet,
-  Dumbbell, Music2, UserRound, ChevronRight, Plus,
+  Dumbbell, Music2, UserRound, ChevronRight, Plus, CheckCircle2, Snowflake, Image as ImageIcon,
 } from "lucide-react";
 import { ThemeToggle } from "@/components/app/theme-toggle";
 import { Bar, GlassCard, Ring, SectionTitle } from "@/components/app/ui-bits";
 import { ErrorState, Skeleton } from "@/components/app/states";
 import { useAuth } from "@/lib/auth";
-import { apiDiary, apiPedometerToday, apiStatsToday, todayISO } from "@/lib/api";
+import { apiCheckin, apiCheckinToday, apiDiary, apiPedometerToday, apiStatsToday, todayISO } from "@/lib/api";
 
 export const Route = createFileRoute("/")({
   head: () => ({
@@ -30,15 +30,23 @@ const tools = [
   { to: "/workout", icon: Dumbbell, title: "Workout", desc: "ตารางฝึก AI", tint: "bg-mint-soft text-mint" },
   { to: "/music", icon: Music2, title: "Music", desc: "เพลย์ลิสต์คลอ", tint: "bg-sky-soft text-sky" },
   { to: "/profile", icon: UserRound, title: "Profile & BMI", desc: "ข้อมูล + คำนวณ BMI", tint: "bg-peach-soft text-peach" },
+  { to: "/gallery", icon: ImageIcon, title: "แกลเลอรี", desc: "ย้อนดูรูปอาหาร", tint: "bg-mint-soft text-mint" },
 ] as const;
 
 function Home() {
   const { user, logout, isAuthenticated } = useAuth();
+  const qc = useQueryClient();
   const date = todayISO();
 
   const stats = useQuery({ queryKey: ["stats", "today"], queryFn: apiStatsToday, enabled: isAuthenticated });
   const ped = useQuery({ queryKey: ["pedometer", "today"], queryFn: apiPedometerToday, enabled: isAuthenticated });
   const diary = useQuery({ queryKey: ["diary", date], queryFn: () => apiDiary(date), enabled: isAuthenticated });
+  const checkin = useQuery({ queryKey: ["checkin", "today"], queryFn: apiCheckinToday, enabled: isAuthenticated });
+
+  const doCheckin = useMutation({
+    mutationFn: apiCheckin,
+    onSuccess: () => void qc.invalidateQueries({ queryKey: ["checkin"] }),
+  });
 
   const s = stats.data;
   const remaining = s ? s.goal - s.eaten + s.burned : 0;
@@ -63,6 +71,34 @@ function Home() {
           </button>
         </div>
       </header>
+
+      {checkin.data && (
+        <button
+          onClick={() => !checkin.data!.alreadyCheckedInToday && doCheckin.mutate()}
+          disabled={checkin.data.alreadyCheckedInToday || doCheckin.isPending}
+          className="press glass-strong mb-4 flex w-full items-center gap-3 rounded-3xl p-4 text-left shadow-soft disabled:cursor-default"
+        >
+          <span className={`grid size-11 shrink-0 place-items-center rounded-2xl ${checkin.data.alreadyCheckedInToday ? "bg-mint-soft text-mint" : "bg-peach-soft text-peach"}`}>
+            {checkin.data.alreadyCheckedInToday ? <CheckCircle2 className="size-5" /> : <span className="text-lg">🔥</span>}
+          </span>
+          <span className="min-w-0 flex-1">
+            <span className="flex items-center gap-2">
+              <span className="font-display font-semibold">Streak {checkin.data.streak} วัน</span>
+              {checkin.data.freezeAvailable > 0 && (
+                <span className="flex items-center gap-0.5 text-xs text-sky">
+                  <Snowflake className="size-3" />×{checkin.data.freezeAvailable}
+                </span>
+              )}
+            </span>
+            <span className="block truncate text-xs text-muted-foreground">{checkin.data.greeting}</span>
+          </span>
+          {!checkin.data.alreadyCheckedInToday && (
+            <span className="press bg-mint-gradient shrink-0 rounded-2xl px-3 py-2 text-xs font-medium text-primary-foreground shadow-glow">
+              {doCheckin.isPending ? "กำลังเช็คอิน…" : "เช็คอิน"}
+            </span>
+          )}
+        </button>
+      )}
 
       {stats.isLoading ? (
         <Skeleton className="h-64 w-full rounded-3xl" />

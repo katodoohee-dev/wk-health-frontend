@@ -3,7 +3,7 @@
 
 export const API_BASE_URL =
   (import.meta.env["VITE_API_BASE_URL"] as string | undefined)?.replace(/\/$/, "") ??
-  "http://localhost:8787";
+  "https://https-sites-google-com-sbp-ac-th.onrender.com";
 
 export const TOKEN_KEY = "wk_token";
 
@@ -693,4 +693,60 @@ export async function apiMusicHistory(): Promise<PlayHistoryItem[]> {
 
 export async function apiMusicPlayed(trackId: string) {
   return apiFetch("/api/music/played", { method: "POST", body: { trackId, id: trackId } });
+}
+
+/* ----------------------------- Check-in / Streak ----------------------------- */
+
+export type CheckinStatus = {
+  streak: number;
+  lastDate: string | null;
+  freezeAvailable: number;
+  alreadyCheckedInToday: boolean;
+  greeting: string;
+};
+
+export async function apiCheckinToday(): Promise<CheckinStatus> {
+  const data = await apiFetch("/api/checkin/today");
+  return {
+    streak: num(pick(data, ["streak"], 0)),
+    lastDate: pick<string | null>(data, ["lastDate"], null),
+    freezeAvailable: num(pick(data, ["freezeAvailable"], 2), 2),
+    alreadyCheckedInToday: Boolean(pick(data, ["alreadyCheckedInToday"], false)),
+    greeting: pick<string>(data, ["greeting"], ""),
+  };
+}
+
+export type CheckinResult = CheckinStatus & { usedFreeze: boolean };
+
+export async function apiCheckin(): Promise<CheckinResult> {
+  const data = await apiFetch("/api/checkin", { method: "POST" });
+  return {
+    streak: num(pick(data, ["streak"], 0)),
+    lastDate: null,
+    freezeAvailable: num(pick(data, ["freezeAvailable"], 2), 2),
+    alreadyCheckedInToday: Boolean(pick(data, ["alreadyCheckedInToday"], false)),
+    usedFreeze: Boolean(pick(data, ["usedFreeze"], false)),
+    greeting: pick<string>(data, ["greeting"], ""),
+  };
+}
+
+/* ----------------------------- Gallery ----------------------------- */
+
+export type GalleryItem = { id: string; foodName: string; calories: number; photoUrl: string; date: string };
+
+export async function apiGalleryUpload(imageBase64: string, mimeType = "image/jpeg"): Promise<string> {
+  const data = await apiFetch("/api/gallery/upload", { method: "POST", body: { imageBase64, mimeType } });
+  return pick<string>(data, ["url"], "");
+}
+
+export async function apiGallery(): Promise<GalleryItem[]> {
+  const data = await apiFetch("/api/gallery");
+  const list = pick<Json[]>(data, ["items", "data"], []);
+  return (Array.isArray(list) ? list : []).map((it) => ({
+    id: String(pick(it, ["id", "_id"], Math.random().toString(36).slice(2))),
+    foodName: pick<string>(it, ["food_name", "foodName", "name"], "-"),
+    calories: num(pick(it, ["calories", "kcal"], 0)),
+    photoUrl: pick<string>(it, ["photo_url", "photoUrl"], ""),
+    date: String(pick(it, ["created_at", "createdAt"], "")).slice(0, 16).replace("T", " "),
+  }));
 }

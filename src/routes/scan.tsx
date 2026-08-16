@@ -3,7 +3,7 @@ import { createFileRoute } from "@tanstack/react-router";
 import { useQueryClient } from "@tanstack/react-query";
 import { Barcode, Camera, Check, Loader2, Search, Sparkles } from "lucide-react";
 import { PageHeader, GlassCard, Chip } from "@/components/app/ui-bits";
-import { apiBarcode, apiCalc, apiScanSave, apiVision, type NutritionResult } from "@/lib/api";
+import { apiBarcode, apiCalc, apiGalleryUpload, apiScanSave, apiVision, type NutritionResult } from "@/lib/api";
 
 export const Route = createFileRoute("/scan")({
   head: () => ({
@@ -75,10 +75,19 @@ function ScanPage() {
     setError(null);
     try {
       setBusy("save");
-      await apiScanSave({ ...result, description, slot, meal: slot });
+      let photoUrl: string | undefined;
+      if (preview) {
+        try {
+          photoUrl = await apiGalleryUpload(preview);
+        } catch {
+          // อัปโหลดรูปไม่สำเร็จก็ยังบันทึกมื้ออาหารต่อได้ (ไม่มีรูปในแกลเลอรีเท่านั้น)
+        }
+      }
+      await apiScanSave({ ...result, description, slot, meal: slot, photoUrl });
       setSaved(true);
       void qc.invalidateQueries({ queryKey: ["diary"] });
       void qc.invalidateQueries({ queryKey: ["stats"] });
+      void qc.invalidateQueries({ queryKey: ["gallery"] });
     } catch (e) {
       setError(e instanceof Error ? e.message : "บันทึกไม่สำเร็จ");
     } finally {
