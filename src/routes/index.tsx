@@ -3,6 +3,7 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import {
   Brain, Droplets, Flame, Footprints, LogOut, MessageSquareHeart, Sparkle, Wallet,
   Dumbbell, Music2, UserRound, ChevronRight, Plus, CheckCircle2, Snowflake, Image as ImageIcon,
+  Users, Download, BellRing,
 } from "lucide-react";
 import { ThemeToggle } from "@/components/app/theme-toggle";
 import { Bar, GlassCard, Ring, SectionTitle } from "@/components/app/ui-bits";
@@ -31,6 +32,9 @@ const tools = [
   { to: "/music", icon: Music2, title: "Music", desc: "เพลย์ลิสต์คลอ", tint: "bg-sky-soft text-sky" },
   { to: "/profile", icon: UserRound, title: "Profile & BMI", desc: "ข้อมูล + คำนวณ BMI", tint: "bg-peach-soft text-peach" },
   { to: "/gallery", icon: ImageIcon, title: "แกลเลอรี", desc: "ย้อนดูรูปอาหาร", tint: "bg-mint-soft text-mint" },
+  { to: "/friends", icon: Users, title: "เพื่อนและ Streak", desc: "เชียร์กัน ไม่แข่งตัวเลข", tint: "bg-peach-soft text-peach" },
+  { to: "/export", icon: Download, title: "ส่งออกข้อมูล", desc: "PDF/CSV + สำรองข้อมูล", tint: "bg-sky-soft text-sky" },
+  { to: "/notifications", icon: BellRing, title: "การแจ้งเตือน", desc: "ตั้งเวลาแจ้งเตือนอัจฉริยะ", tint: "bg-mint-soft text-mint" },
 ] as const;
 
 function Home() {
