@@ -85,6 +85,52 @@ export function apiNotificationTest() {
   return apiFetch<{ success: boolean }>("/api/notifications/test", { method: "POST" });
 }
 
+// ---------- Workout logging (ใช้กับ VoiceControl) ----------
+export function apiWorkoutLog(input: { exerciseName: string; minutes: number; weightKg?: number; kcalOverride?: number }) {
+  return apiFetch<{ success: boolean; id: number; kcalBurned: number }>("/api/workout/log", {
+    method: "POST",
+    body: input,
+  });
+}
+
+// ---------- Water tracking ----------
+// backend endpoints มีอยู่จริงแล้วที่ wk-health-backend (src/routes/water.ts)
+export interface WaterToday {
+  glasses: number;
+  goalGlasses: number;
+}
+
+export function apiWaterToday() {
+  return apiFetch<WaterToday>("/api/water/today");
+}
+
+export function apiWaterAdd(delta: number) {
+  return apiFetch<{ success: boolean; glasses: number }>("/api/water/add", { method: "POST", body: { delta } });
+}
+
+export function apiWaterSetGoal(goalGlasses: number) {
+  return apiFetch<{ success: boolean }>("/api/water/goal", { method: "PATCH", body: { goalGlasses } });
+}
+
+// ---------- Weekly Insight ----------
+// backend endpoint มีอยู่จริงแล้วที่ wk-health-backend (src/routes/insight.ts)
+export interface WeeklyInsight {
+  avgKcal: number;
+  avgProtein: number;
+  daysLogged: number;
+  daysOnGoal: number;
+  bestDay: { date: string; kcal: number } | null;
+  totalSteps: number;
+  totalWorkoutMinutes: number;
+  streakChange: number;
+  headline: string;
+  tips: string[];
+}
+
+export function apiInsightWeekly() {
+  return apiFetch<WeeklyInsight>("/api/insight/weekly");
+}
+
 // ---------- Web Push (VAPID) — subscribe จริง ----------
 export function apiNotificationVapidPublicKey() {
   return apiFetch<{ publicKey: string }>("/api/notifications/vapid-public-key");

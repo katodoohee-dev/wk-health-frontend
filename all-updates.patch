@@ -1,0 +1,1209 @@
+diff --git a/src/components/app/VoiceControl.tsx b/src/components/app/VoiceControl.tsx
+new file mode 100644
+index 0000000..03998c4
+--- /dev/null
++++ b/src/components/app/VoiceControl.tsx
+@@ -0,0 +1,533 @@
++import { useCallback, useEffect, useRef, useState } from "react";
++import { Mic, Loader2, Check, Flame, Timer, Footprints, AlertTriangle } from "lucide-react";
++import "./voice-control.css";
++
++/**
++ * VoiceControl — แถบสั่งงานด้วยเสียงลอยด้านบน
++ * ดึง UI มาจาก Lovable แล้วต่อ logic จริงเข้ากับระบบเดิมที่มีอยู่แล้วใน wk-health-frontend
++ *
++ * วิธีใช้:
++ *   <VoiceControl
++ *     profileName={profileName}
++ *     bodyWeightKg={bodyWeightKg}
++ *     onExercise={(result) => { ...บันทึกลง state/DB... }}
++ *     onStartGps={() => { ...เริ่ม GPS tracking... }}
++ *     onStopGps={() => { ...หยุด GPS tracking... }}
++ *     onOpenProfileModal={() => { ...เด้ง modal กรอกชื่อ... }}
++ *   />
++ */
++
++const DEEPSEEK_ENDPOINT = "https://kasidathdeepseek.katodoohee.workers.dev";
++
++type Status = "idle" | "listening" | "processing" | "success" | "error";
++
++type ExerciseResult = {
++  activity: string;
++  duration_min: number;
++  mets: number;
++  kcal: number;
++};
++
++type VoiceControlProps = {
++  profileName: string | null | undefined;
++  bodyWeightKg: number;
++  onExercise: (result: ExerciseResult) => void;
++  onStartGps: () => void;
++  onStopGps: () => void;
++  onOpenProfileModal: () => void;
++};
++
++// ---------- helpers ----------
++
++const THAI_DIGIT_WORDS: Record<string, string> = {
++  ศูนย์: "0", หนึ่ง: "1", สอง: "2", สาม: "3", สี่: "4",
++  ห้า: "5", หก: "6", เจ็ด: "7", แปด: "8", เก้า: "9",
++  สิบ: "10", ยี่สิบ: "20", สามสิบ: "30", สี่สิบ: "40",
++  ห้าสิบ: "50", หกสิบ: "60", เจ็ดสิบ: "70", แปดสิบ: "80", เก้าสิบ: "90",
++};
++
++function thaiWordsToDigits(text: string): string {
++  let out = text;
++  // ลำดับยาว -> สั้น กันตัดคำผิด
++  const entries = Object.entries(THAI_DIGIT_WORDS).sort((a, b) => b[0].length - a[0].length);
++  for (const [word, digit] of entries) {
++    out = out.split(word).join(digit);
++  }
++  return out;
++}
++
++const GPS_START_KEYWORDS = ["เริ่มวิ่ง", "เริ่มเดิน", "เริ่มปั่น", "เริ่มออกกำลังกาย", "เริ่มบันทึกเส้นทาง"];
++const GPS_STOP_KEYWORDS = ["หยุดวิ่ง", "หยุดเดิน", "จบการวิ่ง", "จบการเดิน", "หยุดบันทึกเส้นทาง", "หยุดออกกำลังกาย"];
++
++function matchGpsKeyword(text: string): "start" | "stop" | null {
++  if (GPS_START_KEYWORDS.some((k) => text.includes(k))) return "start";
++  if (GPS_STOP_KEYWORDS.some((k) => text.includes(k))) return "stop";
++  return null;
++}
++
++// fallback METs table แบบง่าย เผื่อ DeepSeek ล่ม
++const LOCAL_ACTIVITY_METS: { keywords: string[]; activity: string; mets: number }[] = [
++  { keywords: ["วิ่ง"], activity: "วิ่ง", mets: 8 },
++  { keywords: ["เดิน"], activity: "เดิน", mets: 3.5 },
++  { keywords: ["ปั่นจักรยาน", "ปั่นจักรยาน"], activity: "ปั่นจักรยาน", mets: 6 },
++  { keywords: ["ว่ายน้ำ"], activity: "ว่ายน้ำ", mets: 7 },
++  { keywords: ["โยคะ"], activity: "โยคะ", mets: 2.5 },
++  { keywords: ["เวท", "ยกน้ำหนัก"], activity: "ยกน้ำหนัก", mets: 5 },
++];
++
++function localActivityMatchAnyAlt(alternatives: string[]): { activity: string; mets: number } | null {
++  for (const alt of alternatives) {
++    for (const entry of LOCAL_ACTIVITY_METS) {
++      if (entry.keywords.some((k) => alt.includes(k))) {
++        return { activity: entry.activity, mets: entry.mets };
++      }
++    }
++  }
++  return null;
++}
++
++function extractDurationMin(text: string): number | null {
++  const digitText = thaiWordsToDigits(text);
++  const hourMatch = digitText.match(/(\d+(?:\.\d+)?)\s*ชั่วโมง/);
++  if (hourMatch) return parseFloat(hourMatch[1] ?? "0") * 60;
++  const minMatch = digitText.match(/(\d+(?:\.\d+)?)\s*นาที/);
++  if (minMatch) return parseFloat(minMatch[1] ?? "0");
++  const secMatch = digitText.match(/(\d+(?:\.\d+)?)\s*วินาที/);
++  if (secMatch) return parseFloat(secMatch[1] ?? "0") / 60;
++  return null;
++}
++
++async function callDeepSeek(text: string): Promise<
++  | { intent: "exercise"; activity: string; duration_min: number; mets: number }
++  | { intent: "start_gps" | "stop_gps" | "none" }
++> {
++  const systemPrompt = `คุณคือระบบตีความคำสั่งเสียงสำหรับแอพสุขภาพภาษาไทย
++ให้ตีความข้อความผู้ใช้เป็น 1 ใน 3 อย่างเท่านั้น แล้วตอบกลับเป็น JSON เท่านั้น ห้ามมีข้อความอื่นปน:
++1. {"intent":"exercise","activity":"<ชื่อกิจกรรม>","duration_min":<ตัวเลขนาที>,"mets":<ค่า METs ตาม Compendium of Physical Activities>}
++2. {"intent":"start_gps"} หรือ {"intent":"stop_gps"}
++3. {"intent":"none"}
++
++กติกา:
++- แปลงหน่วยเวลาทุกแบบ (วินาที/นาที/ชั่วโมง) เป็น duration_min เสมอ
++- ถ้าฟังดูน่าจะเป็นกิจกรรมออกกำลังกาย ให้เดาแบบมีเหตุผล ดีกว่าตอบ none
++- ประเมิน mets ตาม Compendium of Physical Activities ให้สมเหตุสมผลกับกิจกรรมและความหนักที่พูดถึง`;
++
++  const res = await fetch(DEEPSEEK_ENDPOINT, {
++    method: "POST",
++    headers: { "Content-Type": "application/json" },
++    body: JSON.stringify({
++      messages: [
++        { role: "system", content: systemPrompt },
++        { role: "user", content: thaiWordsToDigits(text) },
++      ],
++    }),
++  });
++
++  if (!res.ok) throw new Error(`DeepSeek proxy error: ${res.status}`);
++  const data = await res.json();
++  const raw: string = data?.content ?? data?.choices?.[0]?.message?.content ?? "";
++  const cleaned = raw.replace(/```json|```/g, "").trim();
++  const parsed = JSON.parse(cleaned);
++  return parsed;
++}
++
++// ---------- component ----------
++
++function Waveform({ active }: { active: boolean }) {
++  const [bars, setBars] = useState<number[]>(() => Array(28).fill(0.18));
++
++  useEffect(() => {
++    if (!active) {
++      setBars(Array(28).fill(0.14));
++      return;
++    }
++    const id = setInterval(() => {
++      setBars(
++        Array.from({ length: 28 }, (_, i) => {
++          const center = 1 - Math.abs(i - 13.5) / 16;
++          return 0.14 + Math.random() * 0.86 * center;
++        }),
++      );
++    }, 120);
++    return () => clearInterval(id);
++  }, [active]);
++
++  return (
++    <div className="vc-waveform" aria-hidden="true">
++      {bars.map((h, i) => (
++        <span
++          key={i}
++          className="vc-waveform-bar"
++          style={{ height: `${Math.round(h * 100)}%`, opacity: active ? 0.95 : 0.3 }}
++        />
++      ))}
++    </div>
++  );
++}
++
++const BAR_HEIGHT: Record<Status, number> = {
++  idle: 60,
++  listening: 244,
++  processing: 172,
++  success: 196,
++  error: 96,
++};
++
++export function VoiceControl({
++  profileName,
++  bodyWeightKg,
++  onExercise,
++  onStartGps,
++  onStopGps,
++  onOpenProfileModal,
++}: VoiceControlProps) {
++  const [status, setStatus] = useState<Status>("idle");
++  const [words, setWords] = useState<string[]>([]);
++  const [errorMsg, setErrorMsg] = useState("ไม่ได้ยินเสียง ลองพูดอีกครั้ง");
++  const [result, setResult] = useState<ExerciseResult | null>(null);
++
++  const recognitionRef = useRef<any>(null);
++  const bufferRef = useRef<string[]>([]);
++  const alternativesRef = useRef<string[]>([]);
++  const bufferTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
++  const silenceCountRef = useRef(0);
++  const idleTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
++
++  const clearIdleTimer = useCallback(() => {
++    if (idleTimerRef.current) clearTimeout(idleTimerRef.current);
++    idleTimerRef.current = null;
++  }, []);
++
++  const scheduleIdle = useCallback((ms: number) => {
++    clearIdleTimer();
++    idleTimerRef.current = setTimeout(() => {
++      setStatus("idle");
++      setWords([]);
++      setResult(null);
++    }, ms);
++  }, [clearIdleTimer]);
++
++  const raiseError = useCallback((msg: string) => {
++    setErrorMsg(msg);
++    setStatus("error");
++    scheduleIdle(3000);
++  }, [scheduleIdle]);
++
++  const processTranscript = useCallback(
++    async (fullText: string, allAlternatives: string[]) => {
++      setStatus("processing");
++
++      // 1. เช็ค GPS keyword ก่อน AI เสมอ
++      const gps = matchGpsKeyword(fullText);
++      if (gps === "start") {
++        onStartGps();
++        setStatus("success");
++        setResult(null);
++        scheduleIdle(2500);
++        return;
++      }
++      if (gps === "stop") {
++        onStopGps();
++        setStatus("success");
++        setResult(null);
++        scheduleIdle(2500);
++        return;
++      }
++
++      // 2. ยิง DeepSeek
++      try {
++        const parsed = await callDeepSeek(fullText);
++        if (parsed.intent === "start_gps") {
++          onStartGps();
++          setStatus("success");
++          scheduleIdle(2500);
++          return;
++        }
++        if (parsed.intent === "stop_gps") {
++          onStopGps();
++          setStatus("success");
++          scheduleIdle(2500);
++          return;
++        }
++        if (parsed.intent === "exercise") {
++          const kcal = Math.round(parsed.mets * bodyWeightKg * (parsed.duration_min / 60));
++          const finalResult: ExerciseResult = {
++            activity: parsed.activity,
++            duration_min: parsed.duration_min,
++            mets: parsed.mets,
++            kcal,
++          };
++          onExercise(finalResult);
++          setResult(finalResult);
++          setStatus("success");
++          scheduleIdle(4000);
++          return;
++        }
++        // intent === "none" -> fallback local match ต่อ
++        throw new Error("none");
++      } catch {
++        // 3. Fallback: จับคำในเครื่อง ไล่เช็คทุก alternative
++        const local = localActivityMatchAnyAlt(allAlternatives.length ? allAlternatives : [fullText]);
++        const duration = extractDurationMin(fullText) ?? 20;
++        if (local) {
++          const kcal = Math.round(local.mets * bodyWeightKg * (duration / 60));
++          const finalResult: ExerciseResult = {
++            activity: local.activity,
++            duration_min: duration,
++            mets: local.mets,
++            kcal,
++          };
++          onExercise(finalResult);
++          setResult(finalResult);
++          setStatus("success");
++          scheduleIdle(4000);
++        } else {
++          raiseError("ไม่เข้าใจคำสั่ง ลองพูดใหม่อีกครั้ง");
++        }
++      }
++    },
++    [bodyWeightKg, onExercise, onStartGps, onStopGps, raiseError, scheduleIdle],
++  );
++
++  const flushBuffer = useCallback(() => {
++    const fullText = bufferRef.current.join(" ").trim();
++    const alts = [...alternativesRef.current];
++    bufferRef.current = [];
++    alternativesRef.current = [];
++    if (fullText) {
++      void processTranscript(fullText, alts);
++    } else {
++      setStatus("idle");
++    }
++  }, [processTranscript]);
++
++  const setupRecognition = useCallback(() => {
++    const SpeechRecognition =
++      (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
++    if (!SpeechRecognition) {
++      raiseError("เบราว์เซอร์นี้ไม่รองรับการสั่งงานด้วยเสียง");
++      return null;
++    }
++    const recognition = new SpeechRecognition();
++    recognition.lang = "th-TH";
++    recognition.continuous = true;
++    recognition.interimResults = true;
++
++    recognition.onresult = (event: any) => {
++      let interim = "";
++      for (let i = event.resultIndex; i < event.results.length; i++) {
++        const res = event.results[i];
++        const transcript = res[0].transcript;
++        if (res.isFinal) {
++          silenceCountRef.current = 0;
++          bufferRef.current.push(transcript);
++          for (let a = 0; a < Math.min(res.length, 3); a++) {
++            alternativesRef.current.push(res[a].transcript);
++          }
++          setWords((prev) => [...prev, ...transcript.trim().split(/\s+/)]);
++
++          if (bufferTimerRef.current) clearTimeout(bufferTimerRef.current);
++          bufferTimerRef.current = setTimeout(() => {
++            recognition.stop();
++            flushBuffer();
++          }, 3000);
++        } else {
++          interim = transcript;
++        }
++      }
++      if (interim) {
++        setWords((prev) => {
++          const base = prev.filter((_, i) => i < prev.length); // no-op keeps type happy
++          return base;
++        });
++      }
++    };
++
++    recognition.onerror = (event: any) => {
++      if (event.error === "not-allowed" || event.error === "permission-denied") {
++        raiseError("ไม่มีสิทธิ์เข้าถึงไมโครโฟน");
++      } else if (event.error === "no-speech") {
++        silenceCountRef.current += 1;
++        if (silenceCountRef.current >= 4) {
++          raiseError("ไม่ได้ยินเสียงเลย ลองใหม่อีกครั้ง");
++          silenceCountRef.current = 0;
++        }
++      } else if (event.error === "audio-capture") {
++        raiseError("ไม่พบไมโครโฟนในอุปกรณ์นี้");
++      } else if (event.error === "network") {
++        raiseError("การเชื่อมต่อเครือข่ายมีปัญหา");
++      }
++    };
++
++    recognition.onend = async () => {
++      if (status !== "listening") return;
++      try {
++        const perm = await (navigator as any).permissions?.query?.({ name: "microphone" as any });
++        if (!perm || perm.state === "granted") {
++          recognition.start();
++        }
++      } catch {
++        recognition.start();
++      }
++    };
++
++    return recognition;
++  }, [flushBuffer, raiseError, status]);
++
++  const startListening = useCallback(() => {
++    if (!profileName) {
++      onOpenProfileModal();
++      return;
++    }
++    setWords([]);
++    setResult(null);
++    setStatus("listening");
++    const recognition = setupRecognition();
++    if (!recognition) return;
++    recognitionRef.current = recognition;
++    try {
++      recognition.start();
++    } catch {
++      raiseError("ไม่สามารถเริ่มไมโครโฟนได้");
++    }
++  }, [onOpenProfileModal, profileName, raiseError, setupRecognition]);
++
++  const stopListening = useCallback(() => {
++    clearIdleTimer();
++    if (bufferTimerRef.current) clearTimeout(bufferTimerRef.current);
++    recognitionRef.current?.stop?.();
++    flushBuffer();
++  }, [clearIdleTimer, flushBuffer]);
++
++  useEffect(() => {
++    return () => {
++      recognitionRef.current?.stop?.();
++      if (bufferTimerRef.current) clearTimeout(bufferTimerRef.current);
++      clearIdleTimer();
++    };
++  }, [clearIdleTimer]);
++
++  const listening = status === "listening";
++  const expanded = status !== "idle";
++
++  return (
++    <div className="vc-fixed-wrap">
++      <div
++        className="vc-bar glass"
++        style={{ height: BAR_HEIGHT[status] }}
++      >
++        <div className="vc-row">
++          <button
++            type="button"
++            onClick={() => (expanded ? stopListening() : startListening())}
++            aria-label={expanded ? "ปิดแถบเสียง" : "แตะเพื่อสั่งงานด้วยเสียง"}
++            className={`vc-mic-btn ${listening ? "vc-breathe" : ""}`}
++          >
++            {listening &&
++              [0, 0.8].map((d) => (
++                <span key={d} className="vc-ripple" style={{ animationDelay: `${d}s` }} />
++              ))}
++            {status === "processing" ? (
++              <Loader2 className="vc-icon vc-spin" />
++            ) : status === "success" ? (
++              <Check className="vc-icon vc-pop" />
++            ) : status === "error" ? (
++              <AlertTriangle className="vc-icon" />
++            ) : (
++              <Mic className="vc-icon" />
++            )}
++          </button>
++
++          <div className="vc-status-text">
++            <p className={status === "error" ? "vc-error-text" : ""}>
++              {status === "idle" && "แตะเพื่อสั่งงานด้วยเสียง"}
++              {status === "listening" && "กำลังฟัง…"}
++              {status === "processing" && "กำลังวิเคราะห์"}
++              {status === "success" && "บันทึกสำเร็จ"}
++              {status === "error" && errorMsg}
++            </p>
++            {expanded && status !== "error" && <p className="vc-subtext">voice engine</p>}
++          </div>
++
++          <span className={`vc-dot vc-dot-${status}`} />
++        </div>
++
++        <div className="vc-body">
++          {status === "listening" && (
++            <div className="vc-rise-in">
++              <Waveform active />
++              <div className="vc-transcript-box">
++                <p>
++                  {words.length === 0 ? (
++                    <span className="vc-placeholder">รอรับเสียงของคุณ…</span>
++                  ) : (
++                    words.map((w, i) => (
++                      <span key={`${w}-${i}`} className="vc-word">
++                        {w}
++                      </span>
++                    ))
++                  )}
++                  <span className="vc-caret" />
++                </p>
++              </div>
++              <div className="vc-stop-wrap">
++                <button
++                  onClick={stopListening}
++                  aria-label="หยุดฟัง"
++                  className="vc-stop-btn"
++                >
++                  <span className="vc-ripple" />
++                  <Mic className="vc-icon-lg" />
++                </button>
++              </div>
++            </div>
++          )}
++
++          {status === "success" && result && (
++            <div className="vc-rise-in vc-result-card">
++              <div className="vc-result-head">
++                <div className="vc-result-icon">
++                  <Footprints className="vc-icon" />
++                </div>
++                <div>
++                  <p className="vc-result-label">บันทึกกิจกรรม</p>
++                  <p className="vc-result-title">{result.activity}</p>
++                </div>
++              </div>
++              <div className="vc-result-grid">
++                <div className="glass vc-result-stat">
++                  <Timer className="vc-icon-sm vc-aqua" />
++                  <span>{result.duration_min} นาที</span>
++                </div>
++                <div className="glass vc-result-stat">
++                  <Flame className="vc-icon-sm vc-mint" />
++                  <span>{result.kcal} kcal</span>
++                </div>
++              </div>
++            </div>
++          )}
++
++          {status === "processing" && (
++            <div className="vc-rise-in vc-processing">
++              <Loader2 className="vc-icon-lg vc-spin vc-aqua" />
++              <p>กำลังวิเคราะห์คำสั่งของคุณ</p>
++              <span className="vc-dots">
++                {[0, 0.15, 0.3].map((d) => (
++                  <span key={d} style={{ animationDelay: `${d}s` }} />
++                ))}
++              </span>
++            </div>
++          )}
++
++          {status === "error" && (
++            <div className="vc-rise-in vc-error-box">
++              <p>ตรวจสอบไมโครโฟนแล้วลองใหม่อีกครั้ง</p>
++            </div>
++          )}
++        </div>
++      </div>
++    </div>
++  );
++}
++
++export default VoiceControl;
+diff --git a/src/components/app/voice-control.css b/src/components/app/voice-control.css
+new file mode 100644
+index 0000000..94628e7
+--- /dev/null
++++ b/src/components/app/voice-control.css
+@@ -0,0 +1,258 @@
++/* ===== Voice Control — โทนมินท์/ฟ้า ให้เข้ากับธีม bio-tech bright ของแอพ ===== */
++
++:root {
++  --vc-mint: oklch(0.86 0.14 168);
++  --vc-aqua: oklch(0.78 0.13 200);
++  --vc-deep: oklch(0.24 0.06 200);
++  --vc-glass-bg: color-mix(in oklab, white 8%, transparent);
++  --vc-glass-border: color-mix(in oklab, white 16%, transparent);
++  --vc-shadow-glow: 0 0 60px -12px color-mix(in oklab, var(--vc-mint) 70%, transparent);
++  --vc-gradient-orb: conic-gradient(
++    from 140deg,
++    var(--vc-mint),
++    var(--vc-aqua),
++    color-mix(in oklab, var(--vc-mint) 70%, white),
++    var(--vc-mint)
++  );
++  --vc-destructive: oklch(0.6 0.2 25);
++}
++
++.vc-fixed-wrap {
++  position: fixed;
++  inset-inline: 0;
++  top: 12px;
++  z-index: 50;
++  display: flex;
++  justify-content: center;
++  padding-inline: 16px;
++  pointer-events: none;
++}
++.vc-fixed-wrap .vc-bar {
++  pointer-events: auto;
++}
++
++.vc-bar.glass {
++  width: 100%;
++  max-width: 420px;
++  overflow: hidden;
++  border-radius: 28px;
++  background: var(--vc-glass-bg);
++  border: 1px solid var(--vc-glass-border);
++  backdrop-filter: blur(18px) saturate(140%);
++  box-shadow: var(--vc-shadow-glow);
++  transition: height 650ms cubic-bezier(0.22, 1.4, 0.36, 1);
++}
++
++.vc-row {
++  display: flex;
++  height: 60px;
++  flex-shrink: 0;
++  align-items: center;
++  gap: 12px;
++  padding: 0 14px;
++}
++
++.vc-mic-btn {
++  position: relative;
++  display: flex;
++  width: 40px;
++  height: 40px;
++  flex-shrink: 0;
++  align-items: center;
++  justify-content: center;
++  border-radius: 999px;
++  color: var(--vc-deep);
++  background: var(--vc-gradient-orb);
++  border: none;
++  cursor: pointer;
++  transition: transform 0.3s;
++}
++.vc-mic-btn:hover { transform: scale(1.05); }
++.vc-mic-btn:active { transform: scale(0.9); }
++.vc-mic-btn.vc-breathe { animation: vc-breathe 2.6s ease-in-out infinite; }
++
++.vc-icon { width: 20px; height: 20px; }
++.vc-icon-sm { width: 16px; height: 16px; }
++.vc-icon-lg { width: 24px; height: 24px; }
++.vc-spin { animation: vc-spin 1s linear infinite; }
++.vc-pop { animation: vc-pop-check 0.5s cubic-bezier(0.22, 1, 0.36, 1) both; }
++.vc-aqua { color: var(--vc-aqua); }
++.vc-mint { color: var(--vc-mint); }
++
++.vc-ripple {
++  position: absolute;
++  inset: 0;
++  border-radius: 999px;
++  border: 1px solid color-mix(in oklab, var(--vc-mint) 60%, transparent);
++  animation: vc-ripple 2.4s cubic-bezier(0.22, 1, 0.36, 1) infinite;
++}
++
++.vc-status-text { min-width: 0; flex: 1; }
++.vc-status-text p {
++  margin: 0;
++  font-size: 14px;
++  white-space: nowrap;
++  overflow: hidden;
++  text-overflow: ellipsis;
++  color: color-mix(in oklab, currentColor 85%, transparent);
++}
++.vc-error-text { color: var(--vc-destructive) !important; }
++.vc-subtext {
++  font-size: 11px;
++  letter-spacing: 0.16em;
++  text-transform: uppercase;
++  color: color-mix(in oklab, var(--vc-mint) 70%, transparent) !important;
++}
++
++.vc-dot { width: 8px; height: 8px; flex-shrink: 0; border-radius: 999px; }
++.vc-dot-idle { background: color-mix(in oklab, currentColor 30%, transparent); }
++.vc-dot-error { background: var(--vc-destructive); }
++.vc-dot-processing { background: var(--vc-aqua); animation: vc-pulse 1.6s ease-in-out infinite; }
++.vc-dot-listening, .vc-dot-success { background: var(--vc-mint); animation: vc-pulse 1.6s ease-in-out infinite; }
++
++.vc-body { padding: 0 16px 16px; }
++.vc-rise-in { animation: vc-rise-in 0.55s cubic-bezier(0.22, 1, 0.36, 1) both; }
++
++.vc-waveform {
++  display: flex;
++  height: 40px;
++  width: 100%;
++  align-items: center;
++  justify-content: space-between;
++  gap: 3px;
++}
++.vc-waveform-bar {
++  flex: 1;
++  border-radius: 999px;
++  background: linear-gradient(to top, color-mix(in oklab, var(--vc-aqua) 60%, transparent), var(--vc-mint));
++  transition: height 150ms ease-out;
++}
++
++.vc-transcript-box {
++  margin-top: 12px;
++  min-height: 52px;
++  border-radius: 16px;
++  background: color-mix(in oklab, white 5%, transparent);
++  padding: 12px 14px;
++}
++.vc-transcript-box p { margin: 0; font-size: 15px; line-height: 1.6; }
++.vc-placeholder { color: color-mix(in oklab, currentColor 35%, transparent); }
++.vc-word { margin-right: 6px; display: inline-block; animation: vc-rise-in 0.4s ease both; }
++.vc-caret {
++  margin-left: 2px;
++  display: inline-block;
++  height: 16px;
++  width: 2px;
++  vertical-align: middle;
++  background: var(--vc-mint);
++  animation: vc-pulse 1s ease-in-out infinite;
++}
++
++.vc-stop-wrap { margin-top: 12px; display: flex; justify-content: center; }
++.vc-stop-btn {
++  position: relative;
++  display: flex;
++  width: 56px;
++  height: 56px;
++  align-items: center;
++  justify-content: center;
++  border-radius: 999px;
++  border: none;
++  color: var(--vc-deep);
++  background: var(--vc-gradient-orb);
++  box-shadow: var(--vc-shadow-glow);
++  cursor: pointer;
++  transition: transform 0.2s;
++}
++.vc-stop-btn:active { transform: scale(0.95); }
++
++.vc-result-card {
++  border-radius: 16px;
++  background: color-mix(in oklab, white 5%, transparent);
++  padding: 14px;
++}
++.vc-result-head { display: flex; align-items: center; gap: 12px; }
++.vc-result-icon {
++  display: flex;
++  width: 44px;
++  height: 44px;
++  flex-shrink: 0;
++  align-items: center;
++  justify-content: center;
++  border-radius: 16px;
++  color: var(--vc-deep);
++  background: var(--vc-gradient-orb);
++}
++.vc-result-label {
++  margin: 0;
++  font-size: 11px;
++  letter-spacing: 0.16em;
++  text-transform: uppercase;
++  color: color-mix(in oklab, var(--vc-mint) 75%, transparent);
++}
++.vc-result-title { margin: 2px 0 0; font-weight: 600; font-size: 18px; }
++.vc-result-grid { margin-top: 12px; display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
++.vc-result-stat {
++  display: flex;
++  align-items: center;
++  gap: 8px;
++  border-radius: 12px;
++  padding: 8px 12px;
++  font-size: 14px;
++  font-weight: 600;
++}
++
++.vc-processing {
++  display: flex;
++  flex-direction: column;
++  align-items: center;
++  gap: 12px;
++  padding: 12px 0;
++}
++.vc-processing p { margin: 0; font-size: 14px; color: color-mix(in oklab, currentColor 70%, transparent); }
++.vc-dots { display: flex; gap: 4px; }
++.vc-dots span {
++  width: 6px;
++  height: 6px;
++  border-radius: 999px;
++  background: var(--vc-mint);
++  animation: vc-dot-bounce 1s infinite ease-in-out;
++}
++
++.vc-error-box {
++  border-radius: 16px;
++  border: 1px solid color-mix(in oklab, var(--vc-destructive) 40%, transparent);
++  background: color-mix(in oklab, var(--vc-destructive) 14%, transparent);
++  padding: 8px 14px;
++}
++.vc-error-box p { margin: 0; font-size: 12px; }
++
++.vc-bar.glass, .vc-result-stat.glass {
++  background: var(--vc-glass-bg);
++  border: 1px solid var(--vc-glass-border);
++  backdrop-filter: blur(18px) saturate(140%);
++}
++
++@keyframes vc-ripple {
++  0% { transform: scale(0.85); opacity: 0.55; }
++  100% { transform: scale(2.1); opacity: 0; }
++}
++@keyframes vc-breathe {
++  0%, 100% { transform: scale(1); }
++  50% { transform: scale(1.05); }
++}
++@keyframes vc-rise-in {
++  from { opacity: 0; transform: translateY(22px) scale(0.96); }
++  to { opacity: 1; transform: translateY(0) scale(1); }
++}
++@keyframes vc-dot-bounce {
++  0%, 80%, 100% { transform: translateY(0); opacity: 0.4; }
++  40% { transform: translateY(-6px); opacity: 1; }
++}
++@keyframes vc-pop-check {
++  0% { transform: scale(0.4); opacity: 0; }
++  60% { transform: scale(1.15); opacity: 1; }
++  100% { transform: scale(1); }
++}
++@keyframes vc-spin { to { transform: rotate(360deg); } }
++@keyframes vc-pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.4; } }
+diff --git a/src/lib/api-new-features.ts b/src/lib/api-new-features.ts
+index dbf037b..60b1d8a 100644
+--- a/src/lib/api-new-features.ts
++++ b/src/lib/api-new-features.ts
+@@ -85,6 +85,52 @@ export function apiNotificationTest() {
+   return apiFetch<{ success: boolean }>("/api/notifications/test", { method: "POST" });
+ }
+ 
++// ---------- Workout logging (ใช้กับ VoiceControl) ----------
++export function apiWorkoutLog(input: { exerciseName: string; minutes: number; weightKg?: number; kcalOverride?: number }) {
++  return apiFetch<{ success: boolean; id: number; kcalBurned: number }>("/api/workout/log", {
++    method: "POST",
++    body: input,
++  });
++}
++
++// ---------- Water tracking ----------
++// backend endpoints มีอยู่จริงแล้วที่ wk-health-backend (src/routes/water.ts)
++export interface WaterToday {
++  glasses: number;
++  goalGlasses: number;
++}
++
++export function apiWaterToday() {
++  return apiFetch<WaterToday>("/api/water/today");
++}
++
++export function apiWaterAdd(delta: number) {
++  return apiFetch<{ success: boolean; glasses: number }>("/api/water/add", { method: "POST", body: { delta } });
++}
++
++export function apiWaterSetGoal(goalGlasses: number) {
++  return apiFetch<{ success: boolean }>("/api/water/goal", { method: "PATCH", body: { goalGlasses } });
++}
++
++// ---------- Weekly Insight ----------
++// backend endpoint มีอยู่จริงแล้วที่ wk-health-backend (src/routes/insight.ts)
++export interface WeeklyInsight {
++  avgKcal: number;
++  avgProtein: number;
++  daysLogged: number;
++  daysOnGoal: number;
++  bestDay: { date: string; kcal: number } | null;
++  totalSteps: number;
++  totalWorkoutMinutes: number;
++  streakChange: number;
++  headline: string;
++  tips: string[];
++}
++
++export function apiInsightWeekly() {
++  return apiFetch<WeeklyInsight>("/api/insight/weekly");
++}
++
+ // ---------- Web Push (VAPID) — subscribe จริง ----------
+ export function apiNotificationVapidPublicKey() {
+   return apiFetch<{ publicKey: string }>("/api/notifications/vapid-public-key");
+diff --git a/src/routeTree.gen.ts b/src/routeTree.gen.ts
+index 966db07..019d78e 100644
+--- a/src/routeTree.gen.ts
++++ b/src/routeTree.gen.ts
+@@ -18,6 +18,7 @@ import { Route as DiaryRouteImport } from './routes/diary'
+ import { Route as ExportRouteImport } from './routes/export'
+ import { Route as FriendsRouteImport } from './routes/friends'
+ import { Route as GalleryRouteImport } from './routes/gallery'
++import { Route as InsightRouteImport } from './routes/insight'
+ import { Route as MoodRouteImport } from './routes/mood'
+ import { Route as MusicRouteImport } from './routes/music'
+ import { Route as NlpRouteImport } from './routes/nlp'
+@@ -73,6 +74,11 @@ const GalleryRoute = GalleryRouteImport.update({
+   path: '/gallery',
+   getParentRoute: () => rootRouteImport,
+ } as any)
++const InsightRoute = InsightRouteImport.update({
++  id: '/insight',
++  path: '/insight',
++  getParentRoute: () => rootRouteImport,
++} as any)
+ const MoodRoute = MoodRouteImport.update({
+   id: '/mood',
+   path: '/mood',
+@@ -129,6 +135,7 @@ export interface FileRoutesByFullPath {
+   '/export': typeof ExportRoute
+   '/friends': typeof FriendsRoute
+   '/gallery': typeof GalleryRoute
++  '/insight': typeof InsightRoute
+   '/mood': typeof MoodRoute
+   '/music': typeof MusicRoute
+   '/nlp': typeof NlpRoute
+@@ -149,6 +156,7 @@ export interface FileRoutesByTo {
+   '/export': typeof ExportRoute
+   '/friends': typeof FriendsRoute
+   '/gallery': typeof GalleryRoute
++  '/insight': typeof InsightRoute
+   '/mood': typeof MoodRoute
+   '/music': typeof MusicRoute
+   '/nlp': typeof NlpRoute
+@@ -170,6 +178,7 @@ export interface FileRoutesById {
+   '/export': typeof ExportRoute
+   '/friends': typeof FriendsRoute
+   '/gallery': typeof GalleryRoute
++  '/insight': typeof InsightRoute
+   '/mood': typeof MoodRoute
+   '/music': typeof MusicRoute
+   '/nlp': typeof NlpRoute
+@@ -192,6 +201,7 @@ export interface FileRouteTypes {
+     | '/export'
+     | '/friends'
+     | '/gallery'
++    | '/insight'
+     | '/mood'
+     | '/music'
+     | '/nlp'
+@@ -212,6 +222,7 @@ export interface FileRouteTypes {
+     | '/export'
+     | '/friends'
+     | '/gallery'
++    | '/insight'
+     | '/mood'
+     | '/music'
+     | '/nlp'
+@@ -232,6 +243,7 @@ export interface FileRouteTypes {
+     | '/export'
+     | '/friends'
+     | '/gallery'
++    | '/insight'
+     | '/mood'
+     | '/music'
+     | '/nlp'
+@@ -253,6 +265,7 @@ export interface RootRouteChildren {
+   ExportRoute: typeof ExportRoute
+   FriendsRoute: typeof FriendsRoute
+   GalleryRoute: typeof GalleryRoute
++  InsightRoute: typeof InsightRoute
+   MoodRoute: typeof MoodRoute
+   MusicRoute: typeof MusicRoute
+   NlpRoute: typeof NlpRoute
+@@ -329,6 +342,13 @@ declare module '@tanstack/react-router' {
+       preLoaderRoute: typeof GalleryRouteImport
+       parentRoute: typeof rootRouteImport
+     }
++    '/insight': {
++      id: '/insight'
++      path: '/insight'
++      fullPath: '/insight'
++      preLoaderRoute: typeof InsightRouteImport
++      parentRoute: typeof rootRouteImport
++    }
+     '/mood': {
+       id: '/mood'
+       path: '/mood'
+@@ -405,6 +425,7 @@ const rootRouteChildren: RootRouteChildren = {
+   ExportRoute: ExportRoute,
+   FriendsRoute: FriendsRoute,
+   GalleryRoute: GalleryRoute,
++  InsightRoute: InsightRoute,
+   MoodRoute: MoodRoute,
+   MusicRoute: MusicRoute,
+   NlpRoute: NlpRoute,
+diff --git a/src/routes/index.tsx b/src/routes/index.tsx
+index 4b744f0..12bcb32 100644
+--- a/src/routes/index.tsx
++++ b/src/routes/index.tsx
+@@ -1,15 +1,17 @@
+-import { createFileRoute, Link } from "@tanstack/react-router";
++import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
+ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+ import {
+   Brain, Droplets, Flame, Footprints, LogOut, MessageSquareHeart, Sparkle, Wallet,
+   Dumbbell, Music2, UserRound, ChevronRight, Plus, CheckCircle2, Snowflake, Image as ImageIcon,
+-  Users, Download, BellRing,
++  Users, Download, BellRing, Minus, Sparkles,
+ } from "lucide-react";
+ import { ThemeToggle } from "@/components/app/theme-toggle";
+ import { Bar, GlassCard, Ring, SectionTitle } from "@/components/app/ui-bits";
+ import { ErrorState, Skeleton } from "@/components/app/states";
+ import { useAuth } from "@/lib/auth";
+ import { apiCheckin, apiCheckinToday, apiDiary, apiPedometerToday, apiStatsToday, todayISO } from "@/lib/api";
++import { apiWaterAdd, apiWaterToday, apiWorkoutLog } from "@/lib/api-new-features";
++import { VoiceControl } from "@/components/app/VoiceControl";
+ 
+ export const Route = createFileRoute("/")({
+   head: () => ({
+@@ -35,10 +37,12 @@ const tools = [
+   { to: "/friends", icon: Users, title: "เพื่อนและ Streak", desc: "เชียร์กัน ไม่แข่งตัวเลข", tint: "bg-peach-soft text-peach" },
+   { to: "/export", icon: Download, title: "ส่งออกข้อมูล", desc: "PDF/CSV + สำรองข้อมูล", tint: "bg-sky-soft text-sky" },
+   { to: "/notifications", icon: BellRing, title: "การแจ้งเตือน", desc: "ตั้งเวลาแจ้งเตือนอัจฉริยะ", tint: "bg-mint-soft text-mint" },
++  { to: "/insight", icon: Sparkles, title: "Weekly Insight", desc: "สรุปผลรายสัปดาห์", tint: "bg-peach-soft text-peach" },
+ ] as const;
+ 
+ function Home() {
+   const { user, logout, isAuthenticated } = useAuth();
++  const navigate = useNavigate();
+   const qc = useQueryClient();
+   const date = todayISO();
+ 
+@@ -46,19 +50,59 @@ function Home() {
+   const ped = useQuery({ queryKey: ["pedometer", "today"], queryFn: apiPedometerToday, enabled: isAuthenticated });
+   const diary = useQuery({ queryKey: ["diary", date], queryFn: () => apiDiary(date), enabled: isAuthenticated });
+   const checkin = useQuery({ queryKey: ["checkin", "today"], queryFn: apiCheckinToday, enabled: isAuthenticated });
++  const waterQ = useQuery({ queryKey: ["water", "today"], queryFn: apiWaterToday, enabled: isAuthenticated });
+ 
+   const doCheckin = useMutation({
+     mutationFn: apiCheckin,
+     onSuccess: () => void qc.invalidateQueries({ queryKey: ["checkin"] }),
+   });
+ 
++  const addWater = useMutation({
++    mutationFn: apiWaterAdd,
++    onMutate: async (delta: number) => {
++      await qc.cancelQueries({ queryKey: ["water", "today"] });
++      const prev = qc.getQueryData<{ glasses: number; goalGlasses: number }>(["water", "today"]);
++      if (prev) {
++        qc.setQueryData(["water", "today"], { ...prev, glasses: Math.max(0, prev.glasses + delta) });
++      }
++      return { prev };
++    },
++    onError: (_err, _delta, ctx) => {
++      if (ctx?.prev) qc.setQueryData(["water", "today"], ctx.prev);
++    },
++    onSettled: () => void qc.invalidateQueries({ queryKey: ["water", "today"] }),
++  });
++
++  const logWorkout = useMutation({
++    mutationFn: apiWorkoutLog,
++    onSuccess: () => {
++      void qc.invalidateQueries({ queryKey: ["stats", "today"] });
++    },
++  });
++
+   const s = stats.data;
+   const remaining = s ? s.goal - s.eaten + s.burned : 0;
+-  const waterGoal = s?.waterGoal ?? 8;
+-  const water = s?.water ?? 0;
++  const waterGoal = waterQ.data?.goalGlasses ?? 8;
++  const water = waterQ.data?.glasses ?? 0;
+ 
+   return (
+     <div className="rise-in">
++      {isAuthenticated ? (
++        <VoiceControl
++          profileName={user?.name}
++          bodyWeightKg={user?.weightKg ?? 60}
++          onExercise={(result) =>
++            void logWorkout.mutate({
++              exerciseName: result.activity,
++              minutes: Math.round(result.duration_min),
++              kcalOverride: result.kcal,
++            })
++          }
++          onStartGps={() => alert("ยังไม่รองรับการติดตาม GPS ในตอนนี้")}
++          onStopGps={() => alert("ยังไม่รองรับการติดตาม GPS ในตอนนี้")}
++          onOpenProfileModal={() => void navigate({ to: "/profile" })}
++        />
++      ) : null}
+       <header className="grid grid-cols-[minmax(0,1fr)_auto] items-center gap-3 py-5">
+         <div className="min-w-0">
+           <p className="text-xs text-muted-foreground">สวัสดี 🌿</p>
+@@ -185,11 +229,40 @@ function Home() {
+         <div className="glass-strong rounded-3xl p-4 shadow-soft">
+           <div className="flex items-center justify-between">
+             <p className="font-display font-semibold"><Droplets className="mr-1 inline size-4 text-sky" /> ดื่มน้ำ</p>
+-            <p className="text-xs text-muted-foreground">{water}/{waterGoal} แก้ว</p>
++            <div className="flex items-center gap-2">
++              <p className="text-xs text-muted-foreground">{water}/{waterGoal} แก้ว</p>
++              <button
++                type="button"
++                aria-label="ลดแก้วน้ำ"
++                disabled={addWater.isPending}
++                onClick={() => void addWater.mutate(-1)}
++                className="press glass grid size-7 place-items-center rounded-lg disabled:opacity-50"
++              >
++                <Minus className="size-3.5" />
++              </button>
++              <button
++                type="button"
++                aria-label="เพิ่มแก้วน้ำ"
++                disabled={addWater.isPending}
++                onClick={() => void addWater.mutate(1)}
++                className="press glass grid size-7 place-items-center rounded-lg disabled:opacity-50"
++              >
++                <Plus className="size-3.5" />
++              </button>
++            </div>
+           </div>
+           <div className="mt-4 flex flex-wrap gap-2">
+             {Array.from({ length: waterGoal }).map((_, i) => (
+-              <span key={i} className={`press grid size-9 place-items-center rounded-xl text-base ${i < water ? "bg-sky-soft" : "bg-muted opacity-60"}`}>💧</span>
++              <button
++                key={i}
++                type="button"
++                aria-label={i < water ? "ลบแก้วนี้" : "เพิ่มแก้วนี้"}
++                disabled={addWater.isPending}
++                onClick={() => void addWater.mutate(i < water ? -1 : 1)}
++                className={`press grid size-9 place-items-center rounded-xl text-base disabled:opacity-50 ${i < water ? "bg-sky-soft" : "bg-muted opacity-60"}`}
++              >
++                💧
++              </button>
+             ))}
+           </div>
+         </div>
+diff --git a/src/routes/insight.tsx b/src/routes/insight.tsx
+new file mode 100644
+index 0000000..37df9c3
+--- /dev/null
++++ b/src/routes/insight.tsx
+@@ -0,0 +1,99 @@
++import { createFileRoute } from "@tanstack/react-router";
++import { useQuery } from "@tanstack/react-query";
++import { Flame, Footprints, Dumbbell, Trophy, Lightbulb, TrendingUp } from "lucide-react";
++import { PageHeader, GlassCard, SectionTitle } from "@/components/app/ui-bits";
++import { ErrorState, LoadingState, Skeleton } from "@/components/app/states";
++import { useAuth } from "@/lib/auth";
++import { apiInsightWeekly } from "@/lib/api-new-features";
++
++export const Route = createFileRoute("/insight")({
++  head: () => ({
++    meta: [
++      { title: "Weekly Insight — WK Health App" },
++      { name: "description", content: "สรุปผลลัพธ์รายสัปดาห์จากข้อมูลจริงในระบบ พร้อมคำแนะนำที่เหมาะกับคุณ" },
++      { property: "og:title", content: "Weekly Insight — WK Health App" },
++      { property: "og:description", content: "ดูภาพรวมสัปดาห์นี้ของคุณ" },
++    ],
++  }),
++  component: InsightPage,
++});
++
++function StatTile({ icon: Icon, label, value, tint }: { icon: typeof Flame; label: string; value: string; tint: string }) {
++  return (
++    <GlassCard className="p-4">
++      <span className={`grid size-10 place-items-center rounded-2xl ${tint}`}>
++        <Icon className="size-5" />
++      </span>
++      <p className="mt-3 text-lg font-bold">{value}</p>
++      <p className="text-xs text-muted-foreground">{label}</p>
++    </GlassCard>
++  );
++}
++
++function InsightPage() {
++  const { isAuthenticated } = useAuth();
++  const q = useQuery({ queryKey: ["insight", "weekly"], queryFn: apiInsightWeekly, enabled: isAuthenticated });
++
++  return (
++    <div className="rise-in">
++      <PageHeader title="Weekly Insight" emoji="✨" subtitle="สรุปผลลัพธ์จากข้อมูลจริงของคุณ 7 วันล่าสุด" />
++
++      {q.isLoading ? (
++        <div className="space-y-3">
++          <Skeleton className="h-24 w-full rounded-3xl" />
++          <div className="grid grid-cols-2 gap-3">
++            <Skeleton className="h-28 rounded-3xl" />
++            <Skeleton className="h-28 rounded-3xl" />
++            <Skeleton className="h-28 rounded-3xl" />
++            <Skeleton className="h-28 rounded-3xl" />
++          </div>
++        </div>
++      ) : q.isError ? (
++        <ErrorState error={q.error} onRetry={() => void q.refetch()} />
++      ) : !q.data ? (
++        <LoadingState />
++      ) : (
++        <>
++          <GlassCard className="p-5">
++            <div className="flex items-center gap-2 text-primary">
++              <TrendingUp className="size-5" />
++              <p className="font-display font-semibold">สรุปสัปดาห์นี้</p>
++            </div>
++            <p className="mt-2 text-sm leading-relaxed">{q.data.headline}</p>
++          </GlassCard>
++
++          <div className="mt-4 grid grid-cols-2 gap-3">
++            <StatTile icon={Flame} label={`เฉลี่ย kcal/วัน (บันทึก ${q.data.daysLogged}/7 วัน)`} value={`${q.data.avgKcal}`} tint="bg-peach-soft text-peach" />
++            <StatTile icon={Trophy} label="วันที่อยู่ในเป้าหมาย" value={`${q.data.daysOnGoal}/7`} tint="bg-mint-soft text-mint" />
++            <StatTile icon={Footprints} label="ก้าวเดินรวมสัปดาห์" value={q.data.totalSteps.toLocaleString("th-TH")} tint="bg-sky-soft text-sky" />
++            <StatTile icon={Dumbbell} label="นาทีออกกำลังกายรวม" value={`${q.data.totalWorkoutMinutes}`} tint="bg-secondary text-secondary-foreground" />
++          </div>
++
++          {q.data.bestDay ? (
++            <GlassCard className="mt-4 p-5">
++              <SectionTitle title="วันที่ทำได้ดีที่สุด" />
++              <p className="text-sm text-muted-foreground">
++                {q.data.bestDay.date} — {q.data.bestDay.kcal} kcal
++              </p>
++            </GlassCard>
++          ) : null}
++
++          <GlassCard className="mt-4 p-5">
++            <div className="flex items-center gap-2">
++              <Lightbulb className="size-5 text-peach" />
++              <p className="font-display font-semibold">คำแนะนำสำหรับสัปดาห์หน้า</p>
++            </div>
++            <ul className="mt-3 space-y-2">
++              {q.data.tips.map((tip, i) => (
++                <li key={i} className="flex gap-2 text-sm text-muted-foreground">
++                  <span className="text-primary">•</span>
++                  <span>{tip}</span>
++                </li>
++              ))}
++            </ul>
++          </GlassCard>
++        </>
++      )}
++    </div>
++  );
++}
