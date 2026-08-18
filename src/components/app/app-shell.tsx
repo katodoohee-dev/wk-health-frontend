@@ -64,6 +64,7 @@ export function AppShell({ children }: { children: ReactNode }) {
               onExercise={(result) => window.dispatchEvent(new CustomEvent("wk:voice-exercise", { detail: result }))}
               onStartGps={async () => {
                 const ok = await gpsBridge.start();
+                window.dispatchEvent(new CustomEvent("wk:gps-started"));
                 if (!ok) void navigate({ to: "/pedometer" });
               }}
               onStopGps={async () => { await gpsBridge.stop(); }}
