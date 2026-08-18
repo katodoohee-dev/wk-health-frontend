@@ -5,7 +5,7 @@ import { featureFlags } from "@/lib/feature-flags";
 type NavigationComponent = ComponentType;
 type NavDetail = { destination?: string; milestoneKm?: number; announceTurns?: boolean };
 
-/** Client-only navigation loader. Buffers the first destination so a voice command cannot race the dynamic import. */
+/** Client-only navigation loader. Buffers a destination until the map component has mounted. */
 export function NavigationOverlayLoader() {
   const [ClientComponent, setClientComponent] = useState<NavigationComponent | null>(null);
   const pendingRef = useRef<NavDetail | null>(null);
@@ -30,12 +30,15 @@ export function NavigationOverlayLoader() {
         const pending = pendingRef.current;
         pendingRef.current = null;
         if (pending?.destination) {
-          window.dispatchEvent(new CustomEvent("wk:navigate-to", { detail: pending }));
+          window.setTimeout(() => {
+            window.dispatchEvent(new CustomEvent("wk:navigate-to", { detail: pending }));
+            window.removeEventListener("wk:navigate-to", remember);
+          }, 0);
+        } else {
+          window.removeEventListener("wk:navigate-to", remember);
         }
-        window.removeEventListener("wk:navigate-to", remember);
       })
       .catch(() => {
-        // Navigation is optional; never let a navigation-module failure crash the app shell.
         window.removeEventListener("wk:navigate-to", remember);
       });
 
