@@ -15,6 +15,7 @@ type MusicCtx = {
   current: Track | null;
   isPlaying: boolean;
   queue: Track[];
+  unlock: () => Promise<void>;
   play: (track: Track, queue?: Track[]) => void;
   toggle: () => void;
   stop: () => void;
@@ -23,6 +24,7 @@ type MusicCtx = {
 };
 
 const Ctx = createContext<MusicCtx | null>(null);
+const SILENT_WAV = "data:audio/wav;base64,UklGRiQAAABXQVZFZm10IBAAAAABAAEAIlYAAESsAAACABAAZGF0YQAAAAA=";
 
 export function useMusic() {
   const ctx = useContext(Ctx);
@@ -87,6 +89,26 @@ export function MusicProvider({ children }: { children: ReactNode }) {
     };
   }, []);
 
+  const unlock = useCallback(async () => {
+    const audio = audioRef.current;
+    if (!audio) return;
+    const previousSrc = audio.src;
+    const previousVolume = audio.volume;
+    audio.volume = 0;
+    audio.src = SILENT_WAV;
+    try {
+      await audio.play();
+    } catch {
+      // Browser autoplay policy may still reject programmatic playback.
+    }
+    audio.pause();
+    audio.currentTime = 0;
+    audio.volume = previousVolume;
+    if (previousSrc) audio.src = previousSrc;
+    else audio.removeAttribute("src");
+    audio.load();
+  }, []);
+
   const playTrack = useCallback((track: Track) => {
     const audio = audioRef.current;
     if (track.type === "youtube") {
@@ -117,12 +139,10 @@ export function MusicProvider({ children }: { children: ReactNode }) {
           ytRef.current.playVideo();
         }
       });
-    } else {
+    } else if (audio) {
       ytRef.current?.pauseVideo();
-      if (audio) {
-        audio.src = track.url;
-        audio.play().then(() => setIsPlaying(true)).catch(() => setIsPlaying(false));
-      }
+      audio.src = track.url;
+      void audio.play().then(() => setIsPlaying(true)).catch(() => setIsPlaying(false));
     }
   }, []);
 
@@ -146,8 +166,7 @@ export function MusicProvider({ children }: { children: ReactNode }) {
       setIsPlaying(false);
     } else {
       if (current.type === "youtube") ytRef.current?.playVideo();
-      else void audioRef.current?.play().catch(() => undefined);
-      setIsPlaying(true);
+      else void audioRef.current?.play().then(() => setIsPlaying(true)).catch(() => setIsPlaying(false));
     }
   }, [current, isPlaying]);
 
@@ -191,8 +210,8 @@ export function MusicProvider({ children }: { children: ReactNode }) {
   }, [current, isPlaying, toggle, next, prev]);
 
   const value = useMemo(
-    () => ({ current, isPlaying, queue, play, toggle, stop, next, prev }),
-    [current, isPlaying, queue, play, toggle, stop, next, prev],
+    () => ({ current, isPlaying, queue, unlock, play, toggle, stop, next, prev }),
+    [current, isPlaying, queue, unlock, play, toggle, stop, next, prev],
   );
 
   return (
