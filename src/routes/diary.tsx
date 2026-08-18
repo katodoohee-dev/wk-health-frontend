@@ -1,11 +1,12 @@
 import { useState } from "react";
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { Camera, Keyboard, Loader2, Plus, Trash2 } from "lucide-react";
+import { Camera, Check, Keyboard, Loader2, Plus, Trash2, X } from "lucide-react";
 import { PageHeader, GlassCard, Bar, Chip } from "@/components/app/ui-bits";
 import { ErrorState, Skeleton } from "@/components/app/states";
 import { useAuth } from "@/lib/auth";
 import { apiDeleteDiary, apiDiary, apiStatsToday, todayISO } from "@/lib/api";
+import { apiSaveMeal } from "@/lib/meal-save";
 
 export const Route = createFileRoute("/diary")({
   head: () => ({
@@ -20,6 +21,7 @@ export const Route = createFileRoute("/diary")({
 });
 
 const dayLabels = ["อา", "จ", "อ", "พ", "พฤ", "ศ", "ส"];
+const SLOTS = ["มื้อเช้า", "มื้อกลางวัน", "มื้อเย็น", "ของว่าง"];
 
 function weekDates(): Date[] {
   const now = new Date();
@@ -36,6 +38,15 @@ function DiaryPage() {
   const dates = weekDates();
   const [date, setDate] = useState(todayISO());
   const [filter, setFilter] = useState<string>("ทั้งหมด");
+  const [manualOpen, setManualOpen] = useState(false);
+  const [manualName, setManualName] = useState("");
+  const [manualKcal, setManualKcal] = useState("");
+  const [manualProtein, setManualProtein] = useState("");
+  const [manualCarb, setManualCarb] = useState("");
+  const [manualFat, setManualFat] = useState("");
+  const [manualSlot, setManualSlot] = useState("มื้อเช้า");
+  const [manualError, setManualError] = useState<string | null>(null);
+  const [manualSaving, setManualSaving] = useState(false);
 
   const diary = useQuery({ queryKey: ["diary", date], queryFn: () => apiDiary(date), enabled: isAuthenticated });
   const stats = useQuery({ queryKey: ["stats", "today"], queryFn: apiStatsToday, enabled: isAuthenticated && date === todayISO() });
@@ -47,6 +58,33 @@ function DiaryPage() {
       void qc.invalidateQueries({ queryKey: ["stats"] });
     },
   });
+
+  const saveManual = async () => {
+    setManualError(null);
+    const kcal = Number(manualKcal);
+    if (!manualName.trim()) return setManualError("กรุณาระบุชื่อเมนู");
+    if (!Number.isFinite(kcal) || kcal < 0) return setManualError("กรุณาระบุแคลอรีเป็นตัวเลข");
+    setManualSaving(true);
+    try {
+      await apiSaveMeal({
+        name: manualName.trim(),
+        kcal,
+        protein: Number(manualProtein) || 0,
+        carb: Number(manualCarb) || 0,
+        fat: Number(manualFat) || 0,
+        slot: manualSlot,
+        source: "manual",
+      });
+      setManualOpen(false);
+      setManualName(""); setManualKcal(""); setManualProtein(""); setManualCarb(""); setManualFat("");
+      void qc.invalidateQueries({ queryKey: ["diary"] });
+      void qc.invalidateQueries({ queryKey: ["stats"] });
+    } catch (e) {
+      setManualError(e instanceof Error ? e.message : "บันทึกเมนูไม่สำเร็จ");
+    } finally {
+      setManualSaving(false);
+    }
+  };
 
   const items = diary.data ?? [];
   const slots = Array.from(new Set(items.map((m) => m.slot))).filter(Boolean);
@@ -71,7 +109,6 @@ function DiaryPage() {
             );
           })}
         </div>
-
         <div className="mt-4 grid grid-cols-[minmax(0,1fr)_auto] items-end gap-3">
           <div className="min-w-0 space-y-2">
             <Bar label="โปรตีน" value={s?.protein ?? 0} max={s?.proteinGoal ?? 120} color="var(--mint)" />
@@ -85,11 +122,7 @@ function DiaryPage() {
         </div>
       </GlassCard>
 
-      {slots.length > 0 && (
-        <div className="mt-4 flex gap-2 overflow-x-auto pb-1">
-          {["ทั้งหมด", ...slots].map((sl) => (<Chip key={sl} active={filter === sl} onClick={() => setFilter(sl)}>{sl}</Chip>))}
-        </div>
-      )}
+      {slots.length > 0 && <div className="mt-4 flex gap-2 overflow-x-auto pb-1">{["ทั้งหมด", ...slots].map((sl) => <Chip key={sl} active={filter === sl} onClick={() => setFilter(sl)}>{sl}</Chip>)}</div>}
 
       <div className="mt-3 space-y-2">
         {diary.isLoading ? (
@@ -102,18 +135,9 @@ function DiaryPage() {
           list.map((m) => (
             <div key={m.id} className="glass-strong group flex items-center gap-3 rounded-3xl p-3 shadow-soft">
               <span className="grid size-12 shrink-0 place-items-center rounded-2xl bg-muted text-2xl">{m.emoji}</span>
-              <div className="min-w-0 flex-1">
-                <p className="truncate font-medium">{m.name}</p>
-                <p className="truncate text-xs text-muted-foreground">{m.slot} · {m.time} · P{m.protein} C{m.carb} F{m.fat}</p>
-              </div>
-              <div className="shrink-0 text-right">
-                <p className="font-display font-bold tabular-nums text-primary">{m.kcal}</p>
-                <p className="text-[10px] text-muted-foreground">{m.source === "scan" ? "จากรูป" : m.source === "nlp" ? "จากข้อความ" : "เพิ่มเอง"}</p>
-              </div>
-              <button aria-label="ลบรายการ" onClick={() => del.mutate(m.id)} disabled={del.isPending}
-                className="press grid size-9 shrink-0 place-items-center rounded-xl text-muted-foreground hover:bg-destructive/10 hover:text-destructive">
-                {del.isPending && del.variables === m.id ? <Loader2 className="size-4 animate-spin" /> : <Trash2 className="size-4" />}
-              </button>
+              <div className="min-w-0 flex-1"><p className="truncate font-medium">{m.name}</p><p className="truncate text-xs text-muted-foreground">{m.slot} · {m.time} · P{m.protein} C{m.carb} F{m.fat}</p></div>
+              <div className="shrink-0 text-right"><p className="font-display font-bold tabular-nums text-primary">{m.kcal}</p><p className="text-[10px] text-muted-foreground">{m.source === "vision" || m.source === "scan" ? "จากรูป" : m.source === "nlp" ? "จากข้อความ" : m.source === "barcode" ? "บาร์โค้ด" : "เพิ่มเอง"}</p></div>
+              <button aria-label="ลบรายการ" onClick={() => del.mutate(m.id)} disabled={del.isPending} className="press grid size-9 shrink-0 place-items-center rounded-xl text-muted-foreground hover:bg-destructive/10 hover:text-destructive">{del.isPending && del.variables === m.id ? <Loader2 className="size-4 animate-spin" /> : <Trash2 className="size-4" />}</button>
             </div>
           ))
         )}
@@ -123,15 +147,37 @@ function DiaryPage() {
       <div className="mt-4 grid grid-cols-3 gap-2">
         <QuickAdd icon={Camera} label="สแกนรูป" to="/scan" />
         <QuickAdd icon={Keyboard} label="พิมพ์ข้อความ" to="/nlp" />
-        <QuickAdd icon={Plus} label="เพิ่มเอง" />
+        <QuickAdd icon={Plus} label="เพิ่มเอง" onClick={() => { setManualError(null); setManualOpen(true); }} />
       </div>
+
+      {manualOpen && (
+        <div className="fixed inset-0 z-50 grid place-items-center bg-background/70 p-4 backdrop-blur-sm">
+          <GlassCard className="w-full max-w-md p-5 shadow-soft">
+            <div className="flex items-center justify-between"><h2 className="font-display text-lg font-bold">เพิ่มเมนูเอง</h2><button onClick={() => setManualOpen(false)} className="press grid size-9 place-items-center rounded-xl"><X className="size-5" /></button></div>
+            <div className="mt-4 space-y-3">
+              <input value={manualName} onChange={(e) => setManualName(e.target.value)} placeholder="ชื่อเมนู เช่น ข้าวกะเพราไก่" className="glass w-full rounded-2xl px-4 py-3 text-sm outline-none" />
+              <div className="grid grid-cols-2 gap-2">
+                <input value={manualKcal} onChange={(e) => setManualKcal(e.target.value)} inputMode="decimal" placeholder="แคลอรี (kcal) *" className="glass rounded-2xl px-4 py-3 text-sm outline-none" />
+                <select value={manualSlot} onChange={(e) => setManualSlot(e.target.value)} className="glass rounded-2xl px-4 py-3 text-sm outline-none">{SLOTS.map((x) => <option key={x}>{x}</option>)}</select>
+              </div>
+              <div className="grid grid-cols-3 gap-2">
+                <input value={manualProtein} onChange={(e) => setManualProtein(e.target.value)} inputMode="decimal" placeholder="โปรตีน g" className="glass rounded-2xl px-3 py-3 text-sm outline-none" />
+                <input value={manualCarb} onChange={(e) => setManualCarb(e.target.value)} inputMode="decimal" placeholder="คาร์บ g" className="glass rounded-2xl px-3 py-3 text-sm outline-none" />
+                <input value={manualFat} onChange={(e) => setManualFat(e.target.value)} inputMode="decimal" placeholder="ไขมัน g" className="glass rounded-2xl px-3 py-3 text-sm outline-none" />
+              </div>
+              {manualError && <p className="rounded-2xl bg-destructive/10 px-3 py-2 text-sm text-destructive">{manualError}</p>}
+              <button onClick={() => void saveManual()} disabled={manualSaving} className="press bg-mint-gradient flex w-full items-center justify-center gap-2 rounded-2xl py-3 font-medium text-primary-foreground shadow-glow disabled:opacity-60">{manualSaving ? <Loader2 className="size-4 animate-spin" /> : <Check className="size-4" />} บันทึกเมนู</button>
+            </div>
+          </GlassCard>
+        </div>
+      )}
     </div>
   );
 }
 
-function QuickAdd({ icon: Icon, label, to }: { icon: typeof Camera; label: string; to?: string }) {
+function QuickAdd({ icon: Icon, label, to, onClick }: { icon: typeof Camera; label: string; to?: string; onClick?: () => void }) {
   const cls = "press glass-strong flex flex-col items-center gap-1.5 rounded-2xl py-3 text-xs font-medium shadow-soft";
   const inner = (<><Icon className="size-5 text-primary" />{label}</>);
   if (to === "/scan" || to === "/nlp") return (<Link to={to} className={cls}>{inner}</Link>);
-  return <button className={cls}>{inner}</button>;
+  return <button onClick={onClick} className={cls}>{inner}</button>;
 }
