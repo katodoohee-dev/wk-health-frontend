@@ -8,6 +8,7 @@ import { MiniPlayer } from "@/components/app/mini-player";
 import { apiMe } from "@/lib/api";
 import { VoiceControlAdvanced as VoiceControl } from "@/components/VoiceControlAdvanced";
 import { NavigationOverlayLoader } from "@/components/NavigationOverlayLoader";
+import { AppCommandRuntimeLoader } from "@/components/AppCommandRuntimeLoader";
 import "@/components/voice-control.css";
 import { gpsBridge } from "@/lib/gps-bridge";
 
@@ -69,6 +70,7 @@ export function AppShell({ children }: { children: ReactNode }) {
               onOpenProfileModal={() => void navigate({ to: "/profile" })}
             />
             <NavigationOverlayLoader />
+            <AppCommandRuntimeLoader />
           </>
         )}
 
