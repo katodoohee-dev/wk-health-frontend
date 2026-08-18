@@ -16,57 +16,75 @@ export function AppCommandRuntime({ enabled = true }: Props) {
     if (!enabled) return;
 
     const stopEvents = startAppCommandBridge();
-    const stopPointerUnlock = () => {
-      if (featureFlags.musicAutomation) void music.unlock();
-    };
 
-    if (featureFlags.musicAutomation) {
-      document.addEventListener("pointerdown", stopPointerUnlock, { once: true, passive: true });
-      document.addEventListener("touchstart", stopPointerUnlock, { once: true, passive: true });
-    }
-
-    const playFromLibrary = async () => {
-      if (!featureFlags.musicAutomation) return;
+    const autoStartMusic = async () => {
+      if (!featureFlags.musicAutomation || music.isPlaying) return;
       await music.unlock();
-      if (music.current) {
-        if (!music.isPlaying) music.toggle();
-        return;
-      }
       try {
         const tracks = await apiMusicLibrary();
         const audioTrack = tracks.find((t) => t.type === "audio") ?? tracks[0];
-        if (audioTrack) music.play(audioTrack, tracks);
+        if (audioTrack && !music.isPlaying) music.play(audioTrack, tracks);
       } catch {
-        // Music is optional; command processing must continue.
+        // Music is optional; never block GPS/voice when the library is unavailable.
       }
     };
 
+    const onGpsStarted = () => {
+      void autoStartMusic();
+    };
+
+    const stopPointerUnlock = () => {
+      void music.unlock();
+    };
+
+    document.addEventListener("pointerdown", stopPointerUnlock, { once: true, passive: true });
+    document.addEventListener("touchstart", stopPointerUnlock, { once: true, passive: true });
+    window.addEventListener("wk:gps-started", onGpsStarted);
+
     const unsubscribe = appCommandBus.subscribe(async (command) => {
       switch (command.type) {
-        case "PLAY_MUSIC":
-          await playFromLibrary();
+        case "PLAY_MUSIC": {
+          await music.unlock();
+          if (music.current) {
+            if (!music.isPlaying) music.toggle();
+            return;
+          }
+          try {
+            const tracks = await apiMusicLibrary();
+            const audioTrack = tracks.find((t) => t.type === "audio") ?? tracks[0];
+            if (audioTrack) music.play(audioTrack, tracks);
+          } catch {
+            // Keep the voice loop alive when the music library is unavailable.
+          }
           return;
+        }
         case "PAUSE_MUSIC":
-          if (featureFlags.musicAutomation && music.isPlaying) music.toggle();
+          if (music.isPlaying) music.toggle();
           return;
         case "STOP_MUSIC":
-          if (featureFlags.musicAutomation) music.stop();
+          music.stop();
           return;
         case "NEXT_MUSIC":
-          if (featureFlags.musicAutomation) music.next();
+          music.next();
           return;
         case "PREVIOUS_MUSIC":
-          if (featureFlags.musicAutomation) music.prev();
+          music.prev();
           return;
         case "START_GPS":
           await gpsBridge.start();
-          await playFromLibrary();
+          window.dispatchEvent(new CustomEvent("wk:gps-started"));
+          if (featureFlags.musicAutomation) await autoStartMusic();
+          if (window.location.pathname !== "/pedometer") {
+            await navigate({ to: "/pedometer" });
+          }
           return;
         case "STOP_GPS":
           await gpsBridge.stop();
           return;
         case "OPEN_ROUTE":
-          if (command.route.startsWith("/") && command.route.length < 80) await navigate({ to: command.route as any });
+          if (command.route.startsWith("/") && command.route.length < 80) {
+            await navigate({ to: command.route as any });
+          }
           return;
         case "SHOW_STEPS":
           await navigate({ to: "/pedometer" });
@@ -81,12 +99,14 @@ export function AppCommandRuntime({ enabled = true }: Props) {
           await navigate({ to: "/profile" });
           return;
         case "SET_MILESTONE":
-          window.dispatchEvent(new CustomEvent("wk:navigation-milestone", { detail: { milestoneKm: Math.max(0.25, Number(command.milestoneKm) || 1) } }));
+          window.dispatchEvent(new CustomEvent("wk:navigation-milestone", {
+            detail: { milestoneKm: Math.max(0.25, Number(command.milestoneKm) || 1) },
+          }));
           return;
         case "NAVIGATE_TO":
-          // VoiceControlAdvanced already starts GPS and emits wk:navigate-to.
-          // Do not re-emit or navigate here; doing so would duplicate the workflow.
-          if (!gpsBridge.isReady()) await gpsBridge.start();
+          await gpsBridge.start();
+          window.dispatchEvent(new CustomEvent("wk:gps-started"));
+          await navigate({ to: "/pedometer" });
           return;
         case "NONE":
           return;
@@ -96,10 +116,9 @@ export function AppCommandRuntime({ enabled = true }: Props) {
     return () => {
       unsubscribe();
       stopEvents();
-      if (featureFlags.musicAutomation) {
-        document.removeEventListener("pointerdown", stopPointerUnlock);
-        document.removeEventListener("touchstart", stopPointerUnlock);
-      }
+      window.removeEventListener("wk:gps-started", onGpsStarted);
+      document.removeEventListener("pointerdown", stopPointerUnlock);
+      document.removeEventListener("touchstart", stopPointerUnlock);
     };
   }, [enabled, music, navigate]);
 
