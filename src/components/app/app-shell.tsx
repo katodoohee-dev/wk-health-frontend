@@ -5,7 +5,6 @@ import { BarChart3, BookOpen, Bot, Home, Loader2, ScanLine } from "lucide-react"
 import { useAuth } from "@/lib/auth";
 import { MusicProvider } from "@/lib/music";
 import { MiniPlayer } from "@/components/app/mini-player";
-import { VoiceAppCommandBridge } from "@/components/VoiceAppCommandBridge";
 import { apiMe } from "@/lib/api";
 import { VoiceControlAdvanced as VoiceControl } from "@/components/VoiceControlAdvanced";
 import { NavigationOverlay } from "@/components/NavigationOverlay";
@@ -45,13 +44,12 @@ export function AppShell({ children }: { children: ReactNode }) {
 
   return (
     <MusicProvider>
-      <VoiceAppCommandBridge />
       <div className="relative min-h-screen w-full">
         <Aurora />
         <div className="mx-auto w-full max-w-2xl px-4 pb-32 lg:max-w-5xl">
           {gated ? (
             <div className="flex min-h-screen flex-col items-center justify-center gap-2 text-center">
-              <span className="glass-strong flex items-center gap-2 rounded-3xl px-5 py-4 text-sm text-muted-foreground shadow-soft"><Loader2 className="size-4 animate-spin text-primary" /> กำลังตรวจสอบการเข้าสู่ระบบ…</span>
+              <span className="glass-strong flex items-center gap-2 rounded-3xl px-5 py-4 text-sm text-muted-foreground"><Loader2 className="size-4 animate-spin text-primary" /> กำลังตรวจสอบการเข้าสู่ระบบ…</span>
               <p className="max-w-xs text-xs text-muted-foreground">กำลังเชื่อมต่อเซิร์ฟเวอร์ อาจใช้เวลาสักครู่สำหรับคำขอแรก</p>
             </div>
           ) : children}
@@ -66,8 +64,6 @@ export function AppShell({ children }: { children: ReactNode }) {
               onStartGps={async () => {
                 const ok = await gpsBridge.start();
                 if (!ok) void navigate({ to: "/pedometer" });
-                // Voice-started exercise should also start the WK Health playlist when one exists.
-                window.dispatchEvent(new CustomEvent("wk:music", { detail: { action: "play" } }));
               }}
               onStopGps={async () => { await gpsBridge.stop(); }}
               onOpenProfileModal={() => void navigate({ to: "/profile" })}
