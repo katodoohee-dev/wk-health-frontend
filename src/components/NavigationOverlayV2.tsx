@@ -3,6 +3,7 @@ import { Flag, LocateFixed, Navigation, Volume2, X } from "lucide-react";
 import { MapContainer, Marker, Polyline, TileLayer, useMap } from "react-leaflet";
 import L from "leaflet";
 import "leaflet/dist/leaflet.css";
+import { speakThai, stopVoiceOutput } from "@/lib/voice-output";
 
 type Point = { lat: number; lng: number };
 type Step = { distance?: number; name?: string; maneuver?: { modifier?: string }; geometry?: { coordinates?: [number, number][] } };
@@ -107,14 +108,14 @@ export default function NavigationOverlayV2() {
   const lastReroute = useRef(0);
   const requestId = useRef(0);
   const milestone = useRef(1);
-  const speak = useRef<(text: string) => void>(() => undefined);
 
-  const say = (text: string) => speak.current(text);
+  const say = (text: string) => speakThai(text, { source: "navigation", priority: 100, interrupt: true });
 
   useEffect(() => {
     const onNav = (e: Event) => {
       const d = (e as CustomEvent<Request>).detail; if (!d?.destination) return;
-      requestId.current += 1; setRequest(d); setActive(true); setPlan(null); setError(null); setLoading(false); setRerouting(false); setProgress(0); setLastMilestone(0); setStepIndex(0); setAnnouncedStep(-1); setArrived(false);
+      stopVoiceOutput();
+      requestId.current += 1; setRequest({ ...d, destination: d.destination.trim() }); setActive(true); setPlan(null); setError(null); setLoading(false); setRerouting(false); setProgress(0); setLastMilestone(0); setStepIndex(0); setAnnouncedStep(-1); setArrived(false);
       milestone.current = Math.max(0.25, Number(d.milestoneKm) || 1);
       lastPoint.current = null; lastTime.current = null;
     };
@@ -122,6 +123,7 @@ export default function NavigationOverlayV2() {
       requestId.current += 1; setActive(false); setRequest(null); setPlan(null); setError(null); setLoading(false); setRerouting(false); setArrived(false);
       if (watch.current != null && navigator.geolocation) navigator.geolocation.clearWatch(watch.current);
       watch.current = null;
+      stopVoiceOutput();
     };
     const onMilestone = (e: Event) => {
       const m = Number((e as CustomEvent<{ milestoneKm?: number }>).detail?.milestoneKm);
@@ -152,15 +154,6 @@ export default function NavigationOverlayV2() {
     watch.current = id;
     return () => { navigator.geolocation.clearWatch(id); if (watch.current === id) watch.current = null; };
   }, [active]);
-
-  useEffect(() => {
-    const speakThai = (text: string) => {
-      if (!("speechSynthesis" in window)) return;
-      window.speechSynthesis.cancel(); const u = new SpeechSynthesisUtterance(text); u.lang = "th-TH"; u.rate = 0.95;
-      const v = window.speechSynthesis.getVoices().find((voice) => voice.lang.toLowerCase().startsWith("th")); if (v) u.voice = v; window.speechSynthesis.speak(u);
-    };
-    speak.current = speakThai; return () => { speak.current = () => undefined; };
-  }, []);
 
   useEffect(() => {
     if (!active || !request || !position || plan) return;
