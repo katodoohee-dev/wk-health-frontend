@@ -20,7 +20,6 @@ type MusicCtx = {
   stop: () => void;
   next: () => void;
   prev: () => void;
-  unlock: () => Promise<void>;
 };
 
 const Ctx = createContext<MusicCtx | null>(null);
@@ -64,16 +63,11 @@ function loadYouTubeApi(): Promise<void> {
   return ytApiPromise;
 }
 
-// Tiny silent WAV used only to unlock the same HTMLMediaElement from a user gesture.
-const SILENT_WAV =
-  "data:audio/wav;base64,UklGRiQAAABXQVZFZm10IBAAAAABAAEAIlYAAESsAAACABAAZGF0YQAAAAA=";
-
 export function MusicProvider({ children }: { children: ReactNode }) {
   const qc = useQueryClient();
   const [current, setCurrent] = useState<Track | null>(null);
   const [queue, setQueue] = useState<Track[]>([]);
   const [isPlaying, setIsPlaying] = useState(false);
-  const unlockedRef = useRef(false);
 
   const audioRef = useRef<HTMLAudioElement | null>(null);
   const ytRef = useRef<YTPlayer | null>(null);
@@ -82,8 +76,7 @@ export function MusicProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     if (typeof window === "undefined") return;
     const el = new Audio();
-    el.preload = "auto";
-    el.playsInline = true;
+    el.preload = "none";
     audioRef.current = el;
     const onEnd = () => setIsPlaying(false);
     el.addEventListener("ended", onEnd);
@@ -92,29 +85,6 @@ export function MusicProvider({ children }: { children: ReactNode }) {
       el.pause();
       audioRef.current = null;
     };
-  }, []);
-
-  const unlock = useCallback(async () => {
-    if (unlockedRef.current || !audioRef.current) return;
-    const audio = audioRef.current;
-    const previousSrc = audio.src;
-    const previousMuted = audio.muted;
-    const previousVolume = audio.volume;
-    try {
-      audio.src = SILENT_WAV;
-      audio.muted = true;
-      audio.volume = 0;
-      await audio.play();
-      audio.pause();
-      audio.currentTime = 0;
-      unlockedRef.current = true;
-    } catch {
-      // Some browsers still reject autoplay; normal tap-to-play remains available.
-    } finally {
-      audio.muted = previousMuted;
-      audio.volume = previousVolume;
-      audio.src = previousSrc;
-    }
   }, []);
 
   const playTrack = useCallback((track: Track) => {
@@ -151,8 +121,7 @@ export function MusicProvider({ children }: { children: ReactNode }) {
       ytRef.current?.pauseVideo();
       if (audio) {
         audio.src = track.url;
-        audio.muted = false;
-        void audio.play().then(() => setIsPlaying(true)).catch(() => setIsPlaying(false));
+        audio.play().then(() => setIsPlaying(true)).catch(() => setIsPlaying(false));
       }
     }
   }, []);
@@ -222,8 +191,8 @@ export function MusicProvider({ children }: { children: ReactNode }) {
   }, [current, isPlaying, toggle, next, prev]);
 
   const value = useMemo(
-    () => ({ current, isPlaying, queue, play, toggle, stop, next, prev, unlock }),
-    [current, isPlaying, queue, play, toggle, stop, next, prev, unlock],
+    () => ({ current, isPlaying, queue, play, toggle, stop, next, prev }),
+    [current, isPlaying, queue, play, toggle, stop, next, prev],
   );
 
   return (
