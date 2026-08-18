@@ -5,6 +5,7 @@ import { BarChart3, BookOpen, Bot, Home, Loader2, ScanLine } from "lucide-react"
 import { useAuth } from "@/lib/auth";
 import { MusicProvider } from "@/lib/music";
 import { MiniPlayer } from "@/components/app/mini-player";
+import { VoiceAppCommandBridge } from "@/components/VoiceAppCommandBridge";
 import { apiMe } from "@/lib/api";
 import { VoiceControlAdvanced as VoiceControl } from "@/components/VoiceControlAdvanced";
 import { NavigationOverlay } from "@/components/NavigationOverlay";
@@ -44,6 +45,7 @@ export function AppShell({ children }: { children: ReactNode }) {
 
   return (
     <MusicProvider>
+      <VoiceAppCommandBridge />
       <div className="relative min-h-screen w-full">
         <Aurora />
         <div className="mx-auto w-full max-w-2xl px-4 pb-32 lg:max-w-5xl">
@@ -64,6 +66,8 @@ export function AppShell({ children }: { children: ReactNode }) {
               onStartGps={async () => {
                 const ok = await gpsBridge.start();
                 if (!ok) void navigate({ to: "/pedometer" });
+                // Voice-started exercise should also start the WK Health playlist when one exists.
+                window.dispatchEvent(new CustomEvent("wk:music", { detail: { action: "play" } }));
               }}
               onStopGps={async () => { await gpsBridge.stop(); }}
               onOpenProfileModal={() => void navigate({ to: "/profile" })}
