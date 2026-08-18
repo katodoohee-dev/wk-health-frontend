@@ -1,23 +1,47 @@
 import { useEffect } from "react";
 import { Link } from "@tanstack/react-router";
 import { Pause, Play, SkipBack, SkipForward, X, Music2 } from "lucide-react";
+import { apiMusicLibrary } from "@/lib/api";
 import { useMusic } from "@/lib/music";
 
 export function MiniPlayer() {
-  const { current, isPlaying, toggle, next, prev, stop } = useMusic();
+  const { current, isPlaying, play, toggle, next, prev, stop } = useMusic();
 
   useEffect(() => {
-    const handler = (event: Event) => {
+    let disposed = false;
+
+    const handler = async (event: Event) => {
       const action = (event as CustomEvent<{action?: string}>).detail?.action;
-      if (action === "play" && !isPlaying) toggle();
-      else if (action === "pause" && isPlaying) toggle();
+      if (!action || disposed) return;
+
+      if (action === "play") {
+        if (current) {
+          if (!isPlaying) toggle();
+          return;
+        }
+        try {
+          const tracks = await apiMusicLibrary();
+          if (disposed) return;
+          const track = tracks.find((t) => t.type === "audio") ?? tracks[0];
+          if (track) play(track, tracks);
+        } catch {
+          // Keep the page alive when the library endpoint is unavailable.
+        }
+        return;
+      }
+
+      if (action === "pause" && isPlaying) toggle();
       else if (action === "next") next();
       else if (action === "prev") prev();
       else if (action === "stop") stop();
     };
+
     window.addEventListener("wk:music", handler);
-    return () => window.removeEventListener("wk:music", handler);
-  }, [isPlaying, next, prev, stop, toggle]);
+    return () => {
+      disposed = true;
+      window.removeEventListener("wk:music", handler);
+    };
+  }, [current, isPlaying, next, play, prev, stop, toggle]);
 
   if (!current) return null;
 
