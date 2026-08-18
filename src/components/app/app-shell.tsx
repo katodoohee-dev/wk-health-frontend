@@ -5,11 +5,12 @@ import { BarChart3, BookOpen, Bot, Home, Loader2, ScanLine } from "lucide-react"
 import { useAuth } from "@/lib/auth";
 import { MusicProvider } from "@/lib/music";
 import { MiniPlayer } from "@/components/app/mini-player";
+import { AppCommandRuntime } from "@/components/AppCommandRuntime";
 import { apiMe } from "@/lib/api";
 import { VoiceControlAdvanced as VoiceControl } from "@/components/VoiceControlAdvanced";
 import { NavigationOverlay } from "@/components/NavigationOverlay";
+import { appCommandBus } from "@/lib/app-command-bus";
 import "@/components/voice-control.css";
-import { gpsBridge } from "@/lib/gps-bridge";
 
 const tabs = [
   { to: "/", label: "หน้าแรก", icon: Home },
@@ -44,12 +45,13 @@ export function AppShell({ children }: { children: ReactNode }) {
 
   return (
     <MusicProvider>
+      <AppCommandRuntime enabled={!isAuthRoute && isAuthenticated} />
       <div className="relative min-h-screen w-full">
         <Aurora />
         <div className="mx-auto w-full max-w-2xl px-4 pb-32 lg:max-w-5xl">
           {gated ? (
             <div className="flex min-h-screen flex-col items-center justify-center gap-2 text-center">
-              <span className="glass-strong flex items-center gap-2 rounded-3xl px-5 py-4 text-sm text-muted-foreground"><Loader2 className="size-4 animate-spin text-primary" /> กำลังตรวจสอบการเข้าสู่ระบบ…</span>
+              <span className="glass-strong flex items-center gap-2 rounded-3xl px-5 py-4 text-sm text-muted-foreground shadow-soft"><Loader2 className="size-4 animate-spin text-primary" /> กำลังตรวจสอบการเข้าสู่ระบบ…</span>
               <p className="max-w-xs text-xs text-muted-foreground">กำลังเชื่อมต่อเซิร์ฟเวอร์ อาจใช้เวลาสักครู่สำหรับคำขอแรก</p>
             </div>
           ) : children}
@@ -62,10 +64,11 @@ export function AppShell({ children }: { children: ReactNode }) {
               bodyWeightKg={Number(me.data?.["weightKg"] ?? 60)}
               onExercise={(result) => window.dispatchEvent(new CustomEvent("wk:voice-exercise", { detail: result }))}
               onStartGps={async () => {
-                const ok = await gpsBridge.start();
-                if (!ok) void navigate({ to: "/pedometer" });
+                await appCommandBus.dispatch({ type: "START_GPS" });
               }}
-              onStopGps={async () => { await gpsBridge.stop(); }}
+              onStopGps={async () => {
+                await appCommandBus.dispatch({ type: "STOP_GPS" });
+              }}
               onOpenProfileModal={() => void navigate({ to: "/profile" })}
             />
             <NavigationOverlay />
