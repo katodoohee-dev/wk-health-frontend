@@ -7,6 +7,9 @@ import { PageHeader, GlassCard, Ring, SectionTitle } from "@/components/app/ui-b
 import { ErrorState, LoadingState } from "@/components/app/states";
 import { useAuth } from "@/lib/auth";
 import { Link } from "@tanstack/react-router";
+import { LiveTrackMap } from "@/components/LiveTrackMap";
+import "@/components/live-track-map.css";
+import { gpsBridge } from "@/lib/gps-bridge";
 import {
   apiPedometerLog,
   apiPedometerToday,
@@ -388,6 +391,15 @@ function GpsTracker() {
     };
   }, []);
 
+  // ลงทะเบียนฟังก์ชัน start/stop นี้ไว้กับ gps-bridge กลาง เพื่อให้
+  // VoiceControl (mount อยู่ที่ app-shell ทุกหน้า) สั่งเริ่ม/หยุดวิ่งจาก
+  // ตรงไหนก็ได้ในแอปได้จริง ไม่ใช่แค่หน้า /pedometer เท่านั้น — ปลดทะเบียน
+  // ตอน unmount กันเรียกฟังก์ชันที่ไม่มีอยู่แล้ว
+  useEffect(() => {
+    gpsBridge.register({ start, stop });
+    return () => gpsBridge.unregister();
+  });
+
   const start = async () => {
     setError(null);
     if (typeof navigator === "undefined" || !navigator.geolocation) {
@@ -481,7 +493,16 @@ function GpsTracker() {
           <p className="mt-3 rounded-2xl bg-destructive/10 px-3 py-2.5 text-sm text-destructive">{error}</p>
         )}
         {(routeId || points.length > 0) && (
-          <div className="mt-4">
+          <div className="mt-4 space-y-3">
+            {routeId && (
+              <LiveTrackMap
+                steps={points.length}
+                // หมายเหตุ: ไม่ส่ง onSessionEnd เพราะปุ่ม "หยุด" ที่มีอยู่แล้ว
+                // (ฟังก์ชัน stop() ด้านบน) เรียก apiRouteStop() บันทึกจริง
+                // อยู่แล้ว — ถ้าส่ง onSessionEnd ด้วยจะเสี่ยงบันทึกซ้ำ 2 ครั้ง
+                // LiveTrackMap ในนี้ทำหน้าที่แค่โชว์แผนที่จริงระหว่างวิ่ง
+              />
+            )}
             <RouteMap points={points} />
           </div>
         )}

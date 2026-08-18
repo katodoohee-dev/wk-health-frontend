@@ -1,17 +1,15 @@
-import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
+import { createFileRoute, Link } from "@tanstack/react-router";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import {
   Brain, Droplets, Flame, Footprints, LogOut, MessageSquareHeart, Sparkle, Wallet,
   Dumbbell, Music2, UserRound, ChevronRight, Plus, CheckCircle2, Snowflake, Image as ImageIcon,
-  Users, Download, BellRing, Minus, Sparkles,
+  Users, Download, BellRing,
 } from "lucide-react";
 import { ThemeToggle } from "@/components/app/theme-toggle";
 import { Bar, GlassCard, Ring, SectionTitle } from "@/components/app/ui-bits";
 import { ErrorState, Skeleton } from "@/components/app/states";
 import { useAuth } from "@/lib/auth";
 import { apiCheckin, apiCheckinToday, apiDiary, apiPedometerToday, apiStatsToday, todayISO } from "@/lib/api";
-import { apiWaterAdd, apiWaterToday, apiWorkoutLog } from "@/lib/api-new-features";
-import { VoiceControl } from "@/components/app/VoiceControl";
 
 export const Route = createFileRoute("/")({
   head: () => ({
@@ -37,12 +35,10 @@ const tools = [
   { to: "/friends", icon: Users, title: "เพื่อนและ Streak", desc: "เชียร์กัน ไม่แข่งตัวเลข", tint: "bg-peach-soft text-peach" },
   { to: "/export", icon: Download, title: "ส่งออกข้อมูล", desc: "PDF/CSV + สำรองข้อมูล", tint: "bg-sky-soft text-sky" },
   { to: "/notifications", icon: BellRing, title: "การแจ้งเตือน", desc: "ตั้งเวลาแจ้งเตือนอัจฉริยะ", tint: "bg-mint-soft text-mint" },
-  { to: "/insight", icon: Sparkles, title: "Weekly Insight", desc: "สรุปผลรายสัปดาห์", tint: "bg-peach-soft text-peach" },
 ] as const;
 
 function Home() {
   const { user, logout, isAuthenticated } = useAuth();
-  const navigate = useNavigate();
   const qc = useQueryClient();
   const date = todayISO();
 
@@ -50,59 +46,19 @@ function Home() {
   const ped = useQuery({ queryKey: ["pedometer", "today"], queryFn: apiPedometerToday, enabled: isAuthenticated });
   const diary = useQuery({ queryKey: ["diary", date], queryFn: () => apiDiary(date), enabled: isAuthenticated });
   const checkin = useQuery({ queryKey: ["checkin", "today"], queryFn: apiCheckinToday, enabled: isAuthenticated });
-  const waterQ = useQuery({ queryKey: ["water", "today"], queryFn: apiWaterToday, enabled: isAuthenticated });
 
   const doCheckin = useMutation({
     mutationFn: apiCheckin,
     onSuccess: () => void qc.invalidateQueries({ queryKey: ["checkin"] }),
   });
 
-  const addWater = useMutation({
-    mutationFn: apiWaterAdd,
-    onMutate: async (delta: number) => {
-      await qc.cancelQueries({ queryKey: ["water", "today"] });
-      const prev = qc.getQueryData<{ glasses: number; goalGlasses: number }>(["water", "today"]);
-      if (prev) {
-        qc.setQueryData(["water", "today"], { ...prev, glasses: Math.max(0, prev.glasses + delta) });
-      }
-      return { prev };
-    },
-    onError: (_err, _delta, ctx) => {
-      if (ctx?.prev) qc.setQueryData(["water", "today"], ctx.prev);
-    },
-    onSettled: () => void qc.invalidateQueries({ queryKey: ["water", "today"] }),
-  });
-
-  const logWorkout = useMutation({
-    mutationFn: apiWorkoutLog,
-    onSuccess: () => {
-      void qc.invalidateQueries({ queryKey: ["stats", "today"] });
-    },
-  });
-
   const s = stats.data;
   const remaining = s ? s.goal - s.eaten + s.burned : 0;
-  const waterGoal = waterQ.data?.goalGlasses ?? 8;
-  const water = waterQ.data?.glasses ?? 0;
+  const waterGoal = s?.waterGoal ?? 8;
+  const water = s?.water ?? 0;
 
   return (
     <div className="rise-in">
-      {isAuthenticated ? (
-        <VoiceControl
-          profileName={user?.name}
-          bodyWeightKg={user?.weightKg ?? 60}
-          onExercise={(result) =>
-            void logWorkout.mutate({
-              exerciseName: result.activity,
-              minutes: Math.round(result.duration_min),
-              kcalOverride: result.kcal,
-            })
-          }
-          onStartGps={() => alert("ยังไม่รองรับการติดตาม GPS ในตอนนี้")}
-          onStopGps={() => alert("ยังไม่รองรับการติดตาม GPS ในตอนนี้")}
-          onOpenProfileModal={() => void navigate({ to: "/profile" })}
-        />
-      ) : null}
       <header className="grid grid-cols-[minmax(0,1fr)_auto] items-center gap-3 py-5">
         <div className="min-w-0">
           <p className="text-xs text-muted-foreground">สวัสดี 🌿</p>
@@ -229,40 +185,11 @@ function Home() {
         <div className="glass-strong rounded-3xl p-4 shadow-soft">
           <div className="flex items-center justify-between">
             <p className="font-display font-semibold"><Droplets className="mr-1 inline size-4 text-sky" /> ดื่มน้ำ</p>
-            <div className="flex items-center gap-2">
-              <p className="text-xs text-muted-foreground">{water}/{waterGoal} แก้ว</p>
-              <button
-                type="button"
-                aria-label="ลดแก้วน้ำ"
-                disabled={addWater.isPending}
-                onClick={() => void addWater.mutate(-1)}
-                className="press glass grid size-7 place-items-center rounded-lg disabled:opacity-50"
-              >
-                <Minus className="size-3.5" />
-              </button>
-              <button
-                type="button"
-                aria-label="เพิ่มแก้วน้ำ"
-                disabled={addWater.isPending}
-                onClick={() => void addWater.mutate(1)}
-                className="press glass grid size-7 place-items-center rounded-lg disabled:opacity-50"
-              >
-                <Plus className="size-3.5" />
-              </button>
-            </div>
+            <p className="text-xs text-muted-foreground">{water}/{waterGoal} แก้ว</p>
           </div>
           <div className="mt-4 flex flex-wrap gap-2">
             {Array.from({ length: waterGoal }).map((_, i) => (
-              <button
-                key={i}
-                type="button"
-                aria-label={i < water ? "ลบแก้วนี้" : "เพิ่มแก้วนี้"}
-                disabled={addWater.isPending}
-                onClick={() => void addWater.mutate(i < water ? -1 : 1)}
-                className={`press grid size-9 place-items-center rounded-xl text-base disabled:opacity-50 ${i < water ? "bg-sky-soft" : "bg-muted opacity-60"}`}
-              >
-                💧
-              </button>
+              <span key={i} className={`press grid size-9 place-items-center rounded-xl text-base ${i < water ? "bg-sky-soft" : "bg-muted opacity-60"}`}>💧</span>
             ))}
           </div>
         </div>

@@ -1,12 +1,11 @@
 import { useState } from "react";
 import { createFileRoute } from "@tanstack/react-router";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { Users, Flame, Heart, Share2, UserPlus, Copy, Loader2, Check } from "lucide-react";
+import { Users, Flame, Heart, Share2, UserPlus, Copy } from "lucide-react";
 import { PageHeader, GlassCard } from "@/components/app/ui-bits";
 import { ErrorState, Skeleton } from "@/components/app/states";
 import { useAuth } from "@/lib/auth";
 import { apiFriendsList, apiFriendsCheer, apiFriendsInviteCode, apiFriendsAdd, apiStatsWeekSummary } from "@/lib/api-new-features";
-import { renderWeekShareImage, shareOrDownloadImage } from "@/lib/share-image";
 
 export const Route = createFileRoute("/friends")({
   head: () => ({
@@ -42,24 +41,6 @@ function FriendsPage() {
 
   const sorted = [...(friends.data ?? [])].sort((a, b) => b.streak - a.streak);
 
-  const [shareResult, setShareResult] = useState<"shared" | "downloaded" | null>(null);
-  const share = useMutation({
-    mutationFn: async () => {
-      const blob = await renderWeekShareImage({
-        streak: week.data?.streak ?? 0,
-        avgKcal: week.data?.avgKcal ?? 0,
-        daysOnGoal: week.data?.daysOnGoal ?? 0,
-      });
-      return shareOrDownloadImage(blob, `wk-health-week-summary-${new Date().toISOString().slice(0, 10)}.png`);
-    },
-    onSuccess: (result) => {
-      if (result !== "cancelled") {
-        setShareResult(result);
-        setTimeout(() => setShareResult(null), 3000);
-      }
-    },
-  });
-
   return (
     <div className="rise-in">
       <PageHeader title="เพื่อนและ Streak" subtitle="ให้กำลังใจกัน ไม่ต้องแข่งตัวเลขแคล" />
@@ -68,24 +49,10 @@ function FriendsPage() {
       <GlassCard className="p-5">
         <div className="flex items-center justify-between">
           <p className="font-display font-semibold">สรุปสัปดาห์ของคุณ</p>
-          <button
-            onClick={() => share.mutate()}
-            disabled={share.isPending || week.isLoading}
-            className="press glass grid size-9 place-items-center rounded-xl disabled:opacity-50"
-            aria-label="แชร์เป็นรูป"
-          >
-            {share.isPending ? <Loader2 className="size-4 animate-spin" /> : <Share2 className="size-4" />}
+          <button className="press glass grid size-9 place-items-center rounded-xl" aria-label="แชร์เป็นรูป">
+            <Share2 className="size-4" />
           </button>
         </div>
-        {shareResult && (
-          <p className="mt-2 flex items-center gap-1 text-xs text-mint">
-            <Check className="size-3.5" />
-            {shareResult === "shared" ? "แชร์รูปสำเร็จ" : "บันทึกรูปลงเครื่องแล้ว"}
-          </p>
-        )}
-        {share.isError && (
-          <p className="mt-2 text-xs text-destructive">สร้างรูปไม่สำเร็จ ลองใหม่อีกครั้ง</p>
-        )}
         {week.isLoading ? (
           <Skeleton className="mt-3 h-20 w-full rounded-2xl" />
         ) : week.isError ? (

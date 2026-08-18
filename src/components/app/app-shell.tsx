@@ -1,9 +1,14 @@
 import { useEffect, type ReactNode } from "react";
 import { Link, useNavigate, useRouterState } from "@tanstack/react-router";
+import { useQuery } from "@tanstack/react-query";
 import { BarChart3, BookOpen, Bot, Home, Loader2, ScanLine } from "lucide-react";
 import { useAuth } from "@/lib/auth";
 import { MusicProvider } from "@/lib/music";
 import { MiniPlayer } from "@/components/app/mini-player";
+import { apiMe } from "@/lib/api";
+import { VoiceControl } from "@/components/VoiceControl";
+import "@/components/voice-control.css";
+import { gpsBridge } from "@/lib/gps-bridge";
 
 const tabs = [
   { to: "/", label: "หน้าแรก", icon: Home },
@@ -43,6 +48,10 @@ export function AppShell({ children }: { children: ReactNode }) {
 
   const gated = !isAuthRoute && (!ready || !isAuthenticated);
 
+  // ข้อมูลโปรไฟล์จริงจาก backend เพื่อคำนวณ kcal ที่แม่นยำใน VoiceControl
+  // (METs × น้ำหนักตัวจริง แทนค่า default)
+  const me = useQuery({ queryKey: ["me"], queryFn: apiMe, enabled: isAuthenticated });
+
   return (
     <MusicProvider>
     <div className="relative min-h-screen w-full">
@@ -62,6 +71,33 @@ export function AppShell({ children }: { children: ReactNode }) {
           children
         )}
       </div>
+
+      {!isAuthRoute && isAuthenticated && (
+        <VoiceControl
+          profileName={me.data?.["name"] as string | undefined}
+          bodyWeightKg={Number(me.data?.["weightKg"] ?? 60)}
+          onExercise={(result) => {
+            // TODO: เชื่อมเข้า mutation บันทึกกิจกรรมจริงของระบบ diary/workout
+            // (ยังไม่มี endpoint กลาง "บันทึกกิจกรรมจากเสียง" — ต้องเลือกว่า
+            // จะยิงเข้า /diary หรือ /workout ตาม activity type ที่ได้)
+            console.log("[VoiceControl] exercise result:", result);
+          }}
+          onStartGps={async () => {
+            const ok = await gpsBridge.start();
+            if (!ok) {
+              // gpsBridge ยังไม่พร้อม เพราะ GpsTracker (หน้า /pedometer)
+              // ยัง unmount อยู่ — พาไปหน้านั้นก่อน แล้วให้ผู้ใช้กดเริ่มเอง
+              // (ยังไม่ auto-start ทันทีที่หน้าโหลดเสร็จ เพราะต้องขอสิทธิ์
+              // GPS ผ่าน user gesture จริงตามข้อจำกัดของเบราว์เซอร์)
+              void navigate({ to: "/pedometer" });
+            }
+          }}
+          onStopGps={async () => {
+            await gpsBridge.stop();
+          }}
+          onOpenProfileModal={() => void navigate({ to: "/profile" })}
+        />
+      )}
 
       {!isAuthRoute && isAuthenticated && (
         <nav className="fixed inset-x-0 bottom-0 z-40 pb-[env(safe-area-inset-bottom)]">

@@ -1,0 +1,258 @@
+/* ===== Voice Control — โทนมินท์/ฟ้า ให้เข้ากับธีม bio-tech bright ของแอพ ===== */
+
+:root {
+  --vc-mint: oklch(0.86 0.14 168);
+  --vc-aqua: oklch(0.78 0.13 200);
+  --vc-deep: oklch(0.24 0.06 200);
+  --vc-glass-bg: color-mix(in oklab, white 8%, transparent);
+  --vc-glass-border: color-mix(in oklab, white 16%, transparent);
+  --vc-shadow-glow: 0 0 60px -12px color-mix(in oklab, var(--vc-mint) 70%, transparent);
+  --vc-gradient-orb: conic-gradient(
+    from 140deg,
+    var(--vc-mint),
+    var(--vc-aqua),
+    color-mix(in oklab, var(--vc-mint) 70%, white),
+    var(--vc-mint)
+  );
+  --vc-destructive: oklch(0.6 0.2 25);
+}
+
+.vc-fixed-wrap {
+  position: fixed;
+  inset-inline: 0;
+  top: 12px;
+  z-index: 50;
+  display: flex;
+  justify-content: center;
+  padding-inline: 16px;
+  pointer-events: none;
+}
+.vc-fixed-wrap .vc-bar {
+  pointer-events: auto;
+}
+
+.vc-bar.glass {
+  width: 100%;
+  max-width: 420px;
+  overflow: hidden;
+  border-radius: 28px;
+  background: var(--vc-glass-bg);
+  border: 1px solid var(--vc-glass-border);
+  backdrop-filter: blur(18px) saturate(140%);
+  box-shadow: var(--vc-shadow-glow);
+  transition: height 650ms cubic-bezier(0.22, 1.4, 0.36, 1);
+}
+
+.vc-row {
+  display: flex;
+  height: 60px;
+  flex-shrink: 0;
+  align-items: center;
+  gap: 12px;
+  padding: 0 14px;
+}
+
+.vc-mic-btn {
+  position: relative;
+  display: flex;
+  width: 40px;
+  height: 40px;
+  flex-shrink: 0;
+  align-items: center;
+  justify-content: center;
+  border-radius: 999px;
+  color: var(--vc-deep);
+  background: var(--vc-gradient-orb);
+  border: none;
+  cursor: pointer;
+  transition: transform 0.3s;
+}
+.vc-mic-btn:hover { transform: scale(1.05); }
+.vc-mic-btn:active { transform: scale(0.9); }
+.vc-mic-btn.vc-breathe { animation: vc-breathe 2.6s ease-in-out infinite; }
+
+.vc-icon { width: 20px; height: 20px; }
+.vc-icon-sm { width: 16px; height: 16px; }
+.vc-icon-lg { width: 24px; height: 24px; }
+.vc-spin { animation: vc-spin 1s linear infinite; }
+.vc-pop { animation: vc-pop-check 0.5s cubic-bezier(0.22, 1, 0.36, 1) both; }
+.vc-aqua { color: var(--vc-aqua); }
+.vc-mint { color: var(--vc-mint); }
+
+.vc-ripple {
+  position: absolute;
+  inset: 0;
+  border-radius: 999px;
+  border: 1px solid color-mix(in oklab, var(--vc-mint) 60%, transparent);
+  animation: vc-ripple 2.4s cubic-bezier(0.22, 1, 0.36, 1) infinite;
+}
+
+.vc-status-text { min-width: 0; flex: 1; }
+.vc-status-text p {
+  margin: 0;
+  font-size: 14px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  color: color-mix(in oklab, currentColor 85%, transparent);
+}
+.vc-error-text { color: var(--vc-destructive) !important; }
+.vc-subtext {
+  font-size: 11px;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: color-mix(in oklab, var(--vc-mint) 70%, transparent) !important;
+}
+
+.vc-dot { width: 8px; height: 8px; flex-shrink: 0; border-radius: 999px; }
+.vc-dot-idle { background: color-mix(in oklab, currentColor 30%, transparent); }
+.vc-dot-error { background: var(--vc-destructive); }
+.vc-dot-processing { background: var(--vc-aqua); animation: vc-pulse 1.6s ease-in-out infinite; }
+.vc-dot-listening, .vc-dot-success { background: var(--vc-mint); animation: vc-pulse 1.6s ease-in-out infinite; }
+
+.vc-body { padding: 0 16px 16px; }
+.vc-rise-in { animation: vc-rise-in 0.55s cubic-bezier(0.22, 1, 0.36, 1) both; }
+
+.vc-waveform {
+  display: flex;
+  height: 40px;
+  width: 100%;
+  align-items: center;
+  justify-content: space-between;
+  gap: 3px;
+}
+.vc-waveform-bar {
+  flex: 1;
+  border-radius: 999px;
+  background: linear-gradient(to top, color-mix(in oklab, var(--vc-aqua) 60%, transparent), var(--vc-mint));
+  transition: height 150ms ease-out;
+}
+
+.vc-transcript-box {
+  margin-top: 12px;
+  min-height: 52px;
+  border-radius: 16px;
+  background: color-mix(in oklab, white 5%, transparent);
+  padding: 12px 14px;
+}
+.vc-transcript-box p { margin: 0; font-size: 15px; line-height: 1.6; }
+.vc-placeholder { color: color-mix(in oklab, currentColor 35%, transparent); }
+.vc-word { margin-right: 6px; display: inline-block; animation: vc-rise-in 0.4s ease both; }
+.vc-caret {
+  margin-left: 2px;
+  display: inline-block;
+  height: 16px;
+  width: 2px;
+  vertical-align: middle;
+  background: var(--vc-mint);
+  animation: vc-pulse 1s ease-in-out infinite;
+}
+
+.vc-stop-wrap { margin-top: 12px; display: flex; justify-content: center; }
+.vc-stop-btn {
+  position: relative;
+  display: flex;
+  width: 56px;
+  height: 56px;
+  align-items: center;
+  justify-content: center;
+  border-radius: 999px;
+  border: none;
+  color: var(--vc-deep);
+  background: var(--vc-gradient-orb);
+  box-shadow: var(--vc-shadow-glow);
+  cursor: pointer;
+  transition: transform 0.2s;
+}
+.vc-stop-btn:active { transform: scale(0.95); }
+
+.vc-result-card {
+  border-radius: 16px;
+  background: color-mix(in oklab, white 5%, transparent);
+  padding: 14px;
+}
+.vc-result-head { display: flex; align-items: center; gap: 12px; }
+.vc-result-icon {
+  display: flex;
+  width: 44px;
+  height: 44px;
+  flex-shrink: 0;
+  align-items: center;
+  justify-content: center;
+  border-radius: 16px;
+  color: var(--vc-deep);
+  background: var(--vc-gradient-orb);
+}
+.vc-result-label {
+  margin: 0;
+  font-size: 11px;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: color-mix(in oklab, var(--vc-mint) 75%, transparent);
+}
+.vc-result-title { margin: 2px 0 0; font-weight: 600; font-size: 18px; }
+.vc-result-grid { margin-top: 12px; display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+.vc-result-stat {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  border-radius: 12px;
+  padding: 8px 12px;
+  font-size: 14px;
+  font-weight: 600;
+}
+
+.vc-processing {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 12px;
+  padding: 12px 0;
+}
+.vc-processing p { margin: 0; font-size: 14px; color: color-mix(in oklab, currentColor 70%, transparent); }
+.vc-dots { display: flex; gap: 4px; }
+.vc-dots span {
+  width: 6px;
+  height: 6px;
+  border-radius: 999px;
+  background: var(--vc-mint);
+  animation: vc-dot-bounce 1s infinite ease-in-out;
+}
+
+.vc-error-box {
+  border-radius: 16px;
+  border: 1px solid color-mix(in oklab, var(--vc-destructive) 40%, transparent);
+  background: color-mix(in oklab, var(--vc-destructive) 14%, transparent);
+  padding: 8px 14px;
+}
+.vc-error-box p { margin: 0; font-size: 12px; }
+
+.vc-bar.glass, .vc-result-stat.glass {
+  background: var(--vc-glass-bg);
+  border: 1px solid var(--vc-glass-border);
+  backdrop-filter: blur(18px) saturate(140%);
+}
+
+@keyframes vc-ripple {
+  0% { transform: scale(0.85); opacity: 0.55; }
+  100% { transform: scale(2.1); opacity: 0; }
+}
+@keyframes vc-breathe {
+  0%, 100% { transform: scale(1); }
+  50% { transform: scale(1.05); }
+}
+@keyframes vc-rise-in {
+  from { opacity: 0; transform: translateY(22px) scale(0.96); }
+  to { opacity: 1; transform: translateY(0) scale(1); }
+}
+@keyframes vc-dot-bounce {
+  0%, 80%, 100% { transform: translateY(0); opacity: 0.4; }
+  40% { transform: translateY(-6px); opacity: 1; }
+}
+@keyframes vc-pop-check {
+  0% { transform: scale(0.4); opacity: 0; }
+  60% { transform: scale(1.15); opacity: 1; }
+  100% { transform: scale(1); }
+}
+@keyframes vc-spin { to { transform: rotate(360deg); } }
+@keyframes vc-pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.4; } }

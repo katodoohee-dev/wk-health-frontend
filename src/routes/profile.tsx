@@ -1,8 +1,7 @@
 import { useState } from "react";
 import { createFileRoute } from "@tanstack/react-router";
 import { useMutation, useQuery } from "@tanstack/react-query";
-import { Loader2, Scale, Save, User, Watch, ChevronRight } from "lucide-react";
-import { Link } from "@tanstack/react-router";
+import { Loader2, Scale, Save, User } from "lucide-react";
 import { PageHeader, GlassCard, SectionTitle } from "@/components/app/ui-bits";
 import { useAuth } from "@/lib/auth";
 import { apiBmi, apiUpdateMe, num } from "@/lib/api";
@@ -54,19 +53,6 @@ function ProfilePage() {
           {save.isSuccess && <p className="text-xs text-primary">บันทึกโปรไฟล์แล้ว ✓</p>}
         </div>
       </GlassCard>
-
-      <Link to="/device-connect" className="press block">
-        <GlassCard className="mt-4 flex items-center gap-3 p-4">
-          <span className="grid size-11 shrink-0 place-items-center rounded-2xl bg-mint-soft text-mint">
-            <Watch className="size-5" />
-          </span>
-          <div className="min-w-0 flex-1">
-            <p className="truncate font-medium">เชื่อมต่ออุปกรณ์</p>
-            <p className="truncate text-xs text-muted-foreground">HealthKit, Google Fit, Fitbit, Garmin</p>
-          </div>
-          <ChevronRight className="size-4 shrink-0 text-muted-foreground" />
-        </GlassCard>
-      </Link>
 
       <GlassCard className="mt-4 p-5">
         <SectionTitle title="คำนวณ BMI" />
