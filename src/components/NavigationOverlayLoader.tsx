@@ -10,8 +10,8 @@ export function NavigationOverlayLoader() {
 
   useEffect(() => {
     let alive = true;
-    const path = featureFlags.navigationV2 ? "./NavigationOverlayV2" : "./NavigationOverlay";
-    import(path)
+    const load = featureFlags.navigationV2 ? import("./NavigationOverlayV2") : import("./NavigationOverlay");
+    load
       .then((mod) => {
         const Component = mod.default ?? mod.NavigationOverlay;
         if (alive && Component) setClientComponent(() => Component);
