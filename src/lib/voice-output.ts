@@ -1,12 +1,6 @@
-type SpeakOptions = { source?: string; priority?: number; interrupt?: boolean };
+type SpeakOptions = { source?: string; priority?: number; interrupt?: boolean; onStart?: () => void; onEnd?: () => void };
 
-type ArbiterState = {
-  token: number;
-  source: string;
-  priority: number;
-};
-
-const KEY = "wk_voice_output";
+type ArbiterState = { token: number; source: string; priority: number };
 
 function getState(): ArbiterState {
   if (typeof window === "undefined") return { token: 0, source: "", priority: 0 };
@@ -29,23 +23,22 @@ export function speakThai(text: string, options: SpeakOptions = {}) {
   const state = getState();
   const priority = options.priority ?? 0;
   if (state.source && state.priority > priority && !options.interrupt) return;
-
   state.token += 1;
   const token = state.token;
   state.source = options.source ?? "wk";
   state.priority = priority;
   window.speechSynthesis.cancel();
-
   const utterance = new SpeechSynthesisUtterance(text.trim());
   utterance.lang = "th-TH";
   utterance.rate = 0.95;
   const voice = window.speechSynthesis.getVoices().find((v) => v.lang.toLowerCase().startsWith("th"));
   if (voice) utterance.voice = voice;
-
+  options.onStart?.();
   const finish = () => {
     if (state.token !== token) return;
     state.source = "";
     state.priority = 0;
+    options.onEnd?.();
   };
   utterance.onend = finish;
   utterance.onerror = finish;
