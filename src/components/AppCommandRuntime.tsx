@@ -19,8 +19,8 @@ export function AppCommandRuntime({ enabled = true }: Props) {
 
     const autoStartMusic = async () => {
       if (!featureFlags.musicAutomation || music.isPlaying) return;
-      await music.unlock();
       try {
+        await music.unlock();
         const tracks = await apiMusicLibrary();
         const audioTrack = tracks.find((t) => t.type === "audio") ?? tracks[0];
         if (audioTrack && !music.isPlaying) music.play(audioTrack, tracks);
@@ -70,14 +70,15 @@ export function AppCommandRuntime({ enabled = true }: Props) {
         case "PREVIOUS_MUSIC":
           music.prev();
           return;
-        case "START_GPS":
-          await gpsBridge.start();
+        case "START_GPS": {
+          const ok = await gpsBridge.start();
+          if (!ok) return;
           window.dispatchEvent(new CustomEvent("wk:gps-started"));
-          if (featureFlags.musicAutomation) await autoStartMusic();
           if (window.location.pathname !== "/pedometer") {
             await navigate({ to: "/pedometer" });
           }
           return;
+        }
         case "STOP_GPS":
           await gpsBridge.stop();
           return;
@@ -104,9 +105,9 @@ export function AppCommandRuntime({ enabled = true }: Props) {
           }));
           return;
         case "NAVIGATE_TO":
-          await gpsBridge.start();
-          window.dispatchEvent(new CustomEvent("wk:gps-started"));
-          await navigate({ to: "/pedometer" });
+          // VoiceControlAdvanced already starts GPS and emits wk:navigate-to.
+          // Keeping this command side-effect free prevents double GPS watches,
+          // duplicate music starts and duplicate navigation transitions.
           return;
         case "NONE":
           return;
