@@ -6,7 +6,7 @@ import { useAuth } from "@/lib/auth";
 import { MusicProvider } from "@/lib/music";
 import { MiniPlayer } from "@/components/app/mini-player";
 import { apiMe } from "@/lib/api";
-import { VoiceControl } from "@/components/VoiceControl";
+import { VoiceControlMobile as VoiceControl } from "@/components/VoiceControlMobile";
 import "@/components/voice-control.css";
 import { gpsBridge } from "@/lib/gps-bridge";
 
@@ -22,14 +22,8 @@ function Aurora() {
     <div aria-hidden className="pointer-events-none fixed inset-0 -z-10 overflow-hidden">
       <div className="absolute inset-0 bg-background" />
       <div className="float-slow absolute -top-32 -left-24 size-80 rounded-full bg-mint/35 blur-3xl" />
-      <div
-        className="float-slow absolute top-40 -right-28 size-72 rounded-full bg-sky/30 blur-3xl"
-        style={{ animationDelay: "1.5s" }}
-      />
-      <div
-        className="float-slow absolute bottom-0 left-1/4 size-72 rounded-full bg-peach/30 blur-3xl"
-        style={{ animationDelay: "3s" }}
-      />
+      <div className="float-slow absolute top-40 -right-28 size-72 rounded-full bg-sky/30 blur-3xl" style={{ animationDelay: "1.5s" }} />
+      <div className="float-slow absolute bottom-0 left-1/4 size-72 rounded-full bg-peach/30 blur-3xl" style={{ animationDelay: "3s" }} />
     </div>
   );
 }
@@ -41,121 +35,65 @@ export function AppShell({ children }: { children: ReactNode }) {
   const isAuthRoute = pathname === "/auth";
 
   useEffect(() => {
-    if (ready && !isAuthenticated && !isAuthRoute) {
-      void navigate({ to: "/auth", replace: true });
-    }
+    if (ready && !isAuthenticated && !isAuthRoute) void navigate({ to: "/auth", replace: true });
   }, [ready, isAuthenticated, isAuthRoute, navigate]);
 
   const gated = !isAuthRoute && (!ready || !isAuthenticated);
-
-  // ข้อมูลโปรไฟล์จริงจาก backend เพื่อคำนวณ kcal ที่แม่นยำใน VoiceControl
-  // (METs × น้ำหนักตัวจริง แทนค่า default)
   const me = useQuery({ queryKey: ["me"], queryFn: apiMe, enabled: isAuthenticated });
 
   return (
     <MusicProvider>
-    <div className="relative min-h-screen w-full">
-      <Aurora />
-      <div className="mx-auto w-full max-w-2xl px-4 pb-32 lg:max-w-5xl">
-        {gated ? (
-          <div className="flex min-h-screen flex-col items-center justify-center gap-2 text-center">
-            <span className="glass-strong flex items-center gap-2 rounded-3xl px-5 py-4 text-sm text-muted-foreground shadow-soft">
-              <Loader2 className="size-4 animate-spin text-primary" /> กำลังตรวจสอบการเข้าสู่ระบบ…
-            </span>
-            <p className="max-w-xs text-xs text-muted-foreground">
-              กำลังเชื่อมต่อเซิร์ฟเวอร์ อาจใช้เวลาสักครู่สำหรับคำขอแรก
-            </p>
-          </div>
-        ) : (
+      <div className="relative min-h-screen w-full">
+        <Aurora />
+        <div className="mx-auto w-full max-w-2xl px-4 pb-32 lg:max-w-5xl">
+          {gated ? (
+            <div className="flex min-h-screen flex-col items-center justify-center gap-2 text-center">
+              <span className="glass-strong flex items-center gap-2 rounded-3xl px-5 py-4 text-sm text-muted-foreground shadow-soft"><Loader2 className="size-4 animate-spin text-primary" /> กำลังตรวจสอบการเข้าสู่ระบบ…</span>
+              <p className="max-w-xs text-xs text-muted-foreground">กำลังเชื่อมต่อเซิร์ฟเวอร์ อาจใช้เวลาสักครู่สำหรับคำขอแรก</p>
+            </div>
+          ) : children}
+        </div>
 
-          children
+        {!isAuthRoute && isAuthenticated && (
+          <VoiceControl
+            profileName={me.data?.["name"] as string | undefined}
+            bodyWeightKg={Number(me.data?.["weightKg"] ?? 60)}
+            onExercise={(result) => {
+              window.dispatchEvent(new CustomEvent("wk:voice-exercise", { detail: result }));
+            }}
+            onStartGps={async () => {
+              const ok = await gpsBridge.start();
+              if (!ok) void navigate({ to: "/pedometer" });
+            }}
+            onStopGps={async () => { await gpsBridge.stop(); }}
+            onOpenProfileModal={() => void navigate({ to: "/profile" })}
+          />
+        )}
+
+        {!isAuthRoute && isAuthenticated && (
+          <nav className="fixed inset-x-0 bottom-0 z-40 pb-[env(safe-area-inset-bottom)]">
+            <MiniPlayer />
+            <div className="mx-auto mb-3 w-full max-w-md px-4">
+              <div className="glass-strong relative grid grid-cols-5 items-center rounded-[1.75rem] px-2 py-2 shadow-soft">
+                {tabs.slice(0, 2).map((t) => <NavItem key={t.to} {...t} active={pathname === t.to} />)}
+                <div className="relative grid place-items-center">
+                  <Link to="/scan" aria-label="สแกนอาหาร" className="press bg-mint-gradient absolute -top-9 grid size-16 place-items-center rounded-[1.35rem] text-primary-foreground shadow-glow"><ScanLine className="size-7" /></Link>
+                  <span className="mt-6 text-[10px] font-medium text-muted-foreground">สแกน</span>
+                </div>
+                {tabs.slice(2).map((t) => <NavItem key={t.to} {...t} active={pathname === t.to} />)}
+              </div>
+            </div>
+          </nav>
         )}
       </div>
-
-      {!isAuthRoute && isAuthenticated && (
-        <VoiceControl
-          profileName={me.data?.["name"] as string | undefined}
-          bodyWeightKg={Number(me.data?.["weightKg"] ?? 60)}
-          onExercise={(result) => {
-            // TODO: เชื่อมเข้า mutation บันทึกกิจกรรมจริงของระบบ diary/workout
-            // (ยังไม่มี endpoint กลาง "บันทึกกิจกรรมจากเสียง" — ต้องเลือกว่า
-            // จะยิงเข้า /diary หรือ /workout ตาม activity type ที่ได้)
-            console.log("[VoiceControl] exercise result:", result);
-          }}
-          onStartGps={async () => {
-            const ok = await gpsBridge.start();
-            if (!ok) {
-              // gpsBridge ยังไม่พร้อม เพราะ GpsTracker (หน้า /pedometer)
-              // ยัง unmount อยู่ — พาไปหน้านั้นก่อน แล้วให้ผู้ใช้กดเริ่มเอง
-              // (ยังไม่ auto-start ทันทีที่หน้าโหลดเสร็จ เพราะต้องขอสิทธิ์
-              // GPS ผ่าน user gesture จริงตามข้อจำกัดของเบราว์เซอร์)
-              void navigate({ to: "/pedometer" });
-            }
-          }}
-          onStopGps={async () => {
-            await gpsBridge.stop();
-          }}
-          onOpenProfileModal={() => void navigate({ to: "/profile" })}
-        />
-      )}
-
-      {!isAuthRoute && isAuthenticated && (
-        <nav className="fixed inset-x-0 bottom-0 z-40 pb-[env(safe-area-inset-bottom)]">
-          <MiniPlayer />
-          <div className="mx-auto mb-3 w-full max-w-md px-4">
-            <div className="glass-strong relative grid grid-cols-5 items-center rounded-[1.75rem] px-2 py-2 shadow-soft">
-              {tabs.slice(0, 2).map((t) => (
-                <NavItem key={t.to} {...t} active={pathname === t.to} />
-              ))}
-
-              <div className="relative grid place-items-center">
-                <Link
-                  to="/scan"
-                  aria-label="สแกนอาหาร"
-                  className="press bg-mint-gradient absolute -top-9 grid size-16 place-items-center rounded-[1.35rem] text-primary-foreground shadow-glow"
-                >
-                  <ScanLine className="size-7" />
-                </Link>
-                <span className="mt-6 text-[10px] font-medium text-muted-foreground">สแกน</span>
-              </div>
-
-              {tabs.slice(2).map((t) => (
-                <NavItem key={t.to} {...t} active={pathname === t.to} />
-              ))}
-            </div>
-          </div>
-        </nav>
-      )}
-    </div>
     </MusicProvider>
   );
 }
 
-function NavItem({
-  to,
-  label,
-  icon: Icon,
-  active,
-}: {
-  to: string;
-  label: string;
-  icon: typeof Home;
-  active: boolean;
-}) {
+function NavItem({ to, label, icon: Icon, active }: { to: string; label: string; icon: typeof Home; active: boolean }) {
   return (
-    <Link
-      to={to}
-      className={`press flex flex-col items-center gap-1 rounded-2xl py-2 text-[10px] font-medium ${
-        active ? "text-primary" : "text-muted-foreground"
-      }`}
-    >
-      <span
-        className={`grid size-9 place-items-center rounded-xl transition-colors ${
-          active ? "bg-primary/15" : "bg-transparent"
-        }`}
-      >
-        <Icon className="size-5" />
-      </span>
+    <Link to={to} className={`press flex flex-col items-center gap-1 rounded-2xl py-2 text-[10px] font-medium ${active ? "text-primary" : "text-muted-foreground"}`}>
+      <span className={`grid size-9 place-items-center rounded-xl transition-colors ${active ? "bg-primary/15" : "bg-transparent"}`}><Icon className="size-5" /></span>
       <span className="truncate">{label}</span>
     </Link>
   );
