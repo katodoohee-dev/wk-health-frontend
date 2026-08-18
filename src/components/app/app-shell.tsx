@@ -5,12 +5,11 @@ import { BarChart3, BookOpen, Bot, Home, Loader2, ScanLine } from "lucide-react"
 import { useAuth } from "@/lib/auth";
 import { MusicProvider } from "@/lib/music";
 import { MiniPlayer } from "@/components/app/mini-player";
-import { AppCommandRuntime } from "@/components/AppCommandRuntime";
 import { apiMe } from "@/lib/api";
 import { VoiceControlAdvanced as VoiceControl } from "@/components/VoiceControlAdvanced";
 import { NavigationOverlay } from "@/components/NavigationOverlay";
-import { appCommandBus } from "@/lib/app-command-bus";
 import "@/components/voice-control.css";
+import { gpsBridge } from "@/lib/gps-bridge";
 
 const tabs = [
   { to: "/", label: "หน้าแรก", icon: Home },
@@ -45,7 +44,6 @@ export function AppShell({ children }: { children: ReactNode }) {
 
   return (
     <MusicProvider>
-      <AppCommandRuntime enabled={!isAuthRoute && isAuthenticated} />
       <div className="relative min-h-screen w-full">
         <Aurora />
         <div className="mx-auto w-full max-w-2xl px-4 pb-32 lg:max-w-5xl">
@@ -64,11 +62,10 @@ export function AppShell({ children }: { children: ReactNode }) {
               bodyWeightKg={Number(me.data?.["weightKg"] ?? 60)}
               onExercise={(result) => window.dispatchEvent(new CustomEvent("wk:voice-exercise", { detail: result }))}
               onStartGps={async () => {
-                await appCommandBus.dispatch({ type: "START_GPS" });
+                const ok = await gpsBridge.start();
+                if (!ok) void navigate({ to: "/pedometer" });
               }}
-              onStopGps={async () => {
-                await appCommandBus.dispatch({ type: "STOP_GPS" });
-              }}
+              onStopGps={async () => { await gpsBridge.stop(); }}
               onOpenProfileModal={() => void navigate({ to: "/profile" })}
             />
             <NavigationOverlay />
