@@ -9,12 +9,11 @@ function envBool(name: string, fallback: boolean) {
 }
 
 /**
- * Safe rollout switches. New integration remains opt-in until its build and runtime checks pass.
- * Set the VITE_WK_* variable to "true" only after the corresponding stage is verified.
+ * Rollout switches. Each subsystem can still be disabled independently with VITE_WK_* variables.
  */
 export const featureFlags = Object.freeze({
   navigationV2: envBool("VITE_WK_NAVIGATION_V2", true),
-  voiceRuntime: envBool("VITE_WK_VOICE_RUNTIME", false),
-  musicAutomation: envBool("VITE_WK_MUSIC_AUTOMATION", false),
-  centralController: envBool("VITE_WK_CENTRAL_CONTROLLER", false),
+  voiceRuntime: envBool("VITE_WK_VOICE_RUNTIME", true),
+  musicAutomation: envBool("VITE_WK_MUSIC_AUTOMATION", true),
+  centralController: envBool("VITE_WK_CENTRAL_CONTROLLER", true),
 });
