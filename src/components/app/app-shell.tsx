@@ -64,6 +64,7 @@ export function AppShell({ children }: { children: ReactNode }) {
               onStartGps={async () => {
                 const ok = await gpsBridge.start();
                 if (!ok) void navigate({ to: "/pedometer" });
+                window.dispatchEvent(new CustomEvent("wk:music", { detail: { action: "play" } }));
               }}
               onStopGps={async () => { await gpsBridge.stop(); }}
               onOpenProfileModal={() => void navigate({ to: "/profile" })}
