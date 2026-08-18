@@ -1,33 +1,11 @@
 import { useCallback, useEffect, useRef, useState } from "react";
-import { Mic, Loader2, Check, Flame, Timer, Footprints, AlertTriangle } from "lucide-react";
+import { Mic, Volume2, VolumeX, Loader2, Check, Music2, Navigation, MessageCircle } from "lucide-react";
+import { useNavigate } from "@tanstack/react-router";
+import { apiAssistantChat } from "@/lib/api";
 import "./voice-control.css";
 
-/**
- * VoiceControl — แถบสั่งงานด้วยเสียงลอยด้านบน
- * ดึง UI มาจาก Lovable แล้วต่อ logic จริงเข้ากับระบบเดิมที่มีอยู่แล้วใน wk-health-frontend
- *
- * วิธีใช้:
- *   <VoiceControl
- *     profileName={profileName}
- *     bodyWeightKg={bodyWeightKg}
- *     onExercise={(result) => { ...บันทึกลง state/DB... }}
- *     onStartGps={() => { ...เริ่ม GPS tracking... }}
- *     onStopGps={() => { ...หยุด GPS tracking... }}
- *     onOpenProfileModal={() => { ...เด้ง modal กรอกชื่อ... }}
- *   />
- */
-
-const DEEPSEEK_ENDPOINT = "https://kasidathdeepseek.katodoohee.workers.dev";
-
 type Status = "idle" | "listening" | "processing" | "success" | "error";
-
-type ExerciseResult = {
-  activity: string;
-  duration_min: number;
-  mets: number;
-  kcal: number;
-};
-
+type ExerciseResult = { activity: string; duration_min: number; mets: number; kcal: number };
 type VoiceControlProps = {
   profileName: string | null | undefined;
   bodyWeightKg: number;
@@ -37,497 +15,178 @@ type VoiceControlProps = {
   onOpenProfileModal: () => void;
 };
 
-// ---------- helpers ----------
+const DEEPSEEK_ENDPOINT = "https://kasidathdeepseek.katodoohee.workers.dev";
+const TTS_KEY = "wk_voice_tts_enabled";
+const THAI_DIGITS: Record<string, string> = { ศูนย์:"0",หนึ่ง:"1",สอง:"2",สาม:"3",สี่:"4",ห้า:"5",หก:"6",เจ็ด:"7",แปด:"8",เก้า:"9",สิบ:"10",ยี่สิบ:"20",สามสิบ:"30",สี่สิบ:"40",ห้าสิบ:"50",หกสิบ:"60",เจ็ดสิบ:"70",แปดสิบ:"80",เก้าสิบ:"90" };
 
-const THAI_DIGIT_WORDS: Record<string, string> = {
-  ศูนย์: "0", หนึ่ง: "1", สอง: "2", สาม: "3", สี่: "4",
-  ห้า: "5", หก: "6", เจ็ด: "7", แปด: "8", เก้า: "9",
-  สิบ: "10", ยี่สิบ: "20", สามสิบ: "30", สี่สิบ: "40",
-  ห้าสิบ: "50", หกสิบ: "60", เจ็ดสิบ: "70", แปดสิบ: "80", เก้าสิบ: "90",
-};
-
-function thaiWordsToDigits(text: string): string {
-  let out = text;
-  // ลำดับยาว -> สั้น กันตัดคำผิด
-  const entries = Object.entries(THAI_DIGIT_WORDS).sort((a, b) => b[0].length - a[0].length);
-  for (const [word, digit] of entries) {
-    out = out.split(word).join(digit);
-  }
+function normalizeThai(text: string) {
+  let out = text.trim();
+  for (const [word, digit] of Object.entries(THAI_DIGITS).sort((a,b) => b[0].length-a[0].length)) out = out.split(word).join(digit);
   return out;
 }
-
-const GPS_START_KEYWORDS = ["เริ่มวิ่ง", "เริ่มเดิน", "เริ่มปั่น", "เริ่มออกกำลังกาย", "เริ่มบันทึกเส้นทาง"];
-const GPS_STOP_KEYWORDS = ["หยุดวิ่ง", "หยุดเดิน", "จบการวิ่ง", "จบการเดิน", "หยุดบันทึกเส้นทาง", "หยุดออกกำลังกาย"];
-
-function matchGpsKeyword(text: string): "start" | "stop" | null {
-  if (GPS_START_KEYWORDS.some((k) => text.includes(k))) return "start";
-  if (GPS_STOP_KEYWORDS.some((k) => text.includes(k))) return "stop";
+function speak(text: string, enabled: boolean) {
+  if (!enabled || typeof window === "undefined" || !("speechSynthesis" in window)) return;
+  window.speechSynthesis.cancel();
+  const u = new SpeechSynthesisUtterance(text);
+  u.lang = "th-TH";
+  u.rate = 1;
+  u.pitch = 1;
+  window.speechSynthesis.speak(u);
+}
+function durationMin(text: string) {
+  const t = normalizeThai(text);
+  const h = t.match(/(\d+(?:\.\d+)?)\s*ชั่วโมง/); if (h) return Number(h[1])*60;
+  const m = t.match(/(\d+(?:\.\d+)?)\s*นาที/); if (m) return Number(m[1]);
+  const s = t.match(/(\d+(?:\.\d+)?)\s*วินาที/); if (s) return Number(s[1])/60;
   return null;
 }
-
-// fallback METs table แบบง่าย เผื่อ DeepSeek ล่ม
-const LOCAL_ACTIVITY_METS: { keywords: string[]; activity: string; mets: number }[] = [
-  { keywords: ["วิ่ง"], activity: "วิ่ง", mets: 8 },
-  { keywords: ["เดิน"], activity: "เดิน", mets: 3.5 },
-  { keywords: ["ปั่นจักรยาน", "ปั่นจักรยาน"], activity: "ปั่นจักรยาน", mets: 6 },
-  { keywords: ["ว่ายน้ำ"], activity: "ว่ายน้ำ", mets: 7 },
-  { keywords: ["โยคะ"], activity: "โยคะ", mets: 2.5 },
-  { keywords: ["เวท", "ยกน้ำหนัก"], activity: "ยกน้ำหนัก", mets: 5 },
+const LOCAL_METS = [
+  { keys:["วิ่ง"], activity:"วิ่ง", mets:8 },
+  { keys:["เดิน"], activity:"เดิน", mets:3.5 },
+  { keys:["ปั่นจักรยาน","จักรยาน"], activity:"ปั่นจักรยาน", mets:6 },
+  { keys:["ว่ายน้ำ"], activity:"ว่ายน้ำ", mets:7 },
+  { keys:["โยคะ"], activity:"โยคะ", mets:2.5 },
+  { keys:["เวท","ยกน้ำหนัก"], activity:"ยกน้ำหนัก", mets:5 },
 ];
-
-function localActivityMatchAnyAlt(alternatives: string[]): { activity: string; mets: number } | null {
-  for (const alt of alternatives) {
-    for (const entry of LOCAL_ACTIVITY_METS) {
-      if (entry.keywords.some((k) => alt.includes(k))) {
-        return { activity: entry.activity, mets: entry.mets };
-      }
-    }
-  }
+function localExercise(text: string) {
+  for (const x of LOCAL_METS) if (x.keys.some(k => text.includes(k))) return x;
   return null;
 }
 
-function extractDurationMin(text: string): number | null {
-  const digitText = thaiWordsToDigits(text);
-  const hourMatch = digitText.match(/(\d+(?:\.\d+)?)\s*ชั่วโมง/);
-  if (hourMatch) return parseFloat(hourMatch[1]) * 60;
-  const minMatch = digitText.match(/(\d+(?:\.\d+)?)\s*นาที/);
-  if (minMatch) return parseFloat(minMatch[1]);
-  const secMatch = digitText.match(/(\d+(?:\.\d+)?)\s*วินาที/);
-  if (secMatch) return parseFloat(secMatch[1]) / 60;
+async function classifyExercise(text: string) {
+  const system = `คุณเป็นตัวแปลคำสั่งเสียงของ WK Health ภาษาไทย ตอบ JSON เท่านั้น\nรูปแบบ: {"intent":"exercise","activity":"...","duration_min":20,"mets":3.5} หรือ {"intent":"start_gps"} หรือ {"intent":"stop_gps"} หรือ {"intent":"none"}. ถ้าเป็นกิจกรรมออกกำลังกายให้ประเมิน METs ตามความหนักที่พูดถึงและแปลงเวลาเป็นนาที`;
+  const r = await fetch(DEEPSEEK_ENDPOINT,{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({messages:[{role:"system",content:system},{role:"user",content:normalizeThai(text)}]})});
+  if (!r.ok) throw new Error("voice classifier unavailable");
+  const d = await r.json();
+  const raw = String(d?.content ?? d?.choices?.[0]?.message?.content ?? "").replace(/```json|```/g,"").trim();
+  return JSON.parse(raw);
+}
+
+function musicCommand(text: string): "play"|"pause"|"next"|"prev"|"stop"|null {
+  const t = text.toLowerCase();
+  if (/(เพลงถัดไป|เพลงต่อไป|เพลงหน้า|next)/.test(t)) return "next";
+  if (/(เพลงก่อน|ย้อนเพลง|previous)/.test(t)) return "prev";
+  if (/(หยุดเพลง|ปิดเพลง|stop music)/.test(t)) return "stop";
+  if (/(พักเพลง|หยุดชั่วคราว|pause)/.test(t)) return "pause";
+  if (/(เปิดเพลง|เล่นเพลง|เพลงต่อ|play music)/.test(t)) return "play";
+  return null;
+}
+function routeCommand(text: string): string | null {
+  if (/(เปิด|ไป|เข้า).*(เพลง|เพลย์ลิสต์)/.test(text)) return "/music";
+  if (/(เปิด|ไป|เข้า).*(ไดอารี|ไดอารี่)/.test(text)) return "/diary";
+  if (/(เปิด|ไป|เข้า).*(สถิติ|สรุปวันนี้)/.test(text)) return "/stats";
+  if (/(เปิด|ไป|เข้า).*(สแกน|กล้องอาหาร)/.test(text)) return "/scan";
+  if (/(เปิด|ไป|เข้า).*(บาร์โค้ด)/.test(text)) return "/barcode";
+  if (/(เปิด|ไป|เข้า).*(ผู้ช่วย|แชท)/.test(text)) return "/assistant";
+  if (/(เปิด|ไป|เข้า).*(นับก้าว|pedometer)/i.test(text)) return "/pedometer";
   return null;
 }
 
-async function callDeepSeek(text: string): Promise<
-  | { intent: "exercise"; activity: string; duration_min: number; mets: number }
-  | { intent: "start_gps" | "stop_gps" | "none" }
-> {
-  const systemPrompt = `คุณคือระบบตีความคำสั่งเสียงสำหรับแอพสุขภาพภาษาไทย
-ให้ตีความข้อความผู้ใช้เป็น 1 ใน 3 อย่างเท่านั้น แล้วตอบกลับเป็น JSON เท่านั้น ห้ามมีข้อความอื่นปน:
-1. {"intent":"exercise","activity":"<ชื่อกิจกรรม>","duration_min":<ตัวเลขนาที>,"mets":<ค่า METs ตาม Compendium of Physical Activities>}
-2. {"intent":"start_gps"} หรือ {"intent":"stop_gps"}
-3. {"intent":"none"}
-
-กติกา:
-- แปลงหน่วยเวลาทุกแบบ (วินาที/นาที/ชั่วโมง) เป็น duration_min เสมอ
-- ถ้าฟังดูน่าจะเป็นกิจกรรมออกกำลังกาย ให้เดาแบบมีเหตุผล ดีกว่าตอบ none
-- ประเมิน mets ตาม Compendium of Physical Activities ให้สมเหตุสมผลกับกิจกรรมและความหนักที่พูดถึง`;
-
-  const res = await fetch(DEEPSEEK_ENDPOINT, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({
-      messages: [
-        { role: "system", content: systemPrompt },
-        { role: "user", content: thaiWordsToDigits(text) },
-      ],
-    }),
-  });
-
-  if (!res.ok) throw new Error(`DeepSeek proxy error: ${res.status}`);
-  const data = await res.json();
-  const raw: string = data?.content ?? data?.choices?.[0]?.message?.content ?? "";
-  const cleaned = raw.replace(/```json|```/g, "").trim();
-  const parsed = JSON.parse(cleaned);
-  return parsed;
-}
-
-// ---------- component ----------
-
-function Waveform({ active }: { active: boolean }) {
-  const [bars, setBars] = useState<number[]>(() => Array(28).fill(0.18));
-
-  useEffect(() => {
-    if (!active) {
-      setBars(Array(28).fill(0.14));
-      return;
-    }
-    const id = setInterval(() => {
-      setBars(
-        Array.from({ length: 28 }, (_, i) => {
-          const center = 1 - Math.abs(i - 13.5) / 16;
-          return 0.14 + Math.random() * 0.86 * center;
-        }),
-      );
-    }, 120);
-    return () => clearInterval(id);
-  }, [active]);
-
-  return (
-    <div className="vc-waveform" aria-hidden="true">
-      {bars.map((h, i) => (
-        <span
-          key={i}
-          className="vc-waveform-bar"
-          style={{ height: `${Math.round(h * 100)}%`, opacity: active ? 0.95 : 0.3 }}
-        />
-      ))}
-    </div>
-  );
-}
-
-const BAR_HEIGHT: Record<Status, number> = {
-  idle: 60,
-  listening: 244,
-  processing: 172,
-  success: 196,
-  error: 96,
-};
-
-export function VoiceControl({
-  profileName,
-  bodyWeightKg,
-  onExercise,
-  onStartGps,
-  onStopGps,
-  onOpenProfileModal,
-}: VoiceControlProps) {
-  const [status, setStatus] = useState<Status>("idle");
-  const [words, setWords] = useState<string[]>([]);
-  const [errorMsg, setErrorMsg] = useState("ไม่ได้ยินเสียง ลองพูดอีกครั้ง");
-  const [result, setResult] = useState<ExerciseResult | null>(null);
-
+export function VoiceControl({ profileName, bodyWeightKg, onExercise, onStartGps, onStopGps, onOpenProfileModal }: VoiceControlProps) {
+  const navigate = useNavigate();
+  const [status,setStatus] = useState<Status>("idle");
+  const [text,setText] = useState("");
+  const [reply,setReply] = useState("");
+  const [tts,setTts] = useState(() => typeof window === "undefined" ? true : localStorage.getItem(TTS_KEY) !== "0");
   const recognitionRef = useRef<any>(null);
-  const bufferRef = useRef<string[]>([]);
-  const alternativesRef = useRef<string[]>([]);
-  const bufferTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const silenceCountRef = useRef(0);
-  const idleTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  const clearIdleTimer = useCallback(() => {
-    if (idleTimerRef.current) clearTimeout(idleTimerRef.current);
-    idleTimerRef.current = null;
-  }, []);
+  const say = useCallback((message:string) => { setReply(message); speak(message,tts); },[tts]);
 
-  const scheduleIdle = useCallback((ms: number) => {
-    clearIdleTimer();
-    idleTimerRef.current = setTimeout(() => {
-      setStatus("idle");
-      setWords([]);
-      setResult(null);
-    }, ms);
-  }, [clearIdleTimer]);
+  useEffect(() => () => { recognitionRef.current?.stop?.(); },[]);
 
-  const raiseError = useCallback((msg: string) => {
-    setErrorMsg(msg);
-    setStatus("error");
-    scheduleIdle(3000);
-  }, [scheduleIdle]);
-
-  const processTranscript = useCallback(
-    async (fullText: string, allAlternatives: string[]) => {
-      setStatus("processing");
-
-      // 1. เช็ค GPS keyword ก่อน AI เสมอ
-      const gps = matchGpsKeyword(fullText);
-      if (gps === "start") {
-        onStartGps();
-        setStatus("success");
-        setResult(null);
-        scheduleIdle(2500);
-        return;
-      }
-      if (gps === "stop") {
-        onStopGps();
-        setStatus("success");
-        setResult(null);
-        scheduleIdle(2500);
-        return;
-      }
-
-      // 2. ยิง DeepSeek
-      try {
-        const parsed = await callDeepSeek(fullText);
-        if (parsed.intent === "start_gps") {
-          onStartGps();
-          setStatus("success");
-          scheduleIdle(2500);
-          return;
-        }
-        if (parsed.intent === "stop_gps") {
-          onStopGps();
-          setStatus("success");
-          scheduleIdle(2500);
-          return;
-        }
-        if (parsed.intent === "exercise") {
-          const kcal = Math.round(parsed.mets * bodyWeightKg * (parsed.duration_min / 60));
-          const finalResult: ExerciseResult = {
-            activity: parsed.activity,
-            duration_min: parsed.duration_min,
-            mets: parsed.mets,
-            kcal,
-          };
-          onExercise(finalResult);
-          setResult(finalResult);
-          setStatus("success");
-          scheduleIdle(4000);
-          return;
-        }
-        // intent === "none" -> fallback local match ต่อ
-        throw new Error("none");
-      } catch {
-        // 3. Fallback: จับคำในเครื่อง ไล่เช็คทุก alternative
-        const local = localActivityMatchAnyAlt(allAlternatives.length ? allAlternatives : [fullText]);
-        const duration = extractDurationMin(fullText) ?? 20;
-        if (local) {
-          const kcal = Math.round(local.mets * bodyWeightKg * (duration / 60));
-          const finalResult: ExerciseResult = {
-            activity: local.activity,
-            duration_min: duration,
-            mets: local.mets,
-            kcal,
-          };
-          onExercise(finalResult);
-          setResult(finalResult);
-          setStatus("success");
-          scheduleIdle(4000);
-        } else {
-          raiseError("ไม่เข้าใจคำสั่ง ลองพูดใหม่อีกครั้ง");
-        }
-      }
-    },
-    [bodyWeightKg, onExercise, onStartGps, onStopGps, raiseError, scheduleIdle],
-  );
-
-  const flushBuffer = useCallback(() => {
-    const fullText = bufferRef.current.join(" ").trim();
-    const alts = [...alternativesRef.current];
-    bufferRef.current = [];
-    alternativesRef.current = [];
-    if (fullText) {
-      void processTranscript(fullText, alts);
-    } else {
-      setStatus("idle");
-    }
-  }, [processTranscript]);
-
-  const setupRecognition = useCallback(() => {
-    const SpeechRecognition =
-      (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
-    if (!SpeechRecognition) {
-      raiseError("เบราว์เซอร์นี้ไม่รองรับการสั่งงานด้วยเสียง");
-      return null;
-    }
-    const recognition = new SpeechRecognition();
-    recognition.lang = "th-TH";
-    recognition.continuous = true;
-    recognition.interimResults = true;
-
-    recognition.onresult = (event: any) => {
-      let interim = "";
-      for (let i = event.resultIndex; i < event.results.length; i++) {
-        const res = event.results[i];
-        const transcript = res[0].transcript;
-        if (res.isFinal) {
-          silenceCountRef.current = 0;
-          bufferRef.current.push(transcript);
-          for (let a = 0; a < Math.min(res.length, 3); a++) {
-            alternativesRef.current.push(res[a].transcript);
-          }
-          setWords((prev) => [...prev, ...transcript.trim().split(/\s+/)]);
-
-          if (bufferTimerRef.current) clearTimeout(bufferTimerRef.current);
-          bufferTimerRef.current = setTimeout(() => {
-            recognition.stop();
-            flushBuffer();
-          }, 3000);
-        } else {
-          interim = transcript;
-        }
-      }
-      if (interim) {
-        setWords((prev) => {
-          const base = prev.filter((_, i) => i < prev.length); // no-op keeps type happy
-          return base;
-        });
-      }
-    };
-
-    recognition.onerror = (event: any) => {
-      if (event.error === "not-allowed" || event.error === "permission-denied") {
-        raiseError("ไม่มีสิทธิ์เข้าถึงไมโครโฟน");
-      } else if (event.error === "no-speech") {
-        silenceCountRef.current += 1;
-        if (silenceCountRef.current >= 4) {
-          raiseError("ไม่ได้ยินเสียงเลย ลองใหม่อีกครั้ง");
-          silenceCountRef.current = 0;
-        }
-      } else if (event.error === "audio-capture") {
-        raiseError("ไม่พบไมโครโฟนในอุปกรณ์นี้");
-      } else if (event.error === "network") {
-        raiseError("การเชื่อมต่อเครือข่ายมีปัญหา");
-      }
-    };
-
-    recognition.onend = async () => {
-      if (status !== "listening") return;
-      try {
-        const perm = await (navigator as any).permissions?.query?.({ name: "microphone" as any });
-        if (!perm || perm.state === "granted") {
-          recognition.start();
-        }
-      } catch {
-        recognition.start();
-      }
-    };
-
-    return recognition;
-  }, [flushBuffer, raiseError, status]);
-
-  const startListening = useCallback(() => {
-    if (!profileName) {
-      onOpenProfileModal();
+  const execute = useCallback(async (raw:string) => {
+    const value = raw.trim(); if (!value) return;
+    setText(value); setStatus("processing");
+    const music = musicCommand(value);
+    if (music) {
+      window.dispatchEvent(new CustomEvent("wk:music",{detail:{action:music}}));
+      setStatus("success");
+      say(music === "next" ? "เปลี่ยนเป็นเพลงถัดไปแล้วครับ" : music === "prev" ? "ย้อนกลับเพลงก่อนหน้าแล้วครับ" : music === "stop" ? "ปิดเพลงแล้วครับ" : music === "pause" ? "พักเพลงแล้วครับ" : "เปิดเพลงให้แล้วครับ");
       return;
     }
-    setWords([]);
-    setResult(null);
-    setStatus("listening");
-    const recognition = setupRecognition();
-    if (!recognition) return;
-    recognitionRef.current = recognition;
-    try {
-      recognition.start();
-    } catch {
-      raiseError("ไม่สามารถเริ่มไมโครโฟนได้");
+    const route = routeCommand(value);
+    if (route) {
+      await navigate({to:route as any});
+      setStatus("success");
+      say(route === "/music" ? "เปิดเพลย์ลิสต์ให้แล้วครับ" : route === "/pedometer" ? "เปิดระบบนับก้าวให้แล้วครับ" : "เปิดหน้าให้แล้วครับ");
+      return;
     }
-  }, [onOpenProfileModal, profileName, raiseError, setupRecognition]);
+    if (/(ตั้งโปรไฟล์|แก้โปรไฟล์|ข้อมูลส่วนตัว)/.test(value)) { onOpenProfileModal(); setStatus("success"); say("เปิดการตั้งค่าโปรไฟล์ให้แล้วครับ"); return; }
+    const gpsStart = /(เริ่มเดิน|เริ่มวิ่ง|เริ่มปั่น|เริ่มบันทึกเส้นทาง|เริ่มออกกำลังกาย)/.test(value);
+    const gpsStop = /(หยุดเดิน|หยุดวิ่ง|หยุดปั่น|หยุดบันทึกเส้นทาง|หยุดออกกำลังกาย)/.test(value);
+    if (gpsStart) { onStartGps(); setStatus("success"); say("เริ่มติดตาม GPS แล้วครับ"); return; }
+    if (gpsStop) { onStopGps(); setStatus("success"); say("หยุดและบันทึกเส้นทางแล้วครับ"); return; }
 
-  const stopListening = useCallback(() => {
-    clearIdleTimer();
-    if (bufferTimerRef.current) clearTimeout(bufferTimerRef.current);
+    try {
+      const parsed = await classifyExercise(value);
+      if (parsed.intent === "start_gps") { onStartGps(); setStatus("success"); say("เริ่มติดตาม GPS แล้วครับ"); return; }
+      if (parsed.intent === "stop_gps") { onStopGps(); setStatus("success"); say("หยุดและบันทึกเส้นทางแล้วครับ"); return; }
+      if (parsed.intent === "exercise") {
+        const mins = Number(parsed.duration_min) || durationMin(value) || 20;
+        const mets = Math.max(0.5,Number(parsed.mets)||3.5);
+        const result = { activity:String(parsed.activity||"ออกกำลังกาย"), duration_min:mins, mets, kcal:Math.round(mets*bodyWeightKg*(mins/60)) };
+        onExercise(result); setStatus("success"); say(`คำนวณให้แล้วครับ ${result.activity} ${Math.round(mins)} นาที ประมาณ ${result.kcal} กิโลแคลอรี`); return;
+      }
+    } catch { /* local fallback / normal chat below */ }
+
+    const local = localExercise(normalizeThai(value));
+    if (local) {
+      const mins = durationMin(value) || 20;
+      const kcal = Math.round(local.mets*bodyWeightKg*(mins/60));
+      onExercise({activity:local.activity,duration_min:mins,mets:local.mets,kcal});
+      setStatus("success"); say(`บันทึกกิจกรรม ${local.activity} ${Math.round(mins)} นาที ประมาณ ${kcal} กิโลแคลอรีแล้วครับ`); return;
+    }
+
+    try {
+      const answer = await apiAssistantChat(value);
+      setStatus("success"); say(answer.text || "รับทราบครับ");
+    } catch {
+      setStatus("error"); say("ตอนนี้ผมเชื่อมต่อผู้ช่วย AI ไม่ได้ ลองใหม่อีกครั้งครับ");
+    }
+  },[bodyWeightKg,navigate,onExercise,onOpenProfileModal,onStartGps,onStopGps,say]);
+
+  const startListening = () => {
+    const SR = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
+    if (!SR) { setStatus("error"); say("เบราว์เซอร์นี้ไม่รองรับการรับเสียงครับ"); return; }
     recognitionRef.current?.stop?.();
-    flushBuffer();
-  }, [clearIdleTimer, flushBuffer]);
-
-  useEffect(() => {
-    return () => {
-      recognitionRef.current?.stop?.();
-      if (bufferTimerRef.current) clearTimeout(bufferTimerRef.current);
-      clearIdleTimer();
+    const r = new SR();
+    r.lang = "th-TH"; r.continuous = false; r.interimResults = true;
+    r.onstart = () => { setStatus("listening"); setText(""); setReply(""); };
+    r.onresult = (e:any) => {
+      let finalText="", interim="";
+      for(let i=e.resultIndex;i<e.results.length;i++){ const s=e.results[i][0].transcript; if(e.results[i].isFinal) finalText += s; else interim += s; }
+      setText(finalText||interim);
+      if(finalText) void execute(finalText);
     };
-  }, [clearIdleTimer]);
+    r.onerror = () => { setStatus("error"); say("ไม่ได้ยินเสียงครับ ลองกดไมค์แล้วพูดใหม่อีกครั้ง"); };
+    r.onend = () => { if(status === "listening") setStatus("idle"); };
+    recognitionRef.current = r;
+    try { r.start(); } catch { setStatus("error"); }
+  };
 
-  const listening = status === "listening";
-  const expanded = status !== "idle";
+  const toggleTts = () => { const next=!tts; setTts(next); localStorage.setItem(TTS_KEY,next?"1":"0"); if(!next) window.speechSynthesis?.cancel(); };
 
   return (
     <div className="vc-fixed-wrap">
-      <div
-        className="vc-bar glass"
-        style={{ height: BAR_HEIGHT[status] }}
-      >
+      <div className="vc-bar glass" style={{height: status === "idle" ? 60 : 172}}>
         <div className="vc-row">
-          <button
-            type="button"
-            onClick={() => (expanded ? stopListening() : startListening())}
-            aria-label={expanded ? "ปิดแถบเสียง" : "แตะเพื่อสั่งงานด้วยเสียง"}
-            className={`vc-mic-btn ${listening ? "vc-breathe" : ""}`}
-          >
-            {listening &&
-              [0, 0.8].map((d) => (
-                <span key={d} className="vc-ripple" style={{ animationDelay: `${d}s` }} />
-              ))}
-            {status === "processing" ? (
-              <Loader2 className="vc-icon vc-spin" />
-            ) : status === "success" ? (
-              <Check className="vc-icon vc-pop" />
-            ) : status === "error" ? (
-              <AlertTriangle className="vc-icon" />
-            ) : (
-              <Mic className="vc-icon" />
-            )}
+          <button className={`vc-mic-btn ${status === "listening" ? "vc-breathe" : ""}`} onClick={startListening} aria-label="เปิดไมค์สั่งงานด้วยเสียง">
+            {status === "processing" ? <Loader2 className="vc-icon vc-spin"/> : <Mic className="vc-icon"/>}
+            {status === "listening" && <span className="vc-ripple"/>}
           </button>
-
           <div className="vc-status-text">
-            <p className={status === "error" ? "vc-error-text" : ""}>
-              {status === "idle" && "แตะเพื่อสั่งงานด้วยเสียง"}
-              {status === "listening" && "กำลังฟัง…"}
-              {status === "processing" && "กำลังวิเคราะห์"}
-              {status === "success" && "บันทึกสำเร็จ"}
-              {status === "error" && errorMsg}
-            </p>
-            {expanded && status !== "error" && <p className="vc-subtext">voice engine</p>}
+            <p>{status === "listening" ? "กำลังฟังภาษาไทย…" : status === "processing" ? "กำลังประมวลผล…" : status === "error" ? "เกิดข้อผิดพลาด" : reply || "กดไมค์แล้วพูดได้เลย"}</p>
+            <p className="vc-subtext">{profileName ? `WK • ${profileName}` : "WK HEALTH • VOICE"}</p>
           </div>
-
-          <span className={`vc-dot vc-dot-${status}`} />
+          <button onClick={toggleTts} className="press grid size-9 place-items-center rounded-xl" aria-label={tts ? "ปิดเสียงตอบกลับ" : "เปิดเสียงตอบกลับ"}>{tts ? <Volume2 className="size-4"/> : <VolumeX className="size-4"/>}</button>
         </div>
-
-        <div className="vc-body">
-          {status === "listening" && (
-            <div className="vc-rise-in">
-              <Waveform active />
-              <div className="vc-transcript-box">
-                <p>
-                  {words.length === 0 ? (
-                    <span className="vc-placeholder">รอรับเสียงของคุณ…</span>
-                  ) : (
-                    words.map((w, i) => (
-                      <span key={`${w}-${i}`} className="vc-word">
-                        {w}
-                      </span>
-                    ))
-                  )}
-                  <span className="vc-caret" />
-                </p>
-              </div>
-              <div className="vc-stop-wrap">
-                <button
-                  onClick={stopListening}
-                  aria-label="หยุดฟัง"
-                  className="vc-stop-btn"
-                >
-                  <span className="vc-ripple" />
-                  <Mic className="vc-icon-lg" />
-                </button>
-              </div>
-            </div>
-          )}
-
-          {status === "success" && result && (
-            <div className="vc-rise-in vc-result-card">
-              <div className="vc-result-head">
-                <div className="vc-result-icon">
-                  <Footprints className="vc-icon" />
-                </div>
-                <div>
-                  <p className="vc-result-label">บันทึกกิจกรรม</p>
-                  <p className="vc-result-title">{result.activity}</p>
-                </div>
-              </div>
-              <div className="vc-result-grid">
-                <div className="glass vc-result-stat">
-                  <Timer className="vc-icon-sm vc-aqua" />
-                  <span>{result.duration_min} นาที</span>
-                </div>
-                <div className="glass vc-result-stat">
-                  <Flame className="vc-icon-sm vc-mint" />
-                  <span>{result.kcal} kcal</span>
-                </div>
-              </div>
-            </div>
-          )}
-
-          {status === "processing" && (
-            <div className="vc-rise-in vc-processing">
-              <Loader2 className="vc-icon-lg vc-spin vc-aqua" />
-              <p>กำลังวิเคราะห์คำสั่งของคุณ</p>
-              <span className="vc-dots">
-                {[0, 0.15, 0.3].map((d) => (
-                  <span key={d} style={{ animationDelay: `${d}s` }} />
-                ))}
-              </span>
-            </div>
-          )}
-
-          {status === "error" && (
-            <div className="vc-rise-in vc-error-box">
-              <p>ตรวจสอบไมโครโฟนแล้วลองใหม่อีกครั้ง</p>
-            </div>
-          )}
-        </div>
+        {status !== "idle" && <div className="vc-body vc-rise-in">
+          {status === "listening" && <div><div className="vc-waveform"><span className="vc-waveform-bar" style={{height:"55%"}}/><span className="vc-waveform-bar" style={{height:"90%"}}/><span className="vc-waveform-bar" style={{height:"45%"}}/><span className="vc-waveform-bar" style={{height:"75%"}}/><span className="vc-waveform-bar" style={{height:"60%"}}/></div><div className="vc-transcript-box"><p>{text || "พูดคำสั่ง เช่น ‘เริ่มเดิน’, ‘เปิดเพลง’, ‘วันนี้กินไปเท่าไร’"}<span className="vc-caret"/></p></div></div>}
+          {status === "processing" && <div className="vc-processing"><Loader2 className="vc-icon-lg vc-spin vc-mint"/><p>กำลังเข้าใจคำสั่งและตอบกลับ…</p></div>}
+          {status === "success" && <div className="vc-result-card"><div className="vc-result-head"><div className="vc-result-icon"><Check className="vc-icon"/></div><div><p className="vc-result-label">สำเร็จ</p><p className="vc-result-title">{reply || "ดำเนินการเรียบร้อยแล้ว"}</p></div></div></div>}
+          {status === "error" && <div className="vc-error-box"><p>{reply || "ลองกดไมค์ใหม่อีกครั้งครับ"}</p></div>}
+        </div>}
       </div>
     </div>
   );
 }
-
-export default VoiceControl;
