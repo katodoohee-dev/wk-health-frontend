@@ -7,7 +7,7 @@ import { MusicProvider } from "@/lib/music";
 import { MiniPlayer } from "@/components/app/mini-player";
 import { apiMe } from "@/lib/api";
 import { VoiceControlAdvanced as VoiceControl } from "@/components/VoiceControlAdvanced";
-import { NavigationOverlay } from "@/components/NavigationOverlay";
+import { NavigationOverlayLoader } from "@/components/NavigationOverlayLoader";
 import "@/components/voice-control.css";
 import { gpsBridge } from "@/lib/gps-bridge";
 
@@ -68,7 +68,7 @@ export function AppShell({ children }: { children: ReactNode }) {
               onStopGps={async () => { await gpsBridge.stop(); }}
               onOpenProfileModal={() => void navigate({ to: "/profile" })}
             />
-            <NavigationOverlay />
+            <NavigationOverlayLoader />
           </>
         )}
 
