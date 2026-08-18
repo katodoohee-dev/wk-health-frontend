@@ -16,8 +16,12 @@ export type AppCommand =
   | { type: "NONE" };
 
 type Listener = (command: AppCommand) => void | Promise<void>;
-
 const listeners = new Set<Listener>();
+
+function reportCommandError(command: AppCommand, error: unknown) {
+  if (typeof window === "undefined") return;
+  window.dispatchEvent(new CustomEvent("wk:command-error", { detail: { command, error } }));
+}
 
 export const appCommandBus = {
   subscribe(listener: Listener) {
@@ -26,69 +30,42 @@ export const appCommandBus = {
   },
   async dispatch(command: AppCommand) {
     for (const listener of Array.from(listeners)) {
-      await listener(command);
+      try {
+        await listener(command);
+      } catch (error) {
+        // A failing optional subsystem must never abort other commands or the voice loop.
+        reportCommandError(command, error);
+      }
     }
   },
 };
 
 // Compatibility bridge: existing voice code already emits these events.
-// Keeping this translation layer lets us centralize execution without forcing a risky rewrite
-// of the speech-recognition component.
 export function startAppCommandBridge() {
+  const dispatch = (command: AppCommand) => {
+    void appCommandBus.dispatch(command);
+  };
   const handlers: Array<[string, EventListener]> = [
     ["wk:music", (event) => {
       const action = (event as CustomEvent<{ action?: string }>).detail?.action;
-      const map: Record<string, AppCommand["type"]> = {
-        play: "PLAY_MUSIC",
-        pause: "PAUSE_MUSIC",
-        stop: "STOP_MUSIC",
-        next: "NEXT_MUSIC",
-        prev: "PREVIOUS_MUSIC",
-      };
+      const map: Record<string, AppCommand["type"]> = { play: "PLAY_MUSIC", pause: "PAUSE_MUSIC", stop: "STOP_MUSIC", next: "NEXT_MUSIC", prev: "PREVIOUS_MUSIC" };
       const type = action ? map[action] : undefined;
-      if (type) void appCommandBus.dispatch({ type } as AppCommand);
+      if (type) dispatch({ type } as AppCommand);
     }],
     ["wk:navigate-to", (event) => {
       const d = (event as CustomEvent<{ destination?: string; milestoneKm?: number; announceTurns?: boolean }>).detail;
-      if (!d?.destination) return;
-      void appCommandBus.dispatch({
-        type: "NAVIGATE_TO",
-        destination: d.destination,
-        milestoneKm: d.milestoneKm,
-        announceTurns: d.announceTurns,
-      });
+      if (d?.destination) dispatch({ type: "NAVIGATE_TO", destination: d.destination, milestoneKm: d.milestoneKm, announceTurns: d.announceTurns });
     }],
     ["wk:navigation-milestone", (event) => {
       const milestoneKm = Number((event as CustomEvent<{ milestoneKm?: number }>).detail?.milestoneKm);
-      if (Number.isFinite(milestoneKm)) void appCommandBus.dispatch({ type: "SET_MILESTONE", milestoneKm });
+      if (Number.isFinite(milestoneKm)) dispatch({ type: "SET_MILESTONE", milestoneKm });
     }],
     ["wk:voice-action", (event) => {
       const action = (event as CustomEvent<{ action?: string }>).detail?.action;
-      const map: Record<string, AppCommand["type"]> = {
-        SHOW_STEPS: "SHOW_STEPS",
-        SHOW_CALORIES: "SHOW_CALORIES",
-        SAVE_MEAL: "SAVE_MEAL",
-        OPEN_PROFILE: "OPEN_PROFILE",
-        OPEN_MUSIC: "OPEN_ROUTE",
-        OPEN_DIARY: "OPEN_ROUTE",
-        OPEN_STATS: "OPEN_ROUTE",
-        OPEN_SCAN: "OPEN_ROUTE",
-        OPEN_BARCODE: "OPEN_ROUTE",
-        OPEN_PEDOMETER: "OPEN_ROUTE",
-        OPEN_ASSISTANT: "OPEN_ROUTE",
-      };
-      if (action === "OPEN_MUSIC") void appCommandBus.dispatch({ type: "OPEN_ROUTE", route: "/music" });
-      else if (action === "OPEN_DIARY") void appCommandBus.dispatch({ type: "OPEN_ROUTE", route: "/diary" });
-      else if (action === "OPEN_STATS") void appCommandBus.dispatch({ type: "OPEN_ROUTE", route: "/stats" });
-      else if (action === "OPEN_SCAN") void appCommandBus.dispatch({ type: "OPEN_ROUTE", route: "/scan" });
-      else if (action === "OPEN_BARCODE") void appCommandBus.dispatch({ type: "OPEN_ROUTE", route: "/barcode" });
-      else if (action === "OPEN_PEDOMETER") void appCommandBus.dispatch({ type: "OPEN_ROUTE", route: "/pedometer" });
-      else if (action === "OPEN_ASSISTANT") void appCommandBus.dispatch({ type: "OPEN_ROUTE", route: "/assistant" });
-      else if (action === "OPEN_PROFILE") void appCommandBus.dispatch({ type: "OPEN_PROFILE" });
-      else {
-        const type = action ? map[action] : undefined;
-        if (type === "SHOW_STEPS" || type === "SHOW_CALORIES" || type === "SAVE_MEAL") void appCommandBus.dispatch({ type });
-      }
+      const routes: Record<string, string> = { OPEN_MUSIC: "/music", OPEN_DIARY: "/diary", OPEN_STATS: "/stats", OPEN_SCAN: "/scan", OPEN_BARCODE: "/barcode", OPEN_PEDOMETER: "/pedometer", OPEN_ASSISTANT: "/assistant" };
+      if (action === "OPEN_PROFILE") dispatch({ type: "OPEN_PROFILE" });
+      else if (routes[action || ""]) dispatch({ type: "OPEN_ROUTE", route: routes[action!] });
+      else if (action === "SHOW_STEPS" || action === "SHOW_CALORIES" || action === "SAVE_MEAL") dispatch({ type: action });
     }],
   ];
 
