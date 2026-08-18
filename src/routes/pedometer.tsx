@@ -227,17 +227,36 @@ function bearing(a: GeoPoint, b: GeoPoint) {
   return (Math.atan2(y, x) * 180) / Math.PI + 360 % 360;
 }
 
+function angleDelta(from: number, to: number) {
+  return ((to - from + 540) % 360) - 180;
+}
+
+function smoothBearing(from: number, to: number, alpha = 0.28) {
+  return (from + angleDelta(from, to) * alpha + 360) % 360;
+}
+
 const gpsArrow = L.divIcon({
   className: "!bg-transparent !border-0",
-  iconSize: [52, 52],
-  iconAnchor: [26, 26],
-  html: `<div style="width:52px;height:52px;border-radius:50%;background:rgba(14,165,233,.18);display:grid;place-items:center"><div class="wk-gps-arrow" style="width:34px;height:34px;border-radius:50%;background:#0ea5e9;color:white;display:grid;place-items:center;box-shadow:0 2px 12px rgba(0,0,0,.25)"><span style="font-size:22px;line-height:1">▲</span></div></div>`,
+  iconSize: [58, 58],
+  iconAnchor: [29, 29],
+  html: `<div style="width:58px;height:58px;border-radius:50%;background:rgba(34,211,238,.16);display:grid;place-items:center"><div class="wk-gps-arrow" style="width:38px;height:38px;border-radius:50%;background:#22d3ee;color:#03131a;display:grid;place-items:center;box-shadow:0 3px 14px rgba(0,0,0,.45);border:2px solid rgba(255,255,255,.88)"><span style="font-size:22px;line-height:1;font-weight:900">▲</span></div></div>`,
+});
+
+const startMarker = L.divIcon({
+  className: "!bg-transparent !border-0",
+  iconSize: [22, 22],
+  iconAnchor: [11, 11],
+  html: `<div style="width:22px;height:22px;border-radius:50%;background:#22d3ee;border:3px solid rgba(255,255,255,.92);box-shadow:0 2px 10px rgba(0,0,0,.5)"></div>`,
 });
 
 function FollowPosition({ position, heading }: { position: GpsPoint; heading: number }) {
   const map = useMap();
   useEffect(() => {
-    map.panTo([position.lat, position.lng], { animate: true, duration: 0.5 });
+    const current = map.getCenter();
+    const moved = distanceM({ lat: current.lat, lng: current.lng }, position);
+    if (moved > 3) {
+      map.panTo([position.lat, position.lng], { animate: true, duration: 0.35 });
+    }
     const el = document.querySelector<HTMLElement>(".wk-gps-arrow");
     if (el) el.style.transform = `rotate(${heading}deg)`;
   }, [map, position.lat, position.lng, heading]);
@@ -245,12 +264,19 @@ function FollowPosition({ position, heading }: { position: GpsPoint; heading: nu
 }
 
 function RouteMap({ points }: { points: GpsPoint[] }) {
-  if (!points.length) return <div className="grid h-72 place-items-center rounded-3xl bg-muted/60 text-sm text-muted-foreground">กำลังรอสัญญาณ GPS…</div>;
+  if (!points.length) return <div className="grid h-72 place-items-center rounded-3xl bg-[#07151b] text-sm text-slate-400">กำลังรอสัญญาณ GPS…</div>;
   const last = points[points.length - 1];
-  return <div className="overflow-hidden rounded-3xl" style={{ height: 360 }}>
-    <MapContainer center={[last.lat, last.lng]} zoom={17} scrollWheelZoom className="h-full w-full">
-      <TileLayer attribution='&copy; OpenStreetMap contributors' url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png" />
-      <Polyline positions={points.map((p) => [p.lat, p.lng] as [number, number])} pathOptions={{ color: "#0ea5e9", weight: 6 }} />
+  const first = points[0];
+  const positions = points.map((p) => [p.lat, p.lng] as [number, number]);
+  return <div className="overflow-hidden rounded-3xl border border-white/10 bg-[#07151b] shadow-[0_20px_60px_rgba(0,0,0,.45)]" style={{ height: 380 }}>
+    <MapContainer center={[last.lat, last.lng]} zoom={17} scrollWheelZoom className="h-full w-full" zoomControl>
+      <TileLayer
+        attribution='&copy; OpenStreetMap contributors &copy; CARTO'
+        url="https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png"
+      />
+      <Polyline positions={positions} pathOptions={{ color: "rgba(2,8,12,.85)", weight: 11, opacity: 0.95, lineCap: "round", lineJoin: "round" }} />
+      <Polyline positions={positions} pathOptions={{ color: "#22d3ee", weight: 5, opacity: 0.98, lineCap: "round", lineJoin: "round", className: "wk-route-line" }} />
+      <Marker position={[first.lat, first.lng]} icon={startMarker} />
       <Marker position={[last.lat, last.lng]} icon={gpsArrow} />
       <FollowPosition position={last} heading={last.heading} />
     </MapContainer>
@@ -301,27 +327,43 @@ function GpsTracker() {
       headingRef.current = 0;
       watchRef.current = navigator.geolocation.watchPosition((pos) => {
         const accuracy = pos.coords.accuracy ?? 999;
-        if (accuracy > 40) return;
+        if (!Number.isFinite(accuracy) || accuracy > 50) return;
         const nextBase = { lat: pos.coords.latitude, lng: pos.coords.longitude };
         const previous = lastRef.current;
         if (previous) {
           const d = distanceM(previous, nextBase);
           const dt = Math.max(0.25, (pos.timestamp - previous.timestamp) / 1000);
-          if (d < 3) return;
-          const gpsSpeed = pos.coords.speed != null && pos.coords.speed >= 0 ? pos.coords.speed : d / dt;
-          if (d / dt > 35) return;
-          if (d > 80 && dt < 5) return;
-          if (d > 1) headingRef.current = bearing(previous, nextBase);
-          const point: GpsPoint = { ...nextBase, timestamp: pos.timestamp, accuracy, speed: gpsSpeed, heading: headingRef.current };
+          if (d < Math.max(2.5, Math.min(6, accuracy * 0.08))) return;
+          const impliedSpeed = d / dt;
+          const gpsSpeed = pos.coords.speed != null && Number.isFinite(pos.coords.speed) && pos.coords.speed >= 0 ? pos.coords.speed : impliedSpeed;
+          const accuracyJumpLimit = Math.max(45, previous.accuracy + accuracy * 1.5);
+          if (d > accuracyJumpLimit && impliedSpeed > 11) return;
+          if (impliedSpeed > 14) return;
+          const rawHeading = d > 3 ? bearing(previous, nextBase) : (pos.coords.heading != null && pos.coords.heading >= 0 ? pos.coords.heading : headingRef.current);
+          if (d > 3 && impliedSpeed > 0.8) headingRef.current = smoothBearing(headingRef.current, rawHeading, 0.32);
+          const point: GpsPoint = {
+            ...nextBase,
+            timestamp: pos.timestamp,
+            accuracy,
+            speed: Math.min(gpsSpeed, 14),
+            heading: headingRef.current,
+          };
           lastRef.current = point;
           setPoints((current) => [...current, point]);
         } else {
-          const point: GpsPoint = { ...nextBase, timestamp: pos.timestamp, accuracy, speed: Math.max(0, pos.coords.speed ?? 0), heading: pos.coords.heading != null && pos.coords.heading >= 0 ? pos.coords.heading : 0 };
-          headingRef.current = point.heading;
+          const initialHeading = pos.coords.heading != null && pos.coords.heading >= 0 ? pos.coords.heading : 0;
+          const point: GpsPoint = {
+            ...nextBase,
+            timestamp: pos.timestamp,
+            accuracy,
+            speed: Math.max(0, pos.coords.speed ?? 0),
+            heading: initialHeading,
+          };
+          headingRef.current = initialHeading;
           lastRef.current = point;
           setPoints([point]);
         }
-      }, (err) => setError(err.code === err.PERMISSION_DENIED ? "กรุณาอนุญาต GPS" : "ไม่สามารถอ่านตำแหน่ง GPS ได้"), { enableHighAccuracy: true, maximumAge: 500, timeout: 15000 });
+      }, (err) => setError(err.code === err.PERMISSION_DENIED ? "กรุณาอนุญาต GPS" : "ไม่สามารถอ่านตำแหน่ง GPS ได้"), { enableHighAccuracy: true, maximumAge: 0, timeout: 15000 });
     } catch (e) {
       setError(e instanceof Error ? e.message : "เริ่มติดตาม GPS ไม่สำเร็จ");
     } finally {
