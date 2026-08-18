@@ -194,3 +194,26 @@
   50% { transform: translate3d(0, -18px, 0) scale(1.05); }
 }
 @utility float-slow { animation: float-slow 9s ease-in-out infinite; }
+
+/* WK Health map theme: dark, high-contrast, and consistent with the original black map UI. */
+.leaflet-container {
+  background: #090e12;
+  color-scheme: dark;
+}
+.leaflet-tile {
+  filter: brightness(0.48) contrast(1.18) saturate(0.72);
+}
+.leaflet-control-zoom,
+.leaflet-control-attribution {
+  background: rgba(10, 15, 18, 0.86) !important;
+  color: rgba(255, 255, 255, 0.82) !important;
+  border: 1px solid rgba(255, 255, 255, 0.1) !important;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.35) !important;
+  backdrop-filter: blur(10px);
+}
+.leaflet-control-zoom a {
+  background: rgba(15, 22, 26, 0.96) !important;
+  color: #e8f4f1 !important;
+  border-color: rgba(255, 255, 255, 0.08) !important;
+}
+.leaflet-control-attribution a { color: #9ee9d3 !important; }
