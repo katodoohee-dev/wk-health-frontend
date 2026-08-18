@@ -2,6 +2,8 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { Check, Loader2, Mic, Volume2, VolumeX, X } from "lucide-react";
 import { useNavigate } from "@tanstack/react-router";
 import "./voice-control.css";
+import { collectWebsiteAIContext, compactWebsiteAIContext } from "@/lib/website-ai-context";
+import { speakThaiV2, stopVoiceOutputV2 } from "@/lib/voice-output-v2";
 
 type Status = "idle" | "listening" | "processing" | "success" | "error";
 type ExerciseResult = { activity: string; duration_min: number; mets: number; kcal: number };
@@ -68,16 +70,23 @@ NAVIGATE_TO,SET_MILESTONE,EXERCISE,SHOW_CALORIES,SHOW_STEPS,SAVE_MEAL,NONE.`;
 }
 
 async function askThaiAssistant(text: string) {
-  const res = await fetch(DEEPSEEK_ENDPOINT, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ messages: [{ role: "system", content: "คุณคือผู้ช่วย WK Health สื่อสารภาษาไทยอย่างเป็นธรรมชาติและกระชับเท่านั้น ห้ามตอบอังกฤษ และห้ามอ้างว่าทำสิ่งใดสำเร็จหากยังไม่ได้ทำจริง" }, { role: "user", content: text }] }) });
+  const context = await collectWebsiteAIContext();
+  const contextText = compactWebsiteAIContext(context);
+  const system = `คุณคือผู้ช่วย WK Health ภาษาไทยแบบเรียลไทม์
+ตอบเป็นภาษาไทยเท่านั้น เป็นธรรมชาติและกระชับ
+LIVE WK HEALTH CONTEXT เป็นข้อมูลล่าสุดจากระบบของผู้ใช้และเป็นแหล่งข้อมูลหลัก
+ใช้ข้อมูลใน context ตอบเรื่องโปรไฟล์ อาหาร ไดอารี สถิติ ก้าว การออกกำลัง เส้นทาง เพลง ประวัติการคุย และข้อมูลในเว็บ
+ห้ามเดาตัวเลขหรือแต่งข้อมูลที่ไม่มีใน context
+ถ้าไม่มีข้อมูลหรือข้อมูลบางระบบโหลดไม่ได้ ให้บอกตรงๆ
+ถ้าคำถามไม่เกี่ยวกับข้อมูลในเว็บและเป็นความรู้ทั่วไป ตอบได้แต่ต้องไม่อ้างว่าเป็นข้อมูลจากบัญชีผู้ใช้
+ห้ามอ้างว่าทำสิ่งใดสำเร็จถ้ายังไม่ได้ทำจริง
+
+LIVE WK HEALTH CONTEXT:
+${contextText}`;
+  const res = await fetch(DEEPSEEK_ENDPOINT, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ messages: [{ role: "system", content: system }, { role: "user", content: text }] }) });
   if (!res.ok) throw new Error("assistant unavailable");
   const data = await res.json();
   return String(data?.content ?? data?.choices?.[0]?.message?.content ?? "รับทราบครับ").trim();
-}
-
-function thaiVoice() {
-  if (!("speechSynthesis" in window)) return null;
-  const voices = window.speechSynthesis.getVoices();
-  return voices.find(v => /^th[-_]/i.test(v.lang)) || voices.find(v => v.lang.toLowerCase().startsWith("th"));
 }
 
 export function VoiceControlAdvanced({ profileName, bodyWeightKg, onExercise, onStartGps, onStopGps, onOpenProfileModal }: Props) {
@@ -96,24 +105,16 @@ export function VoiceControlAdvanced({ profileName, bodyWeightKg, onExercise, on
   const speak = useCallback((message: string) => {
     setReply(message);
     if (!ttsRef.current || !("speechSynthesis" in window)) { speakingRef.current = false; if (voiceModeRef.current) restartRef.current = setTimeout(startRecognitionSafe, 120); return; }
-    speakingRef.current = true; stopRecognition(); window.speechSynthesis.cancel();
-    const u = new SpeechSynthesisUtterance(message); u.lang = "th-TH"; u.rate = 0.95; const v = thaiVoice(); if (v) u.voice = v;
-    u.onend = () => { speakingRef.current = false; if (voiceModeRef.current) restartRef.current = setTimeout(startRecognitionSafe, 150); };
-    u.onerror = () => { speakingRef.current = false; if (voiceModeRef.current) restartRef.current = setTimeout(startRecognitionSafe, 150); };
-    window.speechSynthesis.speak(u);
+    speakingRef.current = true; stopRecognition();
+    speakThaiV2(message, { source: "assistant", priority: 50, interrupt: true, onStart: () => { speakingRef.current = true; }, onEnd: () => { speakingRef.current = false; if (voiceModeRef.current) restartRef.current = setTimeout(startRecognitionSafe, 150); } });
   }, [stopRecognition]);
   const runActions = useCallback(async (actions: Action[], original: string) => {
     let completed = 0;
     for (const a of actions) {
-      if (a.action === "NAVIGATE_TO") {
-        await navigate({ to: "/pedometer" });
-        onStartGps();
-        window.dispatchEvent(new CustomEvent("wk:navigate-to", { detail: { destination: a.destination, milestoneKm: a.milestone_km ?? 1, announceTurns: a.announce_turns !== false } }));
-        completed++; continue;
-      }
+      if (a.action === "NAVIGATE_TO") { stopVoiceOutputV2(); await navigate({ to: "/pedometer" }); onStartGps(); window.dispatchEvent(new CustomEvent("wk:navigate-to", { detail: { destination: a.destination, milestoneKm: a.milestone_km ?? 1, announceTurns: a.announce_turns !== false } })); completed++; continue; }
       if (a.action === "SET_MILESTONE") { window.dispatchEvent(new CustomEvent("wk:navigation-milestone", { detail: { milestoneKm: Math.max(0.25, Number(a.milestone_km) || 1) } })); completed++; continue; }
-      if (a.action === "START_WALK" || a.action === "START_RUN" || a.action === "START_CYCLE" || a.action === "START_GPS") { onStartGps(); completed++; continue; }
-      if (a.action === "STOP_WALK" || a.action === "STOP_RUN" || a.action === "STOP_CYCLE" || a.action === "STOP_GPS") { onStopGps(); completed++; continue; }
+      if (a.action === "START_WALK" || a.action === "START_RUN" || a.action === "START_CYCLE" || a.action === "START_GPS") { stopVoiceOutputV2(); onStartGps(); completed++; continue; }
+      if (a.action === "STOP_WALK" || a.action === "STOP_RUN" || a.action === "STOP_CYCLE" || a.action === "STOP_GPS") { stopVoiceOutputV2(); onStopGps(); completed++; continue; }
       if (a.action === "OPEN_PROFILE") { onOpenProfileModal(); completed++; continue; }
       if (a.action === "EXERCISE") { const mins = Math.max(1, Number(a.duration_min) || durationMin(original) || 20); const mets = Math.max(0.5, Number(a.mets) || 3.5); onExercise({ activity: a.activity || "ออกกำลังกาย", duration_min: mins, mets, kcal: Math.round(mets * bodyWeightKg * mins / 60) }); completed++; continue; }
       if (["PLAY_MUSIC", "PAUSE_MUSIC", "STOP_MUSIC", "NEXT_MUSIC", "PREVIOUS_MUSIC"].includes(a.action)) { const map: Record<string,string> = { PLAY_MUSIC:"play",PAUSE_MUSIC:"pause",STOP_MUSIC:"stop",NEXT_MUSIC:"next",PREVIOUS_MUSIC:"prev" }; window.dispatchEvent(new CustomEvent("wk:music", { detail: { action: map[a.action] } })); completed++; continue; }
@@ -137,11 +138,10 @@ export function VoiceControlAdvanced({ profileName, bodyWeightKg, onExercise, on
     r.onend = () => { recognitionRef.current=null; if(voiceModeRef.current && !speakingRef.current) restartRef.current=setTimeout(startRecognitionSafe,250); };
     recognitionRef.current=r; try { r.start(); } catch { recognitionRef.current=null; restartRef.current=setTimeout(startRecognitionSafe,400); }
   }, [stopRecognition]);
-  const startMode = useCallback(() => { setVoiceMode(true); voiceModeRef.current=true; localStorage.setItem(VOICE_MODE_KEY,"1"); setReply("พร้อมฟังครับ พูดภาษาไทยได้ตามธรรมชาติเลย"); startRecognitionSafe(); }, [startRecognitionSafe]);
-  const stopMode = useCallback(() => { setVoiceMode(false); voiceModeRef.current=false; localStorage.setItem(VOICE_MODE_KEY,"0"); speakingRef.current=false; stopRecognition(); if("speechSynthesis" in window) window.speechSynthesis.cancel(); setStatus("idle"); setReply("ปิดระบบเสียงแล้วครับ"); }, [stopRecognition]);
-  const toggleTts = useCallback(() => { const next=!ttsRef.current; ttsRef.current=next; setTts(next); localStorage.setItem(TTS_KEY,next?"1":"0"); if(!next && "speechSynthesis" in window){window.speechSynthesis.cancel(); speakingRef.current=false; if(voiceModeRef.current) restartRef.current=setTimeout(startRecognitionSafe,120);} }, [startRecognitionSafe]);
-  useEffect(() => { if(!("speechSynthesis" in window)) return; window.speechSynthesis.onvoiceschanged=()=>void thaiVoice(); return ()=>{window.speechSynthesis.onvoiceschanged=null;}; }, []);
-  useEffect(() => () => { stopRecognition(); if("speechSynthesis" in window) window.speechSynthesis.cancel(); }, [stopRecognition]);
+  const startMode = useCallback(() => { stopVoiceOutputV2(); setVoiceMode(true); voiceModeRef.current=true; localStorage.setItem(VOICE_MODE_KEY,"1"); setReply("พร้อมฟังครับ พูดภาษาไทยได้ตามธรรมชาติเลย"); startRecognitionSafe(); }, [startRecognitionSafe]);
+  const stopMode = useCallback(() => { setVoiceMode(false); voiceModeRef.current=false; localStorage.setItem(VOICE_MODE_KEY,"0"); speakingRef.current=false; stopRecognition(); stopVoiceOutputV2(); setStatus("idle"); setReply("ปิดระบบเสียงแล้วครับ"); }, [stopRecognition]);
+  const toggleTts = useCallback(() => { const next=!ttsRef.current; ttsRef.current=next; setTts(next); localStorage.setItem(TTS_KEY,next?"1":"0"); if(!next){stopVoiceOutputV2(); speakingRef.current=false; if(voiceModeRef.current) restartRef.current=setTimeout(startRecognitionSafe,120);} }, [startRecognitionSafe]);
+  useEffect(() => () => { stopRecognition(); stopVoiceOutputV2(); }, [stopRecognition]);
   const expanded = voiceMode || status !== "idle";
   return <div className="vc-fixed-wrap"><div className="vc-bar glass" style={{height:expanded?172:60}}><div className="vc-row"><button type="button" className={`vc-mic-btn ${voiceMode&&status==="listening"?"vc-breathe":""}`} onClick={()=>voiceMode?stopMode():startMode()} aria-label={voiceMode?"ปิดระบบเสียง":"เปิดระบบเสียงภาษาไทย"}>{status==="processing"?<Loader2 className="vc-icon vc-spin"/>:voiceMode?<X className="vc-icon"/>:<Mic className="vc-icon"/>}{voiceMode&&status==="listening"&&<span className="vc-ripple"/>}</button><div className="vc-status-text"><p>{status==="listening"?"กำลังฟังภาษาไทย…":status==="processing"?"กำลังวิเคราะห์ความหมาย…":status==="error"?(reply||"เกิดข้อผิดพลาด"):reply||"กดไมค์เพื่อเริ่มคุยภาษาไทย"}</p><p className="vc-subtext">{voiceMode?"โหมดสนทนาเรียลไทม์ • พูดต่อได้หลัง AI ตอบ":profileName?`WK • ${profileName}`:"WK HEALTH • VOICE"}</p></div><button onClick={toggleTts} className="press grid size-9 place-items-center rounded-xl" aria-label={tts?"ปิดเสียง AI":"เปิดเสียง AI"}>{tts?<Volume2 className="size-4"/>:<VolumeX className="size-4"/>}</button></div>{expanded&&<div className="vc-body vc-rise-in">{status==="listening"&&<div><div className="vc-waveform"><span className="vc-waveform-bar" style={{height:"55%"}}/><span className="vc-waveform-bar" style={{height:"90%"}}/><span className="vc-waveform-bar" style={{height:"45%"}}/><span className="vc-waveform-bar" style={{height:"75%"}}/><span className="vc-waveform-bar" style={{height:"60%"}}/></div><div className="vc-transcript-box"><p>{text||"พูดได้ตามธรรมชาติ เช่น ‘พาไปสวน...ทุก 1 กิโล’"}<span className="vc-caret"/></p></div></div>}{status==="processing"&&<div className="vc-processing"><Loader2 className="vc-icon-lg vc-spin vc-mint"/><p>กำลังเข้าใจภาษาไทยและจัดเส้นทาง…</p></div>}{status==="success"&&<div className="vc-result-card"><div className="vc-result-head"><div className="vc-result-icon"><Check className="vc-icon"/></div><div><p className="vc-result-label">พร้อมคุยต่อ</p><p className="vc-result-title">{reply||"ดำเนินการเรียบร้อยแล้ว"}</p></div></div></div>}{status==="error"&&<div className="vc-error-box"><p>{reply||"ลองพูดใหม่อีกครั้งครับ"}</p></div>}</div>}</div></div>;
 }
