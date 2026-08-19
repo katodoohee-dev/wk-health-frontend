@@ -15,6 +15,7 @@ import { Route as AuthRouteImport } from './routes/auth'
 import { Route as BudgetRouteImport } from './routes/budget'
 import { Route as DiaryRouteImport } from './routes/diary'
 import { Route as GalleryRouteImport } from './routes/gallery'
+import { Route as InsightRouteImport } from './routes/insight'
 import { Route as MoodRouteImport } from './routes/mood'
 import { Route as MusicRouteImport } from './routes/music'
 import { Route as NlpRouteImport } from './routes/nlp'
@@ -24,76 +25,21 @@ import { Route as ScanRouteImport } from './routes/scan'
 import { Route as StatsRouteImport } from './routes/stats'
 import { Route as WorkoutRouteImport } from './routes/workout'
 
-const IndexRoute = IndexRouteImport.update({
-  id: '/',
-  path: '/',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const AssistantRoute = AssistantRouteImport.update({
-  id: '/assistant',
-  path: '/assistant',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const AuthRoute = AuthRouteImport.update({
-  id: '/auth',
-  path: '/auth',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const BudgetRoute = BudgetRouteImport.update({
-  id: '/budget',
-  path: '/budget',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const DiaryRoute = DiaryRouteImport.update({
-  id: '/diary',
-  path: '/diary',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const GalleryRoute = GalleryRouteImport.update({
-  id: '/gallery',
-  path: '/gallery',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const MoodRoute = MoodRouteImport.update({
-  id: '/mood',
-  path: '/mood',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const MusicRoute = MusicRouteImport.update({
-  id: '/music',
-  path: '/music',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const NlpRoute = NlpRouteImport.update({
-  id: '/nlp',
-  path: '/nlp',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const PedometerRoute = PedometerRouteImport.update({
-  id: '/pedometer',
-  path: '/pedometer',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const ProfileRoute = ProfileRouteImport.update({
-  id: '/profile',
-  path: '/profile',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const ScanRoute = ScanRouteImport.update({
-  id: '/scan',
-  path: '/scan',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const StatsRoute = StatsRouteImport.update({
-  id: '/stats',
-  path: '/stats',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const WorkoutRoute = WorkoutRouteImport.update({
-  id: '/workout',
-  path: '/workout',
-  getParentRoute: () => rootRouteImport,
-} as any)
+const IndexRoute = IndexRouteImport.update({ id: '/', path: '/', getParentRoute: () => rootRouteImport } as any)
+const AssistantRoute = AssistantRouteImport.update({ id: '/assistant', path: '/assistant', getParentRoute: () => rootRouteImport } as any)
+const AuthRoute = AuthRouteImport.update({ id: '/auth', path: '/auth', getParentRoute: () => rootRouteImport } as any)
+const BudgetRoute = BudgetRouteImport.update({ id: '/budget', path: '/budget', getParentRoute: () => rootRouteImport } as any)
+const DiaryRoute = DiaryRouteImport.update({ id: '/diary', path: '/diary', getParentRoute: () => rootRouteImport } as any)
+const GalleryRoute = GalleryRouteImport.update({ id: '/gallery', path: '/gallery', getParentRoute: () => rootRouteImport } as any)
+const InsightRoute = InsightRouteImport.update({ id: '/insight', path: '/insight', getParentRoute: () => rootRouteImport } as any)
+const MoodRoute = MoodRouteImport.update({ id: '/mood', path: '/mood', getParentRoute: () => rootRouteImport } as any)
+const MusicRoute = MusicRouteImport.update({ id: '/music', path: '/music', getParentRoute: () => rootRouteImport } as any)
+const NlpRoute = NlpRouteImport.update({ id: '/nlp', path: '/nlp', getParentRoute: () => rootRouteImport } as any)
+const PedometerRoute = PedometerRouteImport.update({ id: '/pedometer', path: '/pedometer', getParentRoute: () => rootRouteImport } as any)
+const ProfileRoute = ProfileRouteImport.update({ id: '/profile', path: '/profile', getParentRoute: () => rootRouteImport } as any)
+const ScanRoute = ScanRouteImport.update({ id: '/scan', path: '/scan', getParentRoute: () => rootRouteImport } as any)
+const StatsRoute = StatsRouteImport.update({ id: '/stats', path: '/stats', getParentRoute: () => rootRouteImport } as any)
+const WorkoutRoute = WorkoutRouteImport.update({ id: '/workout', path: '/workout', getParentRoute: () => rootRouteImport } as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
@@ -102,6 +48,7 @@ export interface FileRoutesByFullPath {
   '/budget': typeof BudgetRoute
   '/diary': typeof DiaryRoute
   '/gallery': typeof GalleryRoute
+  '/insight': typeof InsightRoute
   '/mood': typeof MoodRoute
   '/music': typeof MusicRoute
   '/nlp': typeof NlpRoute
@@ -111,88 +58,14 @@ export interface FileRoutesByFullPath {
   '/stats': typeof StatsRoute
   '/workout': typeof WorkoutRoute
 }
-export interface FileRoutesByTo {
-  '/': typeof IndexRoute
-  '/assistant': typeof AssistantRoute
-  '/auth': typeof AuthRoute
-  '/budget': typeof BudgetRoute
-  '/diary': typeof DiaryRoute
-  '/gallery': typeof GalleryRoute
-  '/mood': typeof MoodRoute
-  '/music': typeof MusicRoute
-  '/nlp': typeof NlpRoute
-  '/pedometer': typeof PedometerRoute
-  '/profile': typeof ProfileRoute
-  '/scan': typeof ScanRoute
-  '/stats': typeof StatsRoute
-  '/workout': typeof WorkoutRoute
-}
-export interface FileRoutesById {
-  __root__: typeof rootRouteImport
-  '/': typeof IndexRoute
-  '/assistant': typeof AssistantRoute
-  '/auth': typeof AuthRoute
-  '/budget': typeof BudgetRoute
-  '/diary': typeof DiaryRoute
-  '/gallery': typeof GalleryRoute
-  '/mood': typeof MoodRoute
-  '/music': typeof MusicRoute
-  '/nlp': typeof NlpRoute
-  '/pedometer': typeof PedometerRoute
-  '/profile': typeof ProfileRoute
-  '/scan': typeof ScanRoute
-  '/stats': typeof StatsRoute
-  '/workout': typeof WorkoutRoute
-}
+export interface FileRoutesByTo extends FileRoutesByFullPath {}
+export interface FileRoutesById extends FileRoutesByFullPath { __root__: typeof rootRouteImport }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
-  fullPaths:
-    | '/'
-    | '/assistant'
-    | '/auth'
-    | '/budget'
-    | '/diary'
-    | '/gallery'
-    | '/mood'
-    | '/music'
-    | '/nlp'
-    | '/pedometer'
-    | '/profile'
-    | '/scan'
-    | '/stats'
-    | '/workout'
+  fullPaths: keyof FileRoutesByFullPath
   fileRoutesByTo: FileRoutesByTo
-  to:
-    | '/'
-    | '/assistant'
-    | '/auth'
-    | '/budget'
-    | '/diary'
-    | '/gallery'
-    | '/mood'
-    | '/music'
-    | '/nlp'
-    | '/pedometer'
-    | '/profile'
-    | '/scan'
-    | '/stats'
-    | '/workout'
-  id:
-    | '__root__'
-    | '/'
-    | '/assistant'
-    | '/auth'
-    | '/budget'
-    | '/diary'
-    | '/gallery'
-    | '/mood'
-    | '/music'
-    | '/nlp'
-    | '/pedometer'
-    | '/profile'
-    | '/scan'
-    | '/stats'
-    | '/workout'
+  to: keyof FileRoutesByFullPath
+  id: keyof FileRoutesById
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
@@ -202,6 +75,7 @@ export interface RootRouteChildren {
   BudgetRoute: typeof BudgetRoute
   DiaryRoute: typeof DiaryRoute
   GalleryRoute: typeof GalleryRoute
+  InsightRoute: typeof InsightRoute
   MoodRoute: typeof MoodRoute
   MusicRoute: typeof MusicRoute
   NlpRoute: typeof NlpRoute
@@ -214,126 +88,42 @@ export interface RootRouteChildren {
 
 declare module '@tanstack/react-router' {
   interface FileRoutesByPath {
-    '/': {
-      id: '/'
-      path: '/'
-      fullPath: '/'
-      preLoaderRoute: typeof IndexRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/assistant': {
-      id: '/assistant'
-      path: '/assistant'
-      fullPath: '/assistant'
-      preLoaderRoute: typeof AssistantRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/auth': {
-      id: '/auth'
-      path: '/auth'
-      fullPath: '/auth'
-      preLoaderRoute: typeof AuthRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/budget': {
-      id: '/budget'
-      path: '/budget'
-      fullPath: '/budget'
-      preLoaderRoute: typeof BudgetRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/diary': {
-      id: '/diary'
-      path: '/diary'
-      fullPath: '/diary'
-      preLoaderRoute: typeof DiaryRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/gallery': {
-      id: '/gallery'
-      path: '/gallery'
-      fullPath: '/gallery'
-      preLoaderRoute: typeof GalleryRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/mood': {
-      id: '/mood'
-      path: '/mood'
-      fullPath: '/mood'
-      preLoaderRoute: typeof MoodRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/music': {
-      id: '/music'
-      path: '/music'
-      fullPath: '/music'
-      preLoaderRoute: typeof MusicRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/nlp': {
-      id: '/nlp'
-      path: '/nlp'
-      fullPath: '/nlp'
-      preLoaderRoute: typeof NlpRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/pedometer': {
-      id: '/pedometer'
-      path: '/pedometer'
-      fullPath: '/pedometer'
-      preLoaderRoute: typeof PedometerRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/profile': {
-      id: '/profile'
-      path: '/profile'
-      fullPath: '/profile'
-      preLoaderRoute: typeof ProfileRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/scan': {
-      id: '/scan'
-      path: '/scan'
-      fullPath: '/scan'
-      preLoaderRoute: typeof ScanRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/stats': {
-      id: '/stats'
-      path: '/stats'
-      fullPath: '/stats'
-      preLoaderRoute: typeof StatsRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/workout': {
-      id: '/workout'
-      path: '/workout'
-      fullPath: '/workout'
-      preLoaderRoute: typeof WorkoutRouteImport
-      parentRoute: typeof rootRouteImport
-    }
+    '/': { id: '/'; path: '/'; fullPath: '/'; preLoaderRoute: typeof IndexRouteImport; parentRoute: typeof rootRouteImport }
+    '/assistant': { id: '/assistant'; path: '/assistant'; fullPath: '/assistant'; preLoaderRoute: typeof AssistantRouteImport; parentRoute: typeof rootRouteImport }
+    '/auth': { id: '/auth'; path: '/auth'; fullPath: '/auth'; preLoaderRoute: typeof AuthRouteImport; parentRoute: typeof rootRouteImport }
+    '/budget': { id: '/budget'; path: '/budget'; fullPath: '/budget'; preLoaderRoute: typeof BudgetRouteImport; parentRoute: typeof rootRouteImport }
+    '/diary': { id: '/diary'; path: '/diary'; fullPath: '/diary'; preLoaderRoute: typeof DiaryRouteImport; parentRoute: typeof rootRouteImport }
+    '/gallery': { id: '/gallery'; path: '/gallery'; fullPath: '/gallery'; preLoaderRoute: typeof GalleryRouteImport; parentRoute: typeof rootRouteImport }
+    '/insight': { id: '/insight'; path: '/insight'; fullPath: '/insight'; preLoaderRoute: typeof InsightRouteImport; parentRoute: typeof rootRouteImport }
+    '/mood': { id: '/mood'; path: '/mood'; fullPath: '/mood'; preLoaderRoute: typeof MoodRouteImport; parentRoute: typeof rootRouteImport }
+    '/music': { id: '/music'; path: '/music'; fullPath: '/music'; preLoaderRoute: typeof MusicRouteImport; parentRoute: typeof rootRouteImport }
+    '/nlp': { id: '/nlp'; path: '/nlp'; fullPath: '/nlp'; preLoaderRoute: typeof NlpRouteImport; parentRoute: typeof rootRouteImport }
+    '/pedometer': { id: '/pedometer'; path: '/pedometer'; fullPath: '/pedometer'; preLoaderRoute: typeof PedometerRouteImport; parentRoute: typeof rootRouteImport }
+    '/profile': { id: '/profile'; path: '/profile'; fullPath: '/profile'; preLoaderRoute: typeof ProfileRouteImport; parentRoute: typeof rootRouteImport }
+    '/scan': { id: '/scan'; path: '/scan'; fullPath: '/scan'; preLoaderRoute: typeof ScanRouteImport; parentRoute: typeof rootRouteImport }
+    '/stats': { id: '/stats'; path: '/stats'; fullPath: '/stats'; preLoaderRoute: typeof StatsRouteImport; parentRoute: typeof rootRouteImport }
+    '/workout': { id: '/workout'; path: '/workout'; fullPath: '/workout'; preLoaderRoute: typeof WorkoutRouteImport; parentRoute: typeof rootRouteImport }
   }
 }
 
 const rootRouteChildren: RootRouteChildren = {
-  IndexRoute: IndexRoute,
-  AssistantRoute: AssistantRoute,
-  AuthRoute: AuthRoute,
-  BudgetRoute: BudgetRoute,
-  DiaryRoute: DiaryRoute,
-  GalleryRoute: GalleryRoute,
-  MoodRoute: MoodRoute,
-  MusicRoute: MusicRoute,
-  NlpRoute: NlpRoute,
-  PedometerRoute: PedometerRoute,
-  ProfileRoute: ProfileRoute,
-  ScanRoute: ScanRoute,
-  StatsRoute: StatsRoute,
-  WorkoutRoute: WorkoutRoute,
+  IndexRoute,
+  AssistantRoute,
+  AuthRoute,
+  BudgetRoute,
+  DiaryRoute,
+  GalleryRoute,
+  InsightRoute,
+  MoodRoute,
+  MusicRoute,
+  NlpRoute,
+  PedometerRoute,
+  ProfileRoute,
+  ScanRoute,
+  StatsRoute,
+  WorkoutRoute,
 }
-export const routeTree = rootRouteImport
-  ._addFileChildren(rootRouteChildren)
-  ._addFileTypes<FileRouteTypes>()
+export const routeTree = rootRouteImport._addFileChildren(rootRouteChildren)._addFileTypes<FileRouteTypes>()
 
 import type { getRouter } from './router.tsx'
 import type { startInstance } from './start.ts'
