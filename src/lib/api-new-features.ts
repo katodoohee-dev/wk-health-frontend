@@ -33,6 +33,22 @@ export function apiNotificationSettings() { return apiFetch<NotificationSettings
 export function apiNotificationUpdate(patch: Partial<NotificationSettings>) { return apiFetch<NotificationSettings>("/notifications/settings", { method: "PATCH", body: patch }); }
 export function apiNotificationTest() { return apiFetch<{ success: boolean }>("/notifications/test", { method: "POST" }); }
 
-export async function apiInsightWeekly(input?: unknown) {
-  return apiFetch("/api/insight/weekly", { method: "POST", body: input ?? {} });
+export interface WeeklyInsightBestDay {
+  date: string;
+  kcal: number;
+}
+
+export interface WeeklyInsight {
+  headline: string;
+  daysLogged: number;
+  avgKcal: number;
+  daysOnGoal: number;
+  totalSteps: number;
+  totalWorkoutMinutes: number;
+  bestDay?: WeeklyInsightBestDay | null;
+  tips: string[];
+}
+
+export async function apiInsightWeekly(input?: unknown): Promise<WeeklyInsight> {
+  return apiFetch<WeeklyInsight>("/api/insight/weekly", { method: "POST", body: input ?? {} });
 }
