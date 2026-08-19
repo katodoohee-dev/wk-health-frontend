@@ -1,127 +1,123 @@
-/* WK Health — Monochrome Health OS skin
-   This file is intentionally independent from Lovable. It only skins existing UI tokens/classes;
-   application logic, routes and API calls remain untouched. */
+/* WK Health — Premium AI Health OS visual layer
+   Presentation only. Existing routes, state, APIs and behavior remain untouched. */
 :root {
-  --background: oklch(0.975 0.004 250);
-  --foreground: oklch(0.12 0.012 250);
-  --card: oklch(0.995 0.002 250);
-  --card-foreground: oklch(0.12 0.012 250);
-  --popover: oklch(0.995 0.002 250);
-  --popover-foreground: oklch(0.12 0.012 250);
-  --primary: oklch(0.72 0.16 164);
-  --primary-foreground: oklch(0.08 0.012 250);
-  --secondary: oklch(0.91 0.008 250);
-  --secondary-foreground: oklch(0.18 0.012 250);
-  --muted: oklch(0.93 0.006 250);
-  --muted-foreground: oklch(0.43 0.012 250);
-  --accent: oklch(0.92 0.008 250);
-  --accent-foreground: oklch(0.12 0.012 250);
-  --border: oklch(0.84 0.008 250);
-  --input: oklch(0.86 0.008 250);
-  --ring: oklch(0.72 0.16 164);
-  --mint: oklch(0.72 0.16 164);
-  --mint-soft: oklch(0.92 0.05 164);
-  --sky: oklch(0.55 0.025 250);
-  --sky-soft: oklch(0.91 0.008 250);
-  --peach: oklch(0.58 0.035 70);
-  --peach-soft: oklch(0.92 0.012 70);
-  --lilac: oklch(0.56 0.025 300);
-  --glass: oklch(1 0 0 / 72%);
-  --glass-border: oklch(0.12 0.012 250 / 10%);
-  --shadow-soft: 0 18px 50px -28px oklch(0.08 0.01 250 / 45%);
-  --shadow-glow: 0 18px 55px -18px oklch(0.72 0.16 164 / 48%);
-  --gradient-hero: linear-gradient(135deg, oklch(0.99 0 0), oklch(0.94 0.008 250));
-  --gradient-mint: linear-gradient(135deg, oklch(0.78 0.17 164), oklch(0.64 0.15 164));
-  --gradient-peach: linear-gradient(135deg, oklch(0.91 0.015 250), oklch(0.84 0.01 250));
+  --background: #ffffff;
+  --foreground: #111111;
+  --card: #ffffff;
+  --card-foreground: #111111;
+  --popover: #ffffff;
+  --popover-foreground: #111111;
+  --primary: #111111;
+  --primary-foreground: #ffffff;
+  --secondary: #f0f0f0;
+  --secondary-foreground: #222222;
+  --muted: #f7f7f7;
+  --muted-foreground: #777777;
+  --accent: #f0f0f0;
+  --accent-foreground: #111111;
+  --border: #e5e5e5;
+  --input: #e5e5e5;
+  --ring: #111111;
+  --mint: #444444;
+  --mint-soft: #f0f0f0;
+  --sky: #555555;
+  --sky-soft: #f0f0f0;
+  --peach: #555555;
+  --peach-soft: #f0f0f0;
+  --lilac: #555555;
+  --glass: rgba(255,255,255,.88);
+  --glass-border: rgba(17,17,17,.09);
+  --shadow-soft: 0 16px 45px -30px rgba(0,0,0,.35);
+  --shadow-glow: 0 16px 45px -28px rgba(0,0,0,.28);
+  --gradient-hero: #f7f7f7;
+  --gradient-mint: #111111;
+  --gradient-peach: #222222;
 }
-
 .dark {
-  --background: oklch(0.075 0.008 250);
-  --foreground: oklch(0.95 0.006 250);
-  --card: oklch(0.105 0.009 250);
-  --card-foreground: oklch(0.95 0.006 250);
-  --popover: oklch(0.105 0.009 250);
-  --popover-foreground: oklch(0.95 0.006 250);
-  --primary: oklch(0.78 0.17 164);
-  --primary-foreground: oklch(0.075 0.008 250);
-  --secondary: oklch(0.16 0.01 250);
-  --secondary-foreground: oklch(0.92 0.006 250);
-  --muted: oklch(0.14 0.009 250);
-  --muted-foreground: oklch(0.66 0.008 250);
-  --accent: oklch(0.16 0.01 250);
-  --accent-foreground: oklch(0.95 0.006 250);
-  --border: oklch(1 0 0 / 9%);
-  --input: oklch(1 0 0 / 11%);
-  --ring: oklch(0.78 0.17 164);
-  --mint: oklch(0.78 0.17 164);
-  --mint-soft: oklch(0.22 0.035 164);
-  --sky: oklch(0.72 0.018 250);
-  --sky-soft: oklch(0.17 0.01 250);
-  --peach: oklch(0.72 0.025 70);
-  --peach-soft: oklch(0.17 0.012 70);
-  --lilac: oklch(0.72 0.018 300);
-  --glass: oklch(0.11 0.009 250 / 78%);
-  --glass-border: oklch(1 0 0 / 9%);
-  --shadow-soft: 0 22px 65px -30px oklch(0 0 0 / 75%);
-  --shadow-glow: 0 18px 60px -20px oklch(0.78 0.17 164 / 42%);
-  --gradient-hero: linear-gradient(135deg, oklch(0.12 0.01 250), oklch(0.08 0.008 250));
-  --gradient-mint: linear-gradient(135deg, oklch(0.82 0.18 164), oklch(0.66 0.16 164));
-  --gradient-peach: linear-gradient(135deg, oklch(0.19 0.012 250), oklch(0.13 0.009 250));
+  --background: #111111;
+  --foreground: #f5f5f5;
+  --card: #171717;
+  --card-foreground: #f5f5f5;
+  --popover: #171717;
+  --popover-foreground: #f5f5f5;
+  --primary: #f5f5f5;
+  --primary-foreground: #111111;
+  --secondary: #222222;
+  --secondary-foreground: #f5f5f5;
+  --muted: #1b1b1b;
+  --muted-foreground: #999999;
+  --accent: #242424;
+  --accent-foreground: #f5f5f5;
+  --border: rgba(255,255,255,.11);
+  --input: rgba(255,255,255,.14);
+  --ring: #f5f5f5;
+  --mint: #bbbbbb;
+  --mint-soft: #242424;
+  --sky: #bbbbbb;
+  --sky-soft: #242424;
+  --peach: #bbbbbb;
+  --peach-soft: #242424;
+  --lilac: #bbbbbb;
+  --glass: rgba(23,23,23,.88);
+  --glass-border: rgba(255,255,255,.09);
+  --shadow-soft: 0 20px 60px -32px rgba(0,0,0,.8);
+  --shadow-glow: 0 20px 60px -30px rgba(0,0,0,.7);
+  --gradient-hero: #171717;
+  --gradient-mint: #f5f5f5;
+  --gradient-peach: #dddddd;
 }
 
 html { background: var(--background); }
 body {
-  background:
-    radial-gradient(circle at 15% 0%, color-mix(in oklab, var(--primary) 9%, transparent), transparent 32rem),
-    radial-gradient(circle at 100% 30%, color-mix(in oklab, var(--foreground) 4%, transparent), transparent 28rem),
-    var(--background);
+  background: var(--background);
+  color: var(--foreground);
+  -webkit-font-smoothing: antialiased;
 }
 
-/* Reduce the old pastel Aurora to a restrained monochrome ambient glow. */
-.bg-mint\/35, .bg-sky\/30, .bg-peach\/30 { opacity: 0.18 !important; filter: blur(80px) grayscale(0.7); }
+/* Neutralize legacy colorful presentation without touching functionality. */
+.bg-mint\/35, .bg-sky\/30, .bg-peach\/30 { opacity: .08 !important; filter: grayscale(1) blur(80px); }
+.bg-mint-gradient, .bg-peach-gradient { background-image: none !important; background: var(--primary) !important; }
+.text-mint, .text-sky, .text-peach, .text-lilac { color: var(--foreground) !important; }
+.bg-mint-soft, .bg-sky-soft, .bg-peach-soft { background: var(--muted) !important; }
 
 .glass, .glass-strong {
-  border-radius: 1.35rem;
+  border-radius: 1.25rem;
+  border: 1px solid var(--glass-border);
   box-shadow: var(--shadow-soft);
 }
-.glass-strong {
-  background: color-mix(in oklab, var(--card) 86%, transparent);
-  border-color: var(--glass-border);
-}
+.glass { background: var(--glass); backdrop-filter: blur(18px); }
+.glass-strong { background: color-mix(in oklab, var(--card) 94%, transparent); backdrop-filter: blur(22px); }
 
-/* Make interactive surfaces feel like one design system. */
 button, a { -webkit-tap-highlight-color: transparent; }
-.press { transition: transform .18s cubic-bezier(.22,1,.36,1), filter .18s ease, box-shadow .18s ease; }
-.press:hover { filter: brightness(1.025); }
-.press:active { transform: scale(.965); }
+.press { transition: transform .18s cubic-bezier(.22,1,.36,1), opacity .18s ease, box-shadow .18s ease, background-color .18s ease; }
+.press:hover { opacity: .88; }
+.press:active { transform: scale(.975); }
 
-/* Stronger visual hierarchy for headings and numbers. */
-.font-display { letter-spacing: -0.035em; }
-.tabular-nums { font-variant-numeric: tabular-nums; letter-spacing: -0.025em; }
+.font-display { letter-spacing: -.035em; }
+.tabular-nums { font-variant-numeric: tabular-nums; letter-spacing: -.025em; }
 
-/* Bottom navigation: floating hardware-like dock. */
+/* Editorial content rhythm. */
+main h1 { letter-spacing: -.045em; }
+main h2 { letter-spacing: -.035em; }
+
+/* Compact floating mobile dock; desktop uses the sidebar from AppShell. */
 nav > div > div {
-  border: 1px solid var(--glass-border);
-  box-shadow: 0 22px 70px -28px oklch(0 0 0 / 65%);
+  border-color: var(--glass-border) !important;
+  box-shadow: 0 20px 60px -28px rgba(0,0,0,.42);
 }
 
-/* Map remains dark regardless of global theme, matching the Live Track experience. */
-.leaflet-container {
-  background: #070a0c !important;
-  border-radius: 1.5rem;
-  overflow: hidden;
-}
-.leaflet-tile { filter: brightness(.46) contrast(1.22) saturate(.58) grayscale(.18); }
-.leaflet-control-zoom a {
-  background: rgba(8, 11, 13, .94) !important;
-  color: #f5f7f7 !important;
-  border-color: rgba(255,255,255,.08) !important;
-}
-.leaflet-control-attribution {
-  background: rgba(8,11,13,.76) !important;
-  color: rgba(255,255,255,.62) !important;
-}
+/* Preserve map usability while giving it a premium monochrome treatment. */
+.leaflet-container { background: #0b0b0b !important; border-radius: 1.25rem; overflow: hidden; }
+.leaflet-tile { filter: brightness(.52) contrast(1.18) saturate(.2) grayscale(.45); }
+.leaflet-control-zoom a { background: rgba(17,17,17,.94) !important; color: #f5f5f5 !important; border-color: rgba(255,255,255,.1) !important; }
+.leaflet-control-attribution { background: rgba(17,17,17,.78) !important; color: rgba(255,255,255,.65) !important; }
+
+/* Minimal ambient grid used by the new AppShell. */
+.wk-grid { background-image: linear-gradient(to right, currentColor 1px, transparent 1px), linear-gradient(to bottom, currentColor 1px, transparent 1px); background-size: 56px 56px; }
 
 @media (min-width: 1024px) {
   body { background-attachment: fixed; }
+}
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after { scroll-behavior: auto !important; animation-duration: .01ms !important; animation-iteration-count: 1 !important; transition-duration: .01ms !important; }
 }
