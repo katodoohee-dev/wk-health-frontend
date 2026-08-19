@@ -1,17 +1,14 @@
-﻿// ==========================================================================
-// API functions à¸ªà¸³à¸«à¸£à¸±à¸š 3 à¸Ÿà¸µà¹€à¸ˆà¸­à¸£à¹Œà¹ƒà¸«à¸¡à¹ˆ: Export/Backup, Friends/Leaderboard,
-// Notification Settings
+// ==========================================================================
+// API functions for Export/Backup, Friends/Leaderboard, Notification Settings
+// and guarded Friend Location Sharing.
 //
-// âš ï¸ à¸ªà¸³à¸„à¸±à¸: endpoint à¸—à¸±à¹‰à¸‡à¸«à¸¡à¸”à¸”à¹‰à¸²à¸™à¸¥à¹ˆà¸²à¸‡à¸™à¸µà¹‰ "à¸¢à¸±à¸‡à¹„à¸¡à¹ˆà¸¡à¸µà¸­à¸¢à¸¹à¹ˆà¸ˆà¸£à¸´à¸‡" à¹ƒà¸™ backend
-// (Express + SQLite à¹à¸¢à¸à¹‚à¸›à¸£à¹€à¸ˆà¸à¸•à¹Œà¸•à¸²à¸¡à¸—à¸µà¹ˆà¸£à¸°à¸šà¸¸à¹ƒà¸™ api.ts) â€” à¸•à¹‰à¸­à¸‡à¹„à¸›à¸ªà¸£à¹‰à¸²à¸‡ route
-// à¹€à¸«à¸¥à¹ˆà¸²à¸™à¸µà¹‰à¸—à¸µà¹ˆ backend à¸à¹ˆà¸­à¸™ à¹„à¸Ÿà¸¥à¹Œà¸™à¸µà¹‰à¹€à¸‚à¸µà¸¢à¸™à¸•à¸²à¸¡ pattern apiFetch<T>() à¹€à¸”à¸´à¸¡à¸‚à¸­à¸‡
-// à¸£à¸°à¸šà¸š à¸žà¸£à¹‰à¸­à¸¡à¹ƒà¸Šà¹‰à¸‡à¸²à¸™à¹„à¸”à¹‰à¸—à¸±à¸™à¸—à¸µà¹€à¸¡à¸·à¹ˆà¸­ backend à¸žà¸£à¹‰à¸­à¸¡ à¹à¸„à¹ˆ import à¹„à¸›à¸£à¸§à¸¡à¸à¸±à¸š api.ts
+// IMPORTANT: the realtime location endpoints are contracts for the backend.
+// The frontend feature remains disabled by default until those endpoints exist.
 // ==========================================================================
 
 import { apiFetch } from "./api";
 
 // ---------- Export / Backup ----------
-// à¸•à¹‰à¸­à¸‡à¸ªà¸£à¹‰à¸²à¸‡à¸—à¸µà¹ˆ backend: POST /export, GET /export/history
 export type ExportFormat = "pdf" | "csv";
 export type ExportRange = "7d" | "30d" | "90d" | "all";
 
@@ -31,8 +28,6 @@ export function apiExportHistory() {
 }
 
 // ---------- Friends / Leaderboard ----------
-// à¸•à¹‰à¸­à¸‡à¸ªà¸£à¹‰à¸²à¸‡à¸—à¸µà¹ˆ backend: GET /friends, POST /friends/cheer/:id,
-// GET /friends/invite-code, POST /friends/add, GET /stats/week-summary
 export interface Friend {
   id: string;
   name: string;
@@ -60,9 +55,46 @@ export function apiStatsWeekSummary() {
   return apiFetch<{ streak: number; avgKcal: number; daysOnGoal: number }>("/stats/week-summary");
 }
 
+// ---------- Friend Location Sharing ----------
+export interface FriendLocation {
+  friendId: string;
+  lat: number;
+  lng: number;
+  accuracy?: number;
+  heading?: number;
+  speedMps?: number;
+  updatedAt: string;
+}
+
+export interface FriendLocationSharingStatus {
+  enabled: boolean;
+  visibleToConfirmedFriends: boolean;
+  updatedAt?: string;
+}
+
+export function apiFriendLocationSharingStatus() {
+  return apiFetch<FriendLocationSharingStatus>("/friends/location/status");
+}
+
+export function apiFriendLocationShare(enabled: boolean) {
+  return apiFetch<FriendLocationSharingStatus>("/friends/location/share", {
+    method: "POST",
+    body: { enabled },
+  });
+}
+
+export function apiFriendLocationPublish(payload: Omit<FriendLocation, "updatedAt">) {
+  return apiFetch<{ success: boolean }>("/friends/location/publish", {
+    method: "POST",
+    body: payload,
+  });
+}
+
+export function apiFriendLocations() {
+  return apiFetch<FriendLocation[]>("/friends/location/live");
+}
+
 // ---------- Notification Settings ----------
-// à¸•à¹‰à¸­à¸‡à¸ªà¸£à¹‰à¸²à¸‡à¸—à¸µà¹ˆ backend: GET /notifications/settings,
-// PATCH /notifications/settings, POST /notifications/test
 export interface NotificationSettings {
   mealReminder: boolean;
   waterReminder: boolean;
