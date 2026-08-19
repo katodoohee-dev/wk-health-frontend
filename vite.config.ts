@@ -12,7 +12,15 @@ export default defineConfig({
   },
   plugins: [
     tailwindcss(),
-    tanstackStart({ srcDirectory: "src" }),
+    tanstackStart({
+      srcDirectory: "src",
+      // WK Health is a browser-first authenticated app. Use Start SPA mode
+      // so the initial document is a static shell and route components/loaders
+      // never enter the server-side streaming path on Render.
+      spa: {
+        enabled: true,
+      },
+    }),
     nitro({ preset: "node-server" }),
     // TanStack Start requires the React plugin after the Start plugin.
     react(),
