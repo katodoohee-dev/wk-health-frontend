@@ -13,6 +13,9 @@ export type AppCommand =
   | { type: "SHOW_CALORIES" }
   | { type: "SAVE_MEAL" }
   | { type: "OPEN_PROFILE" }
+  | { type: "SHARE_FRIEND_LOCATION" }
+  | { type: "STOP_FRIEND_LOCATION" }
+  | { type: "SHOW_FRIEND_LOCATION"; friendId?: string }
   | { type: "NONE" };
 
 type Listener = (command: AppCommand) => void | Promise<void>;
@@ -62,8 +65,11 @@ export function startAppCommandBridge() {
     }],
     ["wk:voice-action", (event) => {
       const action = (event as CustomEvent<{ action?: string }>).detail?.action;
-      const routes: Record<string, string> = { OPEN_MUSIC: "/music", OPEN_DIARY: "/diary", OPEN_STATS: "/stats", OPEN_SCAN: "/scan", OPEN_BARCODE: "/barcode", OPEN_PEDOMETER: "/pedometer", OPEN_ASSISTANT: "/assistant" };
+      const routes: Record<string, string> = { OPEN_MUSIC: "/music", OPEN_DIARY: "/diary", OPEN_STATS: "/stats", OPEN_SCAN: "/scan", OPEN_BARCODE: "/barcode", OPEN_PEDOMETER: "/pedometer", OPEN_ASSISTANT: "/assistant", OPEN_FRIENDS: "/friends", SHOW_FRIEND_LOCATION: "/friends" };
       if (action === "OPEN_PROFILE") dispatch({ type: "OPEN_PROFILE" });
+      else if (action === "SHARE_FRIEND_LOCATION") dispatch({ type: "SHARE_FRIEND_LOCATION" });
+      else if (action === "STOP_FRIEND_LOCATION") dispatch({ type: "STOP_FRIEND_LOCATION" });
+      else if (action === "SHOW_FRIEND_LOCATION") dispatch({ type: "SHOW_FRIEND_LOCATION" });
       else if (routes[action || ""]) dispatch({ type: "OPEN_ROUTE", route: routes[action!] });
       else if (action === "SHOW_STEPS" || action === "SHOW_CALORIES" || action === "SAVE_MEAL") dispatch({ type: action });
     }],
