@@ -2,230 +2,28 @@ import { useState } from "react";
 import { createFileRoute } from "@tanstack/react-router";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Check, Dumbbell, Flame, History, Loader2, Plus, Wand2 } from "lucide-react";
-import { PageHeader, GlassCard, SectionTitle, Chip } from "@/components/app/ui-bits";
 import { useAuth } from "@/lib/auth";
-import {
-  apiWorkoutHistory,
-  apiWorkoutLog,
-  apiWorkoutPlan,
-  apiWorkoutTodayBurn,
-  WORKOUT_GOAL_OPTIONS,
-  WORKOUT_LEVEL_OPTIONS,
-  type WorkoutExercise,
-  type WorkoutGoal,
-  type WorkoutLevel,
-} from "@/lib/api";
+import { apiWorkoutHistory, apiWorkoutLog, apiWorkoutPlan, apiWorkoutTodayBurn, WORKOUT_GOAL_OPTIONS, WORKOUT_LEVEL_OPTIONS, type WorkoutExercise, type WorkoutGoal, type WorkoutLevel } from "@/lib/api";
 
-export const Route = createFileRoute("/workout")({
-  head: () => ({
-    meta: [
-      { title: "ออกกำลังกาย — WK Health App" },
-      { name: "description", content: "สร้างตารางออกกำลังกายด้วย AI บันทึกท่าที่ทำ และดูแคลอรีที่เผาผลาญวันนี้" },
-      { property: "og:title", content: "ออกกำลังกาย — WK Health App" },
-      { property: "og:description", content: "ตารางออกกำลังกาย AI พร้อมบันทึกและสถิติการเผาผลาญ" },
-    ],
-  }),
-  component: WorkoutPage,
-});
-
-// FIX: backend zod schema ต้องการ enum ภาษาอังกฤษเป๊ะๆ ('weight_loss' | 'maintenance' | 'muscle_gain', 'beginner' | 'intermediate' | 'advanced')
-// ของเดิมส่ง label ภาษาไทยตรงๆ ทำให้ 400 validation error ทุกครั้งที่กดสร้างตาราง (ดูเหมือนกดไม่ติด)
-// ตอนนี้แยก value (อังกฤษ ส่งจริง) ออกจาก label (ไทย แสดงผล)
+export const Route = createFileRoute("/workout")({ head: () => ({ meta: [{ title: "Workout Intelligence — WK Health" }, { name: "description", content: "สร้างและบันทึกตารางออกกำลังกายด้วย AI" }] }), component: WorkoutPage });
 const EQUIPMENT = ["ไม่มีอุปกรณ์", "ดัมเบล", "ยางยืด", "ฟิตเนสครบ"];
 
 function WorkoutPage() {
-  const { isAuthenticated } = useAuth();
-  const qc = useQueryClient();
-  const [goal, setGoal] = useState<WorkoutGoal>(WORKOUT_GOAL_OPTIONS[0]!.value);
-  const [level, setLevel] = useState<WorkoutLevel>(WORKOUT_LEVEL_OPTIONS[0]!.value);
-  const [equipment, setEquipment] = useState(EQUIPMENT[0]!);
-  const [daysPerWeek, setDaysPerWeek] = useState(3);
-  const [loggedKeys, setLoggedKeys] = useState<Set<string>>(new Set());
-  const [pendingKey, setPendingKey] = useState<string | null>(null);
-
-  const burn = useQuery({
-    queryKey: ["workout", "burn"],
-    queryFn: apiWorkoutTodayBurn,
-    enabled: isAuthenticated,
-  });
-  const history = useQuery({
-    queryKey: ["workout", "history"],
-    queryFn: apiWorkoutHistory,
-    enabled: isAuthenticated,
-  });
-
-  const plan = useMutation({
-    mutationFn: () => apiWorkoutPlan({ goal, level, equipment, daysPerWeek }),
-  });
-
-  const log = useMutation({
-    mutationFn: (e: WorkoutExercise) =>
-      apiWorkoutLog({
-        exerciseName: e.name,
-        minutes: e.minutes && e.minutes > 0 ? e.minutes : 20,
-        sourceKey: e.sourceKey || "plan",
-      }),
-    onSuccess: (_data, e) => {
-      setLoggedKeys((prev) => new Set(prev).add(e.sourceKey || e.name));
-      void qc.invalidateQueries({ queryKey: ["workout"] });
-      void qc.invalidateQueries({ queryKey: ["stats"] });
-    },
-    onSettled: () => setPendingKey(null),
-  });
-
-  return (
-    <div className="rise-in">
-      <PageHeader title="ออกกำลังกาย" emoji="🏋️" subtitle="ตารางฝึกจาก AI + บันทึกการเผาผลาญ" />
-
-      <GlassCard className="p-5">
-        <div className="flex items-center gap-4">
-          <span className="grid size-14 place-items-center rounded-3xl bg-peach-soft text-peach">
-            <Flame className="size-7" />
-          </span>
-          <div className="min-w-0">
-            <p className="text-xs text-muted-foreground">เผาผลาญจากการออกกำลังกายวันนี้</p>
-            <p className="font-display text-3xl font-bold tabular-nums">
-              {burn.isLoading ? "…" : `${burn.data ?? 0} kcal`}
-            </p>
-          </div>
-        </div>
-      </GlassCard>
-
-      <GlassCard className="mt-4 p-5">
-        <SectionTitle title="สร้างตารางออกกำลังกาย" />
-        <p className="mb-2 text-xs text-muted-foreground">เป้าหมาย</p>
-        <div className="mb-3 flex flex-wrap gap-2">
-          {WORKOUT_GOAL_OPTIONS.map((g) => (
-            <Chip key={g.value} active={goal === g.value} onClick={() => setGoal(g.value)}>
-              {g.label}
-            </Chip>
-          ))}
-        </div>
-        <p className="mb-2 text-xs text-muted-foreground">ระดับ</p>
-        <div className="mb-3 flex flex-wrap gap-2">
-          {WORKOUT_LEVEL_OPTIONS.map((l) => (
-            <Chip key={l.value} active={level === l.value} onClick={() => setLevel(l.value)}>
-              {l.label}
-            </Chip>
-          ))}
-        </div>
-        <p className="mb-2 text-xs text-muted-foreground">อุปกรณ์</p>
-        <div className="mb-3 flex flex-wrap gap-2">
-          {EQUIPMENT.map((e) => (
-            <Chip key={e} active={equipment === e} onClick={() => setEquipment(e)}>{e}</Chip>
-          ))}
-        </div>
-
-        <label className="mb-4 block">
-          <span className="mb-1 flex items-center justify-between text-xs text-muted-foreground">
-            <span>จำนวนวันต่อสัปดาห์</span>
-            <span className="font-semibold text-foreground">{daysPerWeek} วัน</span>
-          </span>
-          <input
-            type="range"
-            min={1}
-            max={7}
-            value={daysPerWeek}
-            onChange={(e) => setDaysPerWeek(Number(e.target.value))}
-            className="w-full accent-[var(--mint)]"
-          />
-        </label>
-
-        <button
-          onClick={() => plan.mutate()}
-          disabled={plan.isPending}
-          className="press bg-mint-gradient flex w-full items-center justify-center gap-2 rounded-2xl py-3 text-sm font-medium text-primary-foreground shadow-glow disabled:opacity-60"
-        >
-          {plan.isPending ? <Loader2 className="size-4 animate-spin" /> : <Wand2 className="size-4" />}
-          สร้างตารางด้วย AI
-        </button>
-        {plan.isError && (
-          <p className="mt-3 rounded-2xl bg-destructive/10 px-3 py-2.5 text-sm text-destructive">
-            {plan.error instanceof Error ? plan.error.message : "สร้างตารางไม่สำเร็จ"}
-          </p>
-        )}
-      </GlassCard>
-
-      {plan.data && (
-        <section className="rise-in mt-4 space-y-3">
-          {plan.data.note ? (
-            <p className="glass rounded-2xl px-4 py-3 text-sm">{plan.data.note}</p>
-          ) : null}
-          {plan.data.days.map((d, i) => (
-            <GlassCard key={`${d.day}-${i}`} className="p-4">
-              <div className="mb-2 flex items-center gap-2">
-                <span className="grid size-9 place-items-center rounded-2xl bg-mint-soft text-mint">
-                  <Dumbbell className="size-4" />
-                </span>
-                <div className="min-w-0">
-                  <p className="truncate font-display font-semibold">{d.day}</p>
-                  {d.focus ? <p className="truncate text-xs text-muted-foreground">{d.focus}</p> : null}
-                </div>
-              </div>
-              <div className="space-y-2">
-                {d.exercises.map((e, j) => {
-                  const key = e.sourceKey || e.name;
-                  const isLogged = loggedKeys.has(key);
-                  const isPending = pendingKey === key;
-                  return (
-                    <div key={`${e.name}-${j}`} className="flex items-center gap-3 rounded-2xl bg-muted/60 px-3 py-2">
-                      <div className="min-w-0 flex-1">
-                        <p className="truncate text-sm font-medium">{e.name}</p>
-                        <p className="truncate text-xs text-muted-foreground">
-                          {[e.sets, e.minutes ? `${e.minutes} นาที` : "", e.note].filter(Boolean).join(" · ")}
-                        </p>
-                      </div>
-                      <button
-                        onClick={() => {
-                          setPendingKey(key);
-                          log.mutate(e);
-                        }}
-                        disabled={isPending}
-                        aria-label={isLogged ? `บันทึกซ้ำ ${e.name}` : `บันทึก ${e.name}`}
-                        className={`press grid size-9 shrink-0 place-items-center rounded-xl text-primary-foreground shadow-glow disabled:opacity-60 ${
-                          isLogged ? "bg-mint text-mint-foreground" : "bg-mint-gradient"
-                        }`}
-                      >
-                        {isPending ? (
-                          <Loader2 className="size-4 animate-spin" />
-                        ) : isLogged ? (
-                          <Check className="size-4" />
-                        ) : (
-                          <Plus className="size-4" />
-                        )}
-                      </button>
-                    </div>
-                  );
-                })}
-              </div>
-            </GlassCard>
-          ))}
-        </section>
-      )}
-
-      <GlassCard className="mt-4 p-4">
-        <SectionTitle
-          title="ประวัติการออกกำลังกาย"
-          action={<History className="size-4 text-muted-foreground" />}
-        />
-        {history.isLoading ? (
-          <p className="text-sm text-muted-foreground">กำลังโหลด…</p>
-        ) : history.data && history.data.length > 0 ? (
-          <div className="space-y-2">
-            {history.data.map((h) => (
-              <div key={h.id} className="flex items-center gap-3 rounded-2xl bg-muted/60 px-3 py-2">
-                <div className="min-w-0 flex-1">
-                  <p className="truncate text-sm font-medium">{h.name}</p>
-                  <p className="truncate text-xs text-muted-foreground">{h.date} · {h.minutes} นาที</p>
-                </div>
-                <span className="shrink-0 text-sm font-semibold tabular-nums text-peach">{h.kcal} kcal</span>
-              </div>
-            ))}
-          </div>
-        ) : (
-          <p className="text-sm text-muted-foreground">ยังไม่มีประวัติ — เริ่มบันทึกท่าแรกได้เลย 💪</p>
-        )}
-      </GlassCard>
-    </div>
-  );
+  const { isAuthenticated } = useAuth(); const qc = useQueryClient();
+  const [goal, setGoal] = useState<WorkoutGoal>(WORKOUT_GOAL_OPTIONS[0]!.value); const [level, setLevel] = useState<WorkoutLevel>(WORKOUT_LEVEL_OPTIONS[0]!.value); const [equipment, setEquipment] = useState(EQUIPMENT[0]!); const [daysPerWeek, setDaysPerWeek] = useState(3); const [loggedKeys, setLoggedKeys] = useState<Set<string>>(new Set()); const [pendingKey, setPendingKey] = useState<string | null>(null);
+  const burn = useQuery({ queryKey: ["workout", "burn"], queryFn: apiWorkoutTodayBurn, enabled: isAuthenticated }); const history = useQuery({ queryKey: ["workout", "history"], queryFn: apiWorkoutHistory, enabled: isAuthenticated });
+  const plan = useMutation({ mutationFn: () => apiWorkoutPlan({ goal, level, equipment, daysPerWeek }) });
+  const log = useMutation({ mutationFn: (e: WorkoutExercise) => apiWorkoutLog({ exerciseName: e.name, minutes: e.minutes && e.minutes > 0 ? e.minutes : 20, sourceKey: e.sourceKey || "plan" }), onSuccess: (_data, e) => { setLoggedKeys(p => new Set(p).add(e.sourceKey || e.name)); void qc.invalidateQueries({ queryKey: ["workout"] }); void qc.invalidateQueries({ queryKey: ["stats"] }); }, onSettled: () => setPendingKey(null) });
+  return <div className="rise-in pb-10"><header className="border-b border-hairline py-7 sm:py-9"><p className="label-editorial mb-2">MOVEMENT INTELLIGENCE</p><div className="flex flex-wrap items-end justify-between gap-5"><div><h1 className="font-display text-3xl font-semibold tracking-[-0.05em] sm:text-4xl">Workout</h1><p className="mt-2 text-sm text-muted-foreground">ฝึกอย่างมีแผน และให้ WK ช่วยปรับให้เข้ากับเป้าหมาย</p></div><div className="text-left sm:text-right"><p className="font-display text-5xl font-semibold tracking-[-0.08em] tabular-nums">{burn.isLoading ? "—" : burn.data ?? 0}</p><p className="label-editorial mt-1">KCAL BURNED TODAY</p></div></div></header>
+    <section className="border-b border-hairline py-7"><div className="mb-6 flex items-center gap-3"><span className="grid size-10 place-items-center rounded-full bg-foreground text-background"><Wand2 className="size-4" /></span><div><p className="font-semibold">สร้างแผนด้วย WK AI</p><p className="text-xs text-muted-foreground">เลือกเพียงสิ่งที่สำคัญ ที่เหลือให้ระบบจัดการ</p></div></div>
+      <Field label="เป้าหมาย"><div className="flex flex-wrap gap-2">{WORKOUT_GOAL_OPTIONS.map(g => <button key={g.value} onClick={() => setGoal(g.value)} className={`press min-h-11 rounded-full border px-4 text-xs font-medium ${goal === g.value ? "border-foreground bg-foreground text-background" : "border-hairline bg-surface-1 text-muted-foreground hover:text-foreground"}`}>{g.label}</button>)}</div></Field>
+      <Field label="ระดับ"><div className="flex flex-wrap gap-2">{WORKOUT_LEVEL_OPTIONS.map(l => <button key={l.value} onClick={() => setLevel(l.value)} className={`press min-h-11 rounded-full border px-4 text-xs font-medium ${level === l.value ? "border-foreground bg-foreground text-background" : "border-hairline bg-surface-1 text-muted-foreground hover:text-foreground"}`}>{l.label}</button>)}</div></Field>
+      <Field label="อุปกรณ์"><div className="flex flex-wrap gap-2">{EQUIPMENT.map(e => <button key={e} onClick={() => setEquipment(e)} className={`press min-h-11 rounded-full border px-4 text-xs font-medium ${equipment === e ? "border-foreground bg-foreground text-background" : "border-hairline bg-surface-1 text-muted-foreground hover:text-foreground"}`}>{e}</button>)}</div></Field>
+      <label className="mt-6 block"><span className="mb-2 flex justify-between text-xs"><span className="text-muted-foreground">จำนวนวันต่อสัปดาห์</span><strong>{daysPerWeek} วัน</strong></span><input type="range" min={1} max={7} value={daysPerWeek} onChange={e => setDaysPerWeek(Number(e.target.value))} className="w-full accent-foreground" /></label>
+      <button onClick={() => plan.mutate()} disabled={plan.isPending} className="press mt-6 flex min-h-12 w-full items-center justify-center gap-2 rounded-2xl bg-foreground text-sm font-medium text-background disabled:opacity-50">{plan.isPending ? <Loader2 className="size-4 animate-spin" /> : <Wand2 className="size-4" />}{plan.isPending ? "กำลังวางแผน…" : "สร้างตารางด้วย AI"}</button>{plan.isError && <p className="mt-3 rounded-2xl border border-destructive/20 bg-destructive/5 px-3 py-3 text-sm text-destructive">{plan.error instanceof Error ? plan.error.message : "สร้างตารางไม่สำเร็จ"}</p>}
+    </section>
+    {plan.data && <section className="border-b border-hairline py-7"><p className="label-editorial mb-4">YOUR PLAN</p>{plan.data.note && <p className="mb-4 text-sm leading-6 text-muted-foreground">{plan.data.note}</p>}<div className="divide-y divide-hairline border-y border-hairline">{plan.data.days.map((d, i) => <div key={`${d.day}-${i}`} className="py-5"><div className="mb-3 flex items-center gap-3"><span className="grid size-9 place-items-center rounded-full bg-surface-2"><Dumbbell className="size-4" /></span><div><p className="font-semibold">{d.day}</p>{d.focus && <p className="text-xs text-muted-foreground">{d.focus}</p>}</div></div><div className="space-y-2">{d.exercises.map((e, j) => { const key = e.sourceKey || e.name; const done = loggedKeys.has(key); const pending = pendingKey === key; return <div key={`${e.name}-${j}`} className="flex items-center gap-3 rounded-2xl bg-surface-1 px-3 py-2.5"><div className="min-w-0 flex-1"><p className="truncate text-sm font-medium">{e.name}</p><p className="truncate text-xs text-muted-foreground">{[e.sets, e.minutes ? `${e.minutes} นาที` : "", e.note].filter(Boolean).join(" · ")}</p></div><button onClick={() => { setPendingKey(key); log.mutate(e); }} disabled={pending} aria-label={done ? `บันทึกซ้ำ ${e.name}` : `บันทึก ${e.name}`} className={`press grid size-10 shrink-0 place-items-center rounded-xl ${done ? "border border-hairline bg-surface-2" : "bg-foreground text-background"}`}>{pending ? <Loader2 className="size-4 animate-spin" /> : done ? <Check className="size-4" /> : <Plus className="size-4" />}</button></div>})}</div></div>)}</div></section>}
+    <section className="py-7"><div className="mb-4 flex items-center gap-2"><History className="size-4"/><p className="font-semibold">ประวัติการออกกำลังกาย</p></div>{history.isLoading ? <p className="text-sm text-muted-foreground">กำลังโหลด…</p> : history.data?.length ? <div className="divide-y divide-hairline border-y border-hairline">{history.data.map(h => <div key={h.id} className="flex items-center gap-3 py-3"><div className="min-w-0 flex-1"><p className="truncate text-sm font-medium">{h.name}</p><p className="text-xs text-muted-foreground">{h.date} · {h.minutes} นาที</p></div><Flame className="size-4 text-muted-foreground"/></div>)}</div> : <p className="border-y border-hairline py-8 text-center text-sm text-muted-foreground">ยังไม่มีประวัติการออกกำลังกาย</p>}</section>
+  </div>;
 }
+function Field({ label, children }: { label: string; children: React.ReactNode }) { return <div className="mt-5"><p className="mb-2 text-xs font-medium text-muted-foreground">{label}</p>{children}</div>; }
