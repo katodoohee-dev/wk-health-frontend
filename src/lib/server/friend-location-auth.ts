@@ -1,19 +1,16 @@
 const DEFAULT_BACKEND = "https://https-sites-google-com-sbp-ac-th.onrender.com";
 
-function backendUrl() {
-  return (process.env.WK_BACKEND_URL || DEFAULT_BACKEND).replace(/\/$/, "");
+export function backendUrl() {
+  const envUrl = import.meta.env.VITE_API_BASE_URL as string | undefined;
+  return (envUrl || DEFAULT_BACKEND).replace(/\/$/, "");
 }
 
 export type AuthUser = { id: string; name?: string; email?: string };
-
 type FriendRecord = { id?: string | number; name?: string; streak?: number; avatar?: string };
 
 async function backendFetch<T>(path: string, token: string): Promise<T> {
   const res = await fetch(`${backendUrl()}${path}`, {
-    headers: {
-      Accept: "application/json",
-      Authorization: `Bearer ${token}`,
-    },
+    headers: { Accept: "application/json", Authorization: `Bearer ${token}` },
   });
   let data: unknown = null;
   try { data = await res.json(); } catch { data = null; }
