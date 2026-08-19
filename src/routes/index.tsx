@@ -1,9 +1,9 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import {
-  Droplets, Flame, Footprints, LogOut, MessageSquareHeart, Sparkle, Wallet,
+  Footprints, LogOut, MessageSquareHeart, Sparkle, Wallet,
   Dumbbell, Music2, UserRound, ChevronRight, Plus, CheckCircle2, Snowflake,
-  Image as ImageIcon, Users, Download, BellRing, Route as RouteIcon, ScanLine,
+  Image as ImageIcon, Users, Download, BellRing,
 } from "lucide-react";
 import { ThemeToggle } from "@/components/app/theme-toggle";
 import { ErrorState, Skeleton } from "@/components/app/states";
@@ -26,7 +26,6 @@ const tools = [
   { to: "/mood", icon: MessageSquareHeart, title: "Mood Menu", desc: "เมนูตามอารมณ์", tint: "bg-peach-soft text-peach" },
   { to: "/budget", icon: Wallet, title: "Budget Planner", desc: "วางแผนตามงบ", tint: "bg-mint-soft text-mint" },
   { to: "/pedometer", icon: Footprints, title: "Pedometer", desc: "นับก้าว + GPS", tint: "bg-secondary text-secondary-foreground" },
-  { to: "/run", icon: RouteIcon, title: "Live Track", desc: "วิ่งด้วย GPS จริง", tint: "bg-mint-soft text-mint" },
   { to: "/workout", icon: Dumbbell, title: "Workout", desc: "ตารางฝึก AI", tint: "bg-mint-soft text-mint" },
   { to: "/music", icon: Music2, title: "Music", desc: "เพลย์ลิสต์คลอ", tint: "bg-sky-soft text-sky" },
   { to: "/profile", icon: UserRound, title: "Profile & BMI", desc: "ข้อมูล + คำนวณ BMI", tint: "bg-peach-soft text-peach" },
@@ -47,8 +46,6 @@ function Home() {
   const doCheckin = useMutation({ mutationFn: apiCheckin, onSuccess: () => void qc.invalidateQueries({ queryKey: ["checkin"] }) });
   const s = stats.data;
   const remaining = s ? s.goal - s.eaten + s.burned : 0;
-  const waterGoal = s?.waterGoal ?? 8;
-  const water = s?.water ?? 0;
 
   return (
     <div className="rise-in pb-8">
@@ -98,14 +95,10 @@ function Home() {
         </section>
       )}
 
-      <div className="mt-4 grid grid-cols-2 gap-3">
+      <div className="mt-4">
         <Link to="/scan" className="press bg-mint-gradient flex items-center gap-3 rounded-3xl p-4 text-primary-foreground shadow-glow">
           <span className="grid size-11 shrink-0 place-items-center rounded-2xl bg-background/25"><Sparkle className="size-5" /></span>
           <span className="min-w-0"><span className="block truncate font-display font-semibold">สแกนอาหาร</span><span className="block truncate text-xs opacity-80">ถ่ายรูป รู้แคลทันที</span></span>
-        </Link>
-        <Link to="/run" className="press glass-strong flex items-center gap-3 rounded-3xl p-4 shadow-soft">
-          <span className="grid size-11 shrink-0 place-items-center rounded-2xl bg-peach-soft text-peach"><RouteIcon className="size-5" /></span>
-          <span className="min-w-0"><span className="block truncate font-display font-semibold">ออกวิ่ง</span><span className="block truncate text-xs text-muted-foreground">Live GPS Track</span></span>
         </Link>
       </div>
 
@@ -116,11 +109,10 @@ function Home() {
         </div>
       </section>
 
-      <section className="mt-6 grid gap-3 sm:grid-cols-2">
+      <section className="mt-6">
         {ped.isLoading ? <Skeleton className="h-32 w-full rounded-3xl" /> : ped.isError ? <ErrorState error={ped.error} onRetry={() => void ped.refetch()} /> : (
           <Link to="/pedometer" className="press glass-strong rounded-3xl p-4 shadow-soft"><div className="flex items-center gap-4"><div className="grid size-20 shrink-0 place-items-center rounded-full border-8 border-sky-soft border-t-sky"><Footprints className="size-6 text-sky" /></div><div className="min-w-0"><p className="text-xs text-muted-foreground">ก้าววันนี้</p><p className="font-display text-2xl font-bold tabular-nums">{ped.data!.steps.toLocaleString()}</p><p className="truncate text-xs text-muted-foreground">{ped.data!.distanceKm} กม. · {ped.data!.kcal} kcal</p></div><ChevronRight className="ml-auto size-5 shrink-0 text-muted-foreground" /></div></Link>
         )}
-        <div className="glass-strong rounded-3xl p-4 shadow-soft"><div className="flex items-center justify-between"><p className="font-display font-semibold"><Droplets className="mr-1 inline size-4 text-sky" /> ดื่มน้ำ</p><p className="text-xs text-muted-foreground">{water}/{waterGoal} แก้ว</p></div><div className="mt-4 flex flex-wrap gap-2">{Array.from({ length: waterGoal }).map((_, i) => <span key={i} className={`grid size-9 place-items-center rounded-xl text-base ${i < water ? "bg-sky-soft" : "bg-muted opacity-60"}`}>💧</span>)}</div></div>
       </section>
 
       <section className="mt-6"><div className="mb-3 flex items-center justify-between"><h2 className="font-display text-lg font-semibold">มื้อล่าสุด</h2><Link to="/diary" className="text-xs text-primary">ดูทั้งหมด</Link></div>
