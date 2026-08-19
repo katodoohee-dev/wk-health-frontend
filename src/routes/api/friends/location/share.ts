@@ -1,5 +1,5 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { authenticateRequest, json, mapError } from "@/lib/server/friend-location-auth";
+import { authenticateRequest, backendUrl, json, mapError } from "@/lib/server/friend-location-auth";
 import { setShare } from "@/lib/server/friend-location-store";
 
 export const Route = createFileRoute("/api/friends/location/share")({
@@ -11,8 +11,7 @@ export const Route = createFileRoute("/api/friends/location/share")({
           const body = await request.json().catch(() => ({} as Record<string, unknown>));
           const enabled = body?.enabled === true;
           if (enabled) {
-            // Require a confirmed-friend relationship before allowing any location sharing.
-            const raw = await fetch(`${(process.env.WK_BACKEND_URL || "https://https-sites-google-com-sbp-ac-th.onrender.com").replace(/\/$/, "")}/friends`, {
+            const raw = await fetch(`${backendUrl()}/friends`, {
               headers: { Authorization: `Bearer ${token}`, Accept: "application/json" },
             });
             if (!raw.ok) return json({ success: false, error: "ไม่สามารถตรวจสอบรายชื่อเพื่อนได้" }, 503);
