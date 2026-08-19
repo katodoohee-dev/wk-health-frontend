@@ -11,8 +11,10 @@ permissions:
 
 jobs:
   build:
+    name: Production build
     runs-on: ubuntu-latest
     timeout-minutes: 15
+
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -20,14 +22,10 @@ jobs:
       - name: Setup Node
         uses: actions/setup-node@v4
         with:
-          node-version: 22.12.0
-          cache: npm
+          node-version: 22
 
       - name: Install dependencies
         run: npm install
 
-      # The repository does not currently include eslint in devDependencies,
-      # so CI validates the same production build used by Render instead of
-      # failing on a missing lint executable.
       - name: Production build
         run: npm run build
