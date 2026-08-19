@@ -1,31 +1,25 @@
-name: WK Health CI
+name: Frontend Build
 
 on:
   push:
-    branches: [main]
+    branches:
+      - main
+      - integrate/wk-premium-ui
   pull_request:
-    branches: [main]
-
-permissions:
-  contents: read
+    branches:
+      - main
 
 jobs:
   build:
-    name: Production build
     runs-on: ubuntu-latest
-    timeout-minutes: 15
-
     steps:
       - name: Checkout
         uses: actions/checkout@v4
-
       - name: Setup Node
         uses: actions/setup-node@v4
         with:
           node-version: 22
-
       - name: Install dependencies
         run: npm install
-
-      - name: Production build
+      - name: Build
         run: npm run build

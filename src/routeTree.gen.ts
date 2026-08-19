@@ -15,6 +15,7 @@ import { Route as AuthRouteImport } from './routes/auth'
 import { Route as BudgetRouteImport } from './routes/budget'
 import { Route as DiaryRouteImport } from './routes/diary'
 import { Route as GalleryRouteImport } from './routes/gallery'
+import { Route as InsightRouteImport } from './routes/insight'
 import { Route as MoodRouteImport } from './routes/mood'
 import { Route as MusicRouteImport } from './routes/music'
 import { Route as NlpRouteImport } from './routes/nlp'
@@ -52,6 +53,11 @@ const DiaryRoute = DiaryRouteImport.update({
 const GalleryRoute = GalleryRouteImport.update({
   id: '/gallery',
   path: '/gallery',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const InsightRoute = InsightRouteImport.update({
+  id: '/insight',
+  path: '/insight',
   getParentRoute: () => rootRouteImport,
 } as any)
 const MoodRoute = MoodRouteImport.update({
@@ -102,6 +108,7 @@ export interface FileRoutesByFullPath {
   '/budget': typeof BudgetRoute
   '/diary': typeof DiaryRoute
   '/gallery': typeof GalleryRoute
+  '/insight': typeof InsightRoute
   '/mood': typeof MoodRoute
   '/music': typeof MusicRoute
   '/nlp': typeof NlpRoute
@@ -118,6 +125,7 @@ export interface FileRoutesByTo {
   '/budget': typeof BudgetRoute
   '/diary': typeof DiaryRoute
   '/gallery': typeof GalleryRoute
+  '/insight': typeof InsightRoute
   '/mood': typeof MoodRoute
   '/music': typeof MusicRoute
   '/nlp': typeof NlpRoute
@@ -135,6 +143,7 @@ export interface FileRoutesById {
   '/budget': typeof BudgetRoute
   '/diary': typeof DiaryRoute
   '/gallery': typeof GalleryRoute
+  '/insight': typeof InsightRoute
   '/mood': typeof MoodRoute
   '/music': typeof MusicRoute
   '/nlp': typeof NlpRoute
@@ -153,6 +162,7 @@ export interface FileRouteTypes {
     | '/budget'
     | '/diary'
     | '/gallery'
+    | '/insight'
     | '/mood'
     | '/music'
     | '/nlp'
@@ -169,6 +179,7 @@ export interface FileRouteTypes {
     | '/budget'
     | '/diary'
     | '/gallery'
+    | '/insight'
     | '/mood'
     | '/music'
     | '/nlp'
@@ -185,6 +196,7 @@ export interface FileRouteTypes {
     | '/budget'
     | '/diary'
     | '/gallery'
+    | '/insight'
     | '/mood'
     | '/music'
     | '/nlp'
@@ -202,6 +214,7 @@ export interface RootRouteChildren {
   BudgetRoute: typeof BudgetRoute
   DiaryRoute: typeof DiaryRoute
   GalleryRoute: typeof GalleryRoute
+  InsightRoute: typeof InsightRoute
   MoodRoute: typeof MoodRoute
   MusicRoute: typeof MusicRoute
   NlpRoute: typeof NlpRoute
@@ -254,6 +267,13 @@ declare module '@tanstack/react-router' {
       path: '/gallery'
       fullPath: '/gallery'
       preLoaderRoute: typeof GalleryRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/insight': {
+      id: '/insight'
+      path: '/insight'
+      fullPath: '/insight'
+      preLoaderRoute: typeof InsightRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/mood': {
@@ -322,6 +342,7 @@ const rootRouteChildren: RootRouteChildren = {
   BudgetRoute: BudgetRoute,
   DiaryRoute: DiaryRoute,
   GalleryRoute: GalleryRoute,
+  InsightRoute: InsightRoute,
   MoodRoute: MoodRoute,
   MusicRoute: MusicRoute,
   NlpRoute: NlpRoute,
