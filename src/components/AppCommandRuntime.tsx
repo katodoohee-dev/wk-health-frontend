@@ -5,6 +5,8 @@ import { useMusic } from "@/lib/music";
 import { gpsBridge } from "@/lib/gps-bridge";
 import { appCommandBus, startAppCommandBridge } from "@/lib/app-command-bus";
 import { featureFlags } from "@/lib/feature-flags";
+import { speakThai } from "@/lib/voice-output";
+import { startFriendLocationSharing, stopFriendLocationSharing } from "@/lib/friend-location";
 
 type Props = { enabled?: boolean };
 
@@ -108,6 +110,24 @@ export function AppCommandRuntime({ enabled = true }: Props) {
           // VoiceControlAdvanced already starts GPS and emits wk:navigate-to.
           // Keeping this command side-effect free prevents double GPS watches,
           // duplicate music starts and duplicate navigation transitions.
+          return;
+        case "SHARE_FRIEND_LOCATION": {
+          if (!featureFlags.locationSharing) {
+            speakThai("ระบบแชร์ตำแหน่งเพื่อนยังไม่เปิดใช้งานในระบบครับ", { source: "friend-location", priority: 90 });
+            return;
+          }
+          const ok = await startFriendLocationSharing();
+          speakThai(ok ? "เปิดแชร์ตำแหน่งแล้วครับ แชร์ให้เฉพาะเพื่อนที่ยืนยันแล้ว" : "ยังเปิดแชร์ตำแหน่งไม่ได้ครับ", { source: "friend-location", priority: 90 });
+          return;
+        }
+        case "STOP_FRIEND_LOCATION": {
+          await stopFriendLocationSharing();
+          speakThai("หยุดแชร์ตำแหน่งแล้วครับ", { source: "friend-location", priority: 90 });
+          return;
+        }
+        case "SHOW_FRIEND_LOCATION":
+          await navigate({ to: "/friends" });
+          window.setTimeout(() => window.dispatchEvent(new CustomEvent("wk:friends-show-location", { detail: { friendId: command.friendId } })), 0);
           return;
         case "NONE":
           return;
