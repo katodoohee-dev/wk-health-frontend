@@ -16,4 +16,9 @@ export const featureFlags = Object.freeze({
   voiceRuntime: envBool("VITE_WK_VOICE_RUNTIME", true),
   musicAutomation: envBool("VITE_WK_MUSIC_AUTOMATION", true),
   centralController: envBool("VITE_WK_CENTRAL_CONTROLLER", true),
+  /**
+   * Friend location sharing is deliberately OFF until the backend realtime endpoints exist.
+   * This prevents the UI from implying that location data is being transmitted when it is not.
+   */
+  locationSharing: envBool("VITE_WK_FRIEND_LOCATION_SHARING", false),
 });
