@@ -22,5 +22,10 @@ const csrfMiddleware = createCsrfMiddleware({
 });
 
 export const startInstance = createStart(() => ({
+  // WK Health is an authenticated client-side health dashboard. Disable
+  // server rendering by default so browser-only auth/GPS/media code cannot
+  // hold Render's SSR stream open. The HTML shell still renders on the server
+  // and the app hydrates normally in the browser.
+  defaultSsr: false,
   requestMiddleware: [errorMiddleware, csrfMiddleware],
 }));
