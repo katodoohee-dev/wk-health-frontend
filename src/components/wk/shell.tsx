@@ -1,5 +1,5 @@
 import { Link, useRouterState } from "@tanstack/react-router";
-import { Activity, BarChart3, Bell, BookOpen, Camera, Dumbbell, Footprints, Images, LayoutDashboard, Menu, MessageSquare, Music, ScanBarcode, ShieldCheck, Sparkles, User, Wallet, Lightbulb, Users, Volume2, type LucideIcon } from "lucide-react";
+import { Activity, BarChart3, Bell, BookOpen, Camera, Dumbbell, Footprints, Images, LayoutDashboard, Menu, MessageSquare, Music, ScanBarcode, ShieldCheck, Sparkles, User, Wallet, Lightbulb, Users, Volume2, Settings, type LucideIcon } from "lucide-react";
 import { useState, type ReactNode } from "react";
 import { cn } from "@/lib/utils";
 import { StatusIndicator } from "./ui";
@@ -10,7 +10,7 @@ const NAV:{group:string;items:NavItem[]}[]=[
  {group:"Movement",items:[{to:"/pedometer",label:"Pedometer",icon:Footprints},{to:"/workout",label:"Workout",icon:Dumbbell},{to:"/stats",label:"Stats",icon:BarChart3}]},
  {group:"Intelligence",items:[{to:"/assistant",label:"Assistant",icon:MessageSquare},{to:"/nlp",label:"Language",icon:Sparkles},{to:"/insight",label:"Insight",icon:Lightbulb}]},
  {group:"Life",items:[{to:"/budget",label:"Budget",icon:Wallet},{to:"/music",label:"Music",icon:Music},{to:"/gallery",label:"Gallery",icon:Images},{to:"/friends",label:"Friends",icon:Users}]},
- {group:"Account",items:[{to:"/profile",label:"Profile",icon:User},{to:"/notifications",label:"Notifications",icon:Bell},{to:"/sound-control",label:"Sound Control",icon:Volume2},{to:"/device-connect",label:"Devices",icon:ShieldCheck}]}
+ {group:"Account",items:[{to:"/profile",label:"Profile",icon:User},{to:"/notifications",label:"Notifications",icon:Bell},{to:"/sound-control",label:"Sound Control",icon:Volume2},{to:"/device-connect",label:"Devices",icon:ShieldCheck},{to:"/settings",label:"Settings",icon:Settings}]}
 ];
 const DOCK:NavItem[]=[{to:"/",label:"Today",icon:LayoutDashboard},{to:"/scan",label:"Scan",icon:Camera},{to:"/stats",label:"Stats",icon:BarChart3},{to:"/assistant",label:"AI",icon:MessageSquare},{to:"/profile",label:"You",icon:User}];
 
