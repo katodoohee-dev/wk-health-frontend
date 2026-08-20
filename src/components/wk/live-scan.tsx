@@ -1,0 +1,86 @@
+import { useEffect, useRef, useState } from "react";
+import { Camera, ImagePlus, RotateCcw, ScanLine, Upload, X } from "lucide-react";
+import { analyzeFood, calculateNutrition, saveMeal, uploadImage } from "@/lib/wk-api";
+
+type Result = { foodName: string; calories: number; protein: number; carbs: number; fat: number; sodium: number; fiber: number; photoUrl?: string; description?: string };
+
+const readDataUrl = (file: File) => new Promise<string>((resolve, reject) => { const reader = new FileReader(); reader.onload = () => resolve(String(reader.result)); reader.onerror = () => reject(reader.error); reader.readAsDataURL(file); });
+
+export function LiveScan({ compact = false }: { compact?: boolean }) {
+  const inputRef = useRef<HTMLInputElement>(null);
+  const videoRef = useRef<HTMLVideoElement>(null);
+  const canvasRef = useRef<HTMLCanvasElement>(null);
+  const streamRef = useRef<MediaStream | null>(null);
+  const [preview, setPreview] = useState<string>("");
+  const [mime, setMime] = useState("image/jpeg");
+  const [camera, setCamera] = useState(false);
+  const [busy, setBusy] = useState(false);
+  const [message, setMessage] = useState("");
+  const [result, setResult] = useState<Result | null>(null);
+
+  useEffect(() => () => streamRef.current?.getTracks().forEach(t => t.stop()), []);
+
+  const choose = async (file?: File) => {
+    if (!file || !file.type.startsWith("image/")) return setMessage("เลือกไฟล์รูปภาพเท่านั้น");
+    setMessage(""); setResult(null); setMime(file.type); setPreview(await readDataUrl(file));
+  };
+  const startCamera = async () => {
+    setMessage("");
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: { ideal: "environment" }, width: { ideal: 1280 }, height: { ideal: 960 } }, audio: false });
+      streamRef.current = stream; setCamera(true);
+      requestAnimationFrame(() => { if (videoRef.current) { videoRef.current.srcObject = stream; void videoRef.current.play(); } });
+    } catch { setMessage("เปิดกล้องไม่ได้ กรุณาอนุญาต Camera หรือใช้ Upload photo แทน"); }
+  };
+  const stopCamera = () => { streamRef.current?.getTracks().forEach(t => t.stop()); streamRef.current = null; setCamera(false); };
+  const capture = () => {
+    const video = videoRef.current, canvas = canvasRef.current;
+    if (!video || !canvas) return;
+    canvas.width = video.videoWidth || 1280; canvas.height = video.videoHeight || 960;
+    const ctx = canvas.getContext("2d"); if (!ctx) return;
+    ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+    setMime("image/jpeg"); setPreview(canvas.toDataURL("image/jpeg", .9)); stopCamera();
+  };
+  const run = async () => {
+    if (!preview) return;
+    setBusy(true); setMessage("กำลังส่งภาพให้ WK วิเคราะห์…");
+    try {
+      const [uploaded, vision] = await Promise.all([uploadImage(preview, mime), analyzeFood(preview, mime)]);
+      if (!vision.success) throw new Error(vision.error);
+      const calc = await calculateNutrition(vision.data.description);
+      if (!calc.success) throw new Error(calc.error);
+      const nutrition = calc.data.nutrition;
+      const photoUrl = uploaded.success ? uploaded.data.url : undefined;
+      const next = { ...nutrition, photoUrl, description: vision.data.description };
+      setResult(next); setMessage("วิเคราะห์เสร็จแล้ว");
+      const saved = await saveMeal(next);
+      if (!saved.success) setMessage(`วิเคราะห์เสร็จแล้ว แต่ยังบันทึกไม่ได้: ${saved.error}`);
+    } catch (e) { setMessage(e instanceof Error ? e.message : "วิเคราะห์ไม่สำเร็จ"); }
+    finally { setBusy(false); }
+  };
+
+  return <div className={compact ? "space-y-4" : "space-y-5"}>
+    <canvas ref={canvasRef} className="hidden" />
+    <input ref={inputRef} type="file" accept="image/*" capture="environment" className="hidden" onChange={e => void choose(e.target.files?.[0])} />
+    <div className="relative overflow-hidden rounded-[22px] border border-border bg-foreground p-3">
+      <div className="relative aspect-[4/5] overflow-hidden rounded-[16px] border border-background/20 bg-background/10">
+        {camera ? <video ref={videoRef} playsInline muted className="absolute inset-0 size-full object-cover" /> : preview ? <img src={preview} alt="Selected food" className="absolute inset-0 size-full object-cover" /> : <div className="absolute inset-0 grid place-items-center"><div className="grid size-20 place-items-center rounded-full bg-background text-foreground"><ScanLine size={30}/></div></div>}
+        <div className="pointer-events-none absolute inset-8 rounded-xl border border-background/50" />
+        {camera && <button onClick={capture} className="absolute bottom-4 left-1/2 grid size-16 -translate-x-1/2 place-items-center rounded-full border-4 border-background bg-background/30"><span className="size-10 rounded-full bg-background" /></button>}
+        {preview && !camera && <button onClick={() => { setPreview(""); setResult(null); }} className="absolute right-3 top-3 grid size-9 place-items-center rounded-full bg-foreground text-background"><X size={16}/></button>}
+      </div>
+      <div className="mt-3 flex items-center justify-between gap-2">
+        <button onClick={() => inputRef.current?.click()} className="rounded-full border border-background/30 px-3 py-2 text-[9px] text-background"><Upload size={13} className="mr-1 inline"/>Upload</button>
+        <button onClick={camera ? capture : startCamera} className="grid size-14 shrink-0 place-items-center rounded-full border-4 border-background bg-background/20 text-background" aria-label="Camera"><Camera size={22}/></button>
+        <button onClick={() => { setPreview(""); setResult(null); setMessage(""); }} className="rounded-full border border-background/30 px-3 py-2 text-[9px] text-background"><RotateCcw size={13} className="mr-1 inline"/>Reset</button>
+      </div>
+    </div>
+    {preview && !camera && <button disabled={busy} onClick={() => void run()} className="w-full rounded-full bg-foreground px-5 py-3 text-xs text-background disabled:opacity-50">{busy ? "Analysing…" : "Analyse with WK ↗"}</button>}
+    {message && <p className="text-[10px] text-muted-foreground">{message}</p>}
+    {result && <div className="panel p-5">
+      <div className="flex items-start justify-between gap-4"><div><p className="eyebrow">ANALYSIS RESULT</p><h2 className="display mt-1 text-2xl">{result.foodName}</h2><p className="mt-1 text-[10px] text-muted-foreground">{result.description}</p></div><strong className="text-xl">{Math.round(result.calories)}<small className="ml-1 text-[10px] font-normal">kcal</small></strong></div>
+      <div className="mt-5 grid grid-cols-4 gap-2">{[["Protein",result.protein,"g"],["Carbs",result.carbs,"g"],["Fat",result.fat,"g"],["Fiber",result.fiber,"g"]].map(x=><div key={x[0]} className="rounded-xl border border-border p-3"><span className="block text-[8px] uppercase tracking-[.18em] text-muted-foreground">{x[0]}</span><b className="mt-1 block text-sm">{Math.round(Number(x[1]))}{x[2]}</b></div>)}</div>
+    </div>}
+    {!preview && <button onClick={() => inputRef.current?.click()} className="flex w-full items-center justify-center gap-2 rounded-xl border border-border p-4 text-xs"><ImagePlus size={16}/> Choose a photo to begin</button>}
+  </div>;
+}
