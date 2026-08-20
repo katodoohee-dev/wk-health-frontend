@@ -1,3 +1,4 @@
 import { createFileRoute } from '@tanstack/react-router';
-import { Music } from '@/components/wk-design';
-export const Route=createFileRoute('/music')({component:Music});
+import { Music as DesktopMusic } from '@/components/wk-design';
+import { MobileMusic } from '@/components/wk/mobile-pages';
+export const Route=createFileRoute('/music')({component:()=> <><div className="hidden lg:block"><DesktopMusic/></div><MobileMusic/></>});
