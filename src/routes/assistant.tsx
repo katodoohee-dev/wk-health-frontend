@@ -1,109 +1,23 @@
 import { useEffect, useRef, useState } from "react";
 import { createFileRoute } from "@tanstack/react-router";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { Loader2, Send, Sparkles } from "lucide-react";
-import { PageHeader } from "@/components/app/ui-bits";
+import { ArrowUp, Loader2, Paperclip, Sparkles } from "lucide-react";
 import { ErrorState } from "@/components/app/states";
+import { Chip, Eyebrow, LoadingState, Panel, SectionHeader, SuccessState } from "@/components/app/lovable-primitives";
 import { useAuth } from "@/lib/auth";
 import { apiAssistantChat, apiAssistantHistory, type ChatMessage } from "@/lib/api";
 
-const assistantSuggestions = ["สรุปการกินวันนี้ให้หน่อย", "เมนูโปรตีนสูง งบ 60 บาท", "วิ่ง 30 นาที เผาผลาญเท่าไร"];
-
-export const Route = createFileRoute("/assistant")({
-  head: () => ({
-    meta: [
-      { title: "ผู้ช่วย AI โภชนาการ — WK Health App" },
-      { name: "description", content: "แชทกับผู้ช่วย AI เพื่อวางแผนมื้ออาหาร ถามเรื่องแคลอรีและสุขภาพ" },
-      { property: "og:title", content: "ผู้ช่วย AI โภชนาการ — WK Health App" },
-      { property: "og:description", content: "แชทถามเรื่องอาหาร แคลอรี และการวางแผนมื้อ" },
-    ],
-  }),
-  component: AssistantPage,
-});
+const assistantSuggestions = ["สรุปการกินวันนี้ให้หน่อย", "เมนูโปรตีนสูง งบ 60 บาท", "วิ่ง 30 นาที เผาผลาญเท่าไร", "วิเคราะห์การนอนของฉัน"];
+export const Route = createFileRoute("/assistant")({ head: () => ({ meta: [{ title: "WK Copilot — WK Health" }, { name: "description", content: "ผู้ช่วย AI ส่วนตัวของ WK Health ที่ทำงานกับข้อมูลจริงของบัญชีคุณ" }] }), component: AssistantPage });
 
 function AssistantPage() {
-  const { isAuthenticated } = useAuth();
-  const qc = useQueryClient();
-  const [pending, setPending] = useState<ChatMessage[]>([]);
-  const [text, setText] = useState("");
-  const inputRef = useRef<HTMLInputElement>(null);
-  const bottomRef = useRef<HTMLDivElement>(null);
-
-  const history = useQuery({ queryKey: ["assistant", "history"], queryFn: apiAssistantHistory, enabled: isAuthenticated });
-
-  const chat = useMutation({
-    mutationFn: (message: string) => apiAssistantChat(message),
-    onSuccess: (reply) => {
-      setPending((p) => [...p, reply]);
-      void qc.invalidateQueries({ queryKey: ["stats"] });
-    },
-  });
-
-  const thread: ChatMessage[] = [...(history.data ?? []), ...pending];
-
-  useEffect(() => { bottomRef.current?.scrollIntoView({ behavior: "smooth" }); }, [thread.length, chat.isPending]);
-  useEffect(() => { inputRef.current?.focus(); }, [chat.isPending]);
-
-  const send = (value: string) => {
-    const v = value.trim();
-    if (!v || chat.isPending) return;
-    setPending((p) => [...p, { id: `u${Date.now()}`, role: "user", text: v }]);
-    setText("");
-    chat.mutate(v);
-  };
-
-  return (
-    <div className="rise-in flex min-h-[calc(100vh-2rem)] flex-col">
-      <PageHeader title="ผู้ช่วย AI" emoji="🤖" subtitle="ที่ปรึกษาโภชนาการส่วนตัวของคุณ"
-        right={<span className="glass flex items-center gap-1.5 rounded-2xl px-3 py-2 text-xs font-medium"><span className="size-2 rounded-full bg-primary" /> ออนไลน์</span>} />
-
-      <div className="flex-1 space-y-3 pb-4">
-        {history.isLoading ? (
-          <p className="glass rounded-3xl px-4 py-6 text-center text-sm text-muted-foreground">กำลังโหลดบทสนทนา…</p>
-        ) : history.isError ? (
-          <ErrorState error={history.error} onRetry={() => void history.refetch()} />
-        ) : thread.length === 0 ? (
-          <p className="glass-strong rounded-3xl px-4 py-6 text-center text-sm shadow-soft">สวัสดีค่ะ 🌿 ถามเรื่องอาหาร แคลอรี หรือการวางแผนมื้อได้เลยนะคะ</p>
-        ) : null}
-
-        {thread.map((m) => (
-          <div key={m.id} className={`flex ${m.role === "user" ? "justify-end" : "justify-start"}`}>
-            {m.role === "assistant" && (
-              <span className="mr-2 mt-1 grid size-8 shrink-0 place-items-center rounded-xl bg-mint-soft text-mint"><Sparkles className="size-4" /></span>
-            )}
-            <p className={`max-w-[80%] rounded-3xl px-4 py-3 text-sm leading-relaxed whitespace-pre-wrap ${m.role === "user" ? "rounded-br-lg bg-primary text-primary-foreground shadow-glow" : "glass-strong rounded-bl-lg shadow-soft"}`}>
-              {m.text}
-            </p>
-          </div>
-        ))}
-
-        {chat.isPending && (
-          <div className="flex justify-start">
-            <span className="mr-2 mt-1 grid size-8 shrink-0 place-items-center rounded-xl bg-mint-soft text-mint"><Sparkles className="size-4" /></span>
-            <p className="glass-strong flex items-center gap-2 rounded-3xl rounded-bl-lg px-4 py-3 text-sm text-muted-foreground shadow-soft">
-              <Loader2 className="size-4 animate-spin text-primary" /> กำลังคิด…
-            </p>
-          </div>
-        )}
-
-        {chat.isError && <p className="rounded-2xl bg-destructive/10 px-4 py-3 text-sm text-destructive">{chat.error instanceof Error ? chat.error.message : "ส่งข้อความไม่สำเร็จ"}</p>}
-        <div ref={bottomRef} />
-      </div>
-
-      <div className="sticky bottom-28 space-y-2">
-        <div className="flex gap-2 overflow-x-auto pb-1">
-          {assistantSuggestions.map((s) => (<button key={s} onClick={() => send(s)} className="press glass shrink-0 rounded-full px-3.5 py-2 text-xs font-medium">{s}</button>))}
-        </div>
-
-        <form onSubmit={(e) => { e.preventDefault(); send(text); }} className="glass-strong flex items-center gap-2 rounded-3xl p-2 shadow-soft">
-          <input ref={inputRef} value={text} onChange={(e) => setText(e.target.value)} placeholder="ถามเรื่องอาหารหรือสุขภาพ…"
-            className="min-w-0 flex-1 bg-transparent px-3 py-2.5 text-sm outline-none placeholder:text-muted-foreground" />
-          <button type="submit" disabled={chat.isPending} aria-label="ส่งข้อความ"
-            className="press bg-mint-gradient grid size-11 shrink-0 place-items-center rounded-2xl text-primary-foreground shadow-glow disabled:opacity-60">
-            {chat.isPending ? <Loader2 className="size-4 animate-spin" /> : <Send className="size-4" />}
-          </button>
-        </form>
-      </div>
-    </div>
-  );
+  const { isAuthenticated } = useAuth(); const qc = useQueryClient(); const [pending,setPending]=useState<ChatMessage[]>([]); const [text,setText]=useState(""); const inputRef=useRef<HTMLInputElement>(null); const bottomRef=useRef<HTMLDivElement>(null);
+  const history=useQuery({queryKey:["assistant","history"],queryFn:apiAssistantHistory,enabled:isAuthenticated});
+  const chat=useMutation({mutationFn:(message:string)=>apiAssistantChat(message),onSuccess:(reply)=>{setPending(p=>[...p,reply]);void qc.invalidateQueries({queryKey:["stats"]});}});
+  const thread:ChatMessage[]=[...(history.data??[]),...pending];
+  useEffect(()=>{bottomRef.current?.scrollIntoView({behavior:"smooth"})},[thread.length,chat.isPending]); useEffect(()=>{inputRef.current?.focus()},[chat.isPending]);
+  const send=(value:string)=>{const v=value.trim();if(!v||chat.isPending)return;setPending(p=>[...p,{id:`u${Date.now()}`,role:"user",text:v}]);setText("");chat.mutate(v)};
+  return <div className="rise-in pb-10"><header className="border-b border-border py-7 sm:py-9"><div className="flex flex-wrap items-end justify-between gap-4"><div><Eyebrow>WK INTELLIGENCE</Eyebrow><h1 className="display mt-2 text-3xl sm:text-4xl">WK Copilot</h1><p className="mt-2 text-sm text-muted-foreground">ถาม วางแผน และทำความเข้าใจสุขภาพของคุณผ่านข้อมูลจริง</p></div><Chip tone="signal">Online</Chip></div></header>
+  <div className="grid gap-6 py-7 lg:grid-cols-[minmax(0,1.55fr)_minmax(0,.8fr)]"><Panel className="grain flex flex-col gap-8 lg:p-8"><div className="flex flex-wrap gap-2"><Chip tone="solid">Context on</Chip><Chip>Health · Nutrition · Activity</Chip></div><div className="min-h-[52vh] space-y-7">{history.isLoading?<LoadingState label="กำลังโหลดบทสนทนา…"/>:history.isError?<ErrorState title="โหลดบทสนทนาไม่สำเร็จ" body="ลองใหม่อีกครั้งได้เลย" action={<button onClick={()=>void history.refetch()} className="rounded-full bg-foreground px-4 py-2 text-xs text-background">ลองใหม่</button>}/>:thread.length===0?<div className="border-y border-border py-12"><Eyebrow>READY WHEN YOU ARE</Eyebrow><p className="display mt-3 max-w-2xl text-3xl">ถาม WK ได้ทุกเรื่องที่เกี่ยวกับสุขภาพ</p><p className="mt-3 max-w-xl text-sm leading-6 text-muted-foreground">จากอาหาร การออกกำลังกาย การนอน ไปจนถึงภาพรวมของวันนี้</p></div>:null}{thread.map(m=><div key={m.id} className={m.role==="user"?"flex justify-end":"flex justify-start"}>{m.role==="assistant"&&<span className="mr-3 mt-1 grid size-8 shrink-0 place-items-center rounded-xl border border-border bg-surface"><Sparkles className="size-4"/></span>}<div className="max-w-[86%]"><Eyebrow className="mb-2">{m.role==="user"?"You":"WK"}</Eyebrow><p className={m.role==="user"?"whitespace-pre-wrap rounded-2xl rounded-tr-sm bg-foreground px-4 py-3 text-sm leading-6 text-background":"display whitespace-pre-wrap text-2xl leading-tight sm:text-[1.75rem]"}>{m.text}</p></div></div>)}{chat.isPending&&<div className="flex justify-start"><span className="mr-3 mt-1 grid size-8 place-items-center rounded-xl border border-border"><Sparkles className="size-4"/></span><p className="flex items-center gap-2 rounded-2xl border border-border bg-surface px-4 py-3 text-sm text-muted-foreground"><Loader2 className="size-4 animate-spin"/>WK กำลังคิด…</p></div>}{chat.isError&&<p className="rounded-2xl border border-destructive/30 bg-destructive/5 px-4 py-3 text-sm text-destructive">{chat.error instanceof Error?chat.error.message:"ส่งข้อความไม่สำเร็จ"}</p>}<div ref={bottomRef}/></div><form onSubmit={e=>{e.preventDefault();send(text)}} className="rounded-2xl border border-border bg-surface-2 p-2"><div className="flex items-end gap-2"><button type="button" aria-label="Attach" className="grid size-11 shrink-0 place-items-center rounded-full text-muted-foreground"><Paperclip className="size-4"/></button><input ref={inputRef} value={text} onChange={e=>setText(e.target.value)} placeholder="Ask WK anything…" className="min-w-0 flex-1 bg-transparent px-3 py-3 text-sm outline-none placeholder:text-muted-foreground"/><button type="submit" disabled={chat.isPending} aria-label="Send" className="grid size-11 shrink-0 place-items-center rounded-full bg-foreground text-background disabled:opacity-50">{chat.isPending?<Loader2 className="size-4 animate-spin"/>:<ArrowUp className="size-4"/>}</button></div></form></Panel>
+  <aside className="flex flex-col gap-6"><div><SectionHeader eyebrow="Starters" title="Try asking"/><div className="divide-y divide-border">{assistantSuggestions.map(s=><button key={s} onClick={()=>send(s)} className="press flex min-h-11 w-full items-center justify-between gap-3 py-4 text-left text-sm"><span>{s}</span><ArrowUp className="size-3.5 rotate-45 text-muted-foreground"/></button>)}</div></div><SuccessState title="Action ready" body="เมื่อ WK ขอทำ action ระบบเดิมจะยังใช้ confirmation flow ของ production ต่อไป"/></aside></div></div>;
 }
