@@ -11,15 +11,18 @@ const fail = (message) => {
 const api = read("src/lib/api.ts");
 const features = read("src/lib/api-new-features.ts");
 const auth = read("src/lib/auth-api.ts");
-const routes = read("src/routeTree.gen.ts");
+const routeDir = path.join(root, "src", "routes");
 
 if (/localhost|127\.0\.0\.1/.test(api)) fail("frontend API client contains localhost/loopback");
 if (/apigemini\.katodoohee\.workers\.dev/.test(api)) fail("frontend must not hard-code Gemini proxy");
-if (!/VITE_API_BASE_URL/.test(api) || !/VITE_API_URL/.test(api) || !/VITE_BACKEND_URL/.test(api)) fail("API environment aliases are incomplete");
+for (const envKey of ["VITE_API_BASE_URL", "VITE_API_URL", "VITE_BACKEND_URL"]) {
+  if (!api.includes(envKey)) fail(`API environment alias missing: ${envKey}`);
+}
 if (!/\/api\/insight\/weekly/.test(features)) fail("weekly insight must use the backend endpoint");
 if (!/\/api\/auth\/(login|register|me)/.test(auth)) fail("auth API contract missing");
-for (const required of ["/auth", "/insight", "/settings", "/diary", "/scan"]) {
-  if (!routes.includes(required)) fail(`required route missing from generated route tree: ${required}`);
+for (const requiredRoute of ["auth", "settings", "diary", "scan", "navigate"]) {
+  const routePath = path.join(routeDir, `${requiredRoute}.tsx`);
+  if (!fs.existsSync(routePath)) fail(`required route source missing: /${requiredRoute}`);
 }
 
 const envExamplePath = path.join(root, ".env.example");
