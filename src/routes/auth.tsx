@@ -1,3 +1,3 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { SignIn } from "@/components/wk-design";
-export const Route=createFileRoute("/auth")({component:SignIn});
+import { LiveAuth } from "@/components/wk/live-auth";
+export const Route=createFileRoute("/auth")({component:LiveAuth});
