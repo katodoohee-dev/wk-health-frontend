@@ -29,6 +29,7 @@ const titles: Record<string, [string, string]> = {
   "/profile": ["Account", "Profile"],
   "/settings": ["Configuration", "Settings"],
   "/reference": ["Design system", "State library"],
+  "/vision": ["Presentation", "Vision UI"],
 };
 
 function Wordmark() {
@@ -61,10 +62,12 @@ export function AppShell({ children }: { children: ReactNode }) {
   const { ready, isAuthenticated, user } = useAuth();
   const navigate = useNavigate();
   const isAuthRoute = pathname === "/auth";
+  const isVisionRoute = pathname === "/vision";
+  const isPublicRoute = isAuthRoute || isVisionRoute;
   useEffect(() => {
-    if (ready && !isAuthenticated && !isAuthRoute) void navigate({ to: "/auth", replace: true });
-  }, [ready, isAuthenticated, isAuthRoute, navigate]);
-  const gated = !isAuthRoute && (!ready || !isAuthenticated);
+    if (ready && !isAuthenticated && !isPublicRoute) void navigate({ to: "/auth", replace: true });
+  }, [ready, isAuthenticated, isPublicRoute, navigate]);
+  const gated = !isPublicRoute && (!ready || !isAuthenticated);
   const [eyebrow, title] = titles[pathname] ?? ["WK Health", pathname === "/" ? "Health overview" : pathname.replace("/", "").replaceAll("-", " ")];
 
   return (
@@ -112,7 +115,7 @@ export function AppShell({ children }: { children: ReactNode }) {
           <footer className="hidden border-t border-border px-8 py-6 lg:block"><p className="eyebrow">WK Health — Health OS · monochrome editorial system</p></footer>
         </div>
 
-        {!isAuthRoute && isAuthenticated && (
+        {!isPublicRoute && isAuthenticated && (
           <div className="fixed inset-x-0 bottom-0 z-40 lg:hidden">
             <div className="px-3 pb-3">
               <MiniPlayer />
