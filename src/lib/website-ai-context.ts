@@ -1,17 +1,19 @@
 import {
-  apiAssistantHistory,
   apiDiary,
-  apiGallery,
   apiMe,
-  apiMusicHistory,
-  apiMusicLibrary,
-  apiPedometerToday,
-  apiRouteHistory,
   apiStatsToday,
   apiStatsWeekly,
   apiWorkoutHistory,
   todayISO,
 } from "@/lib/api";
+import {
+  apiAssistantHistory,
+  apiGallery,
+  apiMusicHistory,
+  apiMusicLibrary,
+  apiPedometerToday,
+  apiRouteHistory,
+} from "@/lib/api-compat";
 
 export async function collectWebsiteAIContext() {
   const results = await Promise.allSettled([
