@@ -1,7 +1,7 @@
 import { useEffect } from "react";
 import { useNavigate } from "@tanstack/react-router";
-import { apiMusicLibrary } from "@/lib/api";
 import { useMusic } from "@/lib/music";
+import { apiMusicLibrary } from "@/lib/api-compat";
 import { gpsBridge } from "@/lib/gps-bridge";
 import { appCommandBus, startAppCommandBridge } from "@/lib/app-command-bus";
 import { featureFlags } from "@/lib/feature-flags";
@@ -107,9 +107,6 @@ export function AppCommandRuntime({ enabled = true }: Props) {
           }));
           return;
         case "NAVIGATE_TO":
-          // VoiceControlAdvanced already starts GPS and emits wk:navigate-to.
-          // Keeping this command side-effect free prevents double GPS watches,
-          // duplicate music starts and duplicate navigation transitions.
           return;
         case "SHARE_FRIEND_LOCATION": {
           if (!featureFlags.locationSharing) {
