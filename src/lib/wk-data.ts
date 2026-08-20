@@ -1,0 +1,127 @@
+// Static presentation data for the WK Health design prototype.
+// No backend, no API contracts — purely for high-fidelity visual exploration.
+
+export const user = {
+  name: "Kasidech Yunpen",
+  handle: "@kasidech",
+  initials: "KY",
+  plan: "WK Health · Operator",
+  since: "2024",
+};
+
+export const vitals = [
+  { id: "readiness", label: "Readiness", value: 87, unit: "%", delta: "+4", trend: [58, 62, 61, 70, 74, 80, 87] },
+  { id: "hr", label: "Resting HR", value: 54, unit: "bpm", delta: "-2", trend: [60, 59, 58, 57, 56, 55, 54] },
+  { id: "hrv", label: "HRV", value: 68, unit: "ms", delta: "+9", trend: [44, 50, 47, 55, 58, 64, 68] },
+  { id: "spo2", label: "SpO₂", value: 98, unit: "%", delta: "0", trend: [97, 98, 97, 98, 98, 98, 98] },
+];
+
+export const rings = [
+  { id: "move", label: "Move", value: 742, goal: 900, unit: "kcal" },
+  { id: "exercise", label: "Exercise", value: 46, goal: 60, unit: "min" },
+  { id: "stand", label: "Stand", value: 11, goal: 12, unit: "hr" },
+];
+
+export const sleep = {
+  score: 91,
+  duration: "7h 42m",
+  stages: [
+    { label: "Deep", minutes: 96 },
+    { label: "REM", minutes: 108 },
+    { label: "Light", minutes: 232 },
+    { label: "Awake", minutes: 26 },
+  ],
+};
+
+export const insights = [
+  {
+    id: "i1",
+    tag: "Recovery",
+    title: "Your nervous system is trending up",
+    body: "HRV rose 9 ms over the last three nights while resting heart rate fell. A hard session today is well supported.",
+  },
+  {
+    id: "i2",
+    tag: "Load",
+    title: "Aerobic base is under-served",
+    body: "82% of last week's minutes were high intensity. Two zone-2 blocks would rebalance the week.",
+  },
+  {
+    id: "i3",
+    tag: "Environment",
+    title: "Air quality is good on your usual route",
+    body: "AQI 24 along the riverside loop until 19:00. Ideal window for the long run.",
+  },
+];
+
+export const activityWeek = [
+  { day: "Mon", value: 42 },
+  { day: "Tue", value: 68 },
+  { day: "Wed", value: 31 },
+  { day: "Thu", value: 74 },
+  { day: "Fri", value: 58 },
+  { day: "Sat", value: 92 },
+  { day: "Sun", value: 46 },
+];
+
+export const sessions = [
+  { id: "s1", type: "Run", title: "Riverside Loop", time: "06:12", distance: "12.4 km", pace: "4:48 /km", load: 186 },
+  { id: "s2", type: "Strength", title: "Lower Push", time: "18:30", distance: "48 min", pace: "RPE 8", load: 142 },
+  { id: "s3", type: "Ride", title: "Coastal Out & Back", time: "07:02", distance: "38.2 km", pace: "28.4 km/h", load: 204 },
+  { id: "s4", type: "Mobility", title: "Hip & Thoracic", time: "21:15", distance: "22 min", pace: "RPE 3", load: 38 },
+];
+
+export const assistantThread = [
+  {
+    id: "m1",
+    role: "user" as const,
+    text: "Should I run intervals today or keep it easy?",
+  },
+  {
+    id: "m2",
+    role: "assistant" as const,
+    text: "Readiness is 87 and HRV is at a 30-day high, so intervals are supported. I'd cap the session at 6 × 3 min at threshold with 90 s float — that keeps tomorrow's long ride intact.",
+    citations: ["HRV 68 ms", "Sleep 91", "Load 7d 612"],
+  },
+  {
+    id: "m3",
+    role: "user" as const,
+    text: "Route it somewhere flat and shaded.",
+  },
+];
+
+export const assistantSuggestions = [
+  "Plan my week around Saturday's race",
+  "Why did my sleep score drop on Tuesday?",
+  "Summarise my last 30 days in three lines",
+  "Build a 20-minute mobility block",
+];
+
+export const routeStops = [
+  { id: "r1", label: "Depart · Home", detail: "Now", meta: "0.0 km" },
+  { id: "r2", label: "Riverside Path", detail: "Shaded · flat", meta: "1.8 km" },
+  { id: "r3", label: "Water point", detail: "Refill", meta: "6.2 km" },
+  { id: "r4", label: "Arrive · Loop close", detail: "58 min", meta: "12.4 km" },
+];
+
+export const track = {
+  title: "Nocturne Drift",
+  artist: "Aoi Field",
+  album: "Long Format",
+  elapsed: 132,
+  duration: 254,
+};
+
+export const friends = [
+  { id: "f1", name: "Naree P.", initials: "NP", status: "Ran 8.2 km this morning", streak: 14, readiness: 79 },
+  { id: "f2", name: "Theo L.", initials: "TL", status: "Rest day · recovering", streak: 6, readiness: 64 },
+  { id: "f3", name: "Mina S.", initials: "MS", status: "New 5K best · 20:41", streak: 31, readiness: 91 },
+  { id: "f4", name: "郭 Wei", initials: "GW", status: "Cycling 42 km", streak: 9, readiness: 83 },
+];
+
+export const notifications = [
+  { id: "n1", kind: "Insight", title: "Recovery window open", body: "Two consecutive nights above baseline HRV.", time: "12m", unread: true },
+  { id: "n2", kind: "Social", title: "Mina S. set a 5K best", body: "20:41 — 34 seconds faster than her last.", time: "1h", unread: true },
+  { id: "n3", kind: "System", title: "Watch firmware updated", body: "Sensor sampling improved for night HRV.", time: "5h", unread: false },
+  { id: "n4", kind: "Coach", title: "Weekly plan ready", body: "Four sessions, 6h 20m, one threshold block.", time: "Yesterday", unread: false },
+];

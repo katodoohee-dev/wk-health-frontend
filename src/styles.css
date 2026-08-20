@@ -194,3 +194,41 @@
   50% { transform: translate3d(0, -18px, 0) scale(1.05); }
 }
 @utility float-slow { animation: float-slow 9s ease-in-out infinite; }
+
+/* ---- Monochrome Home OS redesign: additive tokens (existing tokens above are untouched) ---- */
+:root {
+  --hairline: oklch(0 0 0 / 8%);
+  --surface-2: oklch(0.93 0.015 175);
+  --live: oklch(0.62 0.15 165);
+  --signal: oklch(0.62 0.13 220);
+  --font-mono: "IBM Plex Mono", ui-monospace, monospace;
+}
+.dark {
+  --hairline: oklch(1 0 0 / 9%);
+  --surface-2: oklch(0.3 0.03 210);
+  --live: oklch(0.78 0.17 145);
+  --signal: oklch(0.8 0.13 220);
+}
+@utility label-editorial {
+  font-family: var(--font-mono);
+  font-size: 0.625rem;
+  letter-spacing: 0.22em;
+  text-transform: uppercase;
+  color: var(--muted-foreground);
+}
+@utility numeral {
+  font-family: var(--font-display);
+  font-variant-numeric: tabular-nums;
+  letter-spacing: -0.03em;
+  line-height: 0.9;
+}
+@utility hairline-t { border-top: 1px solid var(--hairline); }
+@utility hairline-b { border-bottom: 1px solid var(--hairline); }
+@utility anim-rise { animation: rise-in 0.5s cubic-bezier(0.22, 1, 0.36, 1) both; }
+@utility bg-hairline { background-color: var(--hairline); }
+@utility bg-surface-2 { background-color: var(--surface-2); }
+@utility bg-live { background-color: var(--live); }
+@utility bg-signal { background-color: var(--signal); }
+@utility text-live { color: var(--live); }
+@utility text-signal { color: var(--signal); }
+@utility border-hairline { border-color: var(--hairline); }

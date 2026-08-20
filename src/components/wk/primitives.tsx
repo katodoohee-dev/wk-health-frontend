@@ -1,0 +1,342 @@
+import type { ReactNode } from "react";
+import { cn } from "@/lib/utils";
+import { AlertTriangle, Check, Inbox, Loader2 } from "lucide-react";
+
+export function Eyebrow({ children, className }: { children: ReactNode; className?: string }) {
+  return <p className={cn("eyebrow", className)}>{children}</p>;
+}
+
+export function SectionHeader({
+  eyebrow,
+  title,
+  action,
+  className,
+}: {
+  eyebrow?: string;
+  title: string;
+  action?: ReactNode;
+  className?: string;
+}) {
+  return (
+    <div
+      className={cn(
+        "grid grid-cols-[minmax(0,1fr)_auto] items-end gap-4 border-b border-border pb-4",
+        className,
+      )}
+    >
+      <div className="min-w-0">
+        {eyebrow ? <Eyebrow className="mb-2">{eyebrow}</Eyebrow> : null}
+        <h2 className="display truncate text-2xl sm:text-3xl">{title}</h2>
+      </div>
+      {action ? <div className="shrink-0">{action}</div> : null}
+    </div>
+  );
+}
+
+export function Panel({
+  children,
+  className,
+  as: As = "div",
+}: {
+  children: ReactNode;
+  className?: string;
+  as?: "div" | "section" | "article" | "aside";
+}) {
+  return <As className={cn("panel p-5 sm:p-6", className)}>{children}</As>;
+}
+
+export function Chip({
+  children,
+  tone = "default",
+  className,
+}: {
+  children: ReactNode;
+  tone?: "default" | "solid" | "signal";
+  className?: string;
+}) {
+  return (
+    <span
+      className={cn(
+        "inline-flex items-center gap-1.5 rounded-full border px-2.5 py-1 text-[0.6875rem] font-medium tracking-wide uppercase",
+        tone === "default" && "border-border bg-surface-2 text-muted-foreground",
+        tone === "solid" && "border-foreground bg-foreground text-background",
+        tone === "signal" && "border-border bg-surface text-foreground",
+        className,
+      )}
+    >
+      {tone === "signal" ? (
+        <span className="size-1.5 rounded-full bg-signal" aria-hidden="true" />
+      ) : null}
+      {children}
+    </span>
+  );
+}
+
+export function Metric({
+  label,
+  value,
+  unit,
+  delta,
+  trend,
+  size = "md",
+}: {
+  label: string;
+  value: number | string;
+  unit?: string;
+  delta?: string;
+  trend?: number[];
+  size?: "md" | "lg";
+}) {
+  return (
+    <div className="flex h-full min-w-0 flex-col justify-between gap-6">
+      <div className="flex items-start justify-between gap-3">
+        <Eyebrow>{label}</Eyebrow>
+        {delta ? (
+          <span className="numeric shrink-0 text-xs text-muted-foreground">{delta}</span>
+        ) : null}
+      </div>
+      <div>
+        <div className="flex items-baseline gap-1.5">
+          <span
+            className={cn(
+              "numeric font-medium",
+              size === "lg" ? "text-6xl sm:text-7xl" : "text-4xl sm:text-5xl",
+            )}
+          >
+            {value}
+          </span>
+          {unit ? <span className="text-sm text-muted-foreground">{unit}</span> : null}
+        </div>
+        {trend ? <Sparkline data={trend} className="mt-4" /> : null}
+      </div>
+    </div>
+  );
+}
+
+export function Sparkline({
+  data,
+  className,
+  height = 34,
+}: {
+  data: number[];
+  className?: string;
+  height?: number;
+}) {
+  const max = Math.max(...data);
+  const min = Math.min(...data);
+  const span = max - min || 1;
+  const points = data
+    .map((d, i) => {
+      const x = (i / (data.length - 1)) * 100;
+      const y = height - ((d - min) / span) * (height - 4) - 2;
+      return `${x},${y}`;
+    })
+    .join(" ");
+
+  return (
+    <svg
+      viewBox={`0 0 100 ${height}`}
+      preserveAspectRatio="none"
+      className={cn("h-9 w-full", className)}
+      aria-hidden="true"
+    >
+      <polyline
+        points={points}
+        fill="none"
+        stroke="currentColor"
+        strokeWidth="1.2"
+        vectorEffect="non-scaling-stroke"
+        className="text-foreground"
+      />
+    </svg>
+  );
+}
+
+export function ProgressRing({
+  value,
+  goal,
+  label,
+  unit,
+  size = 132,
+}: {
+  value: number;
+  goal: number;
+  label: string;
+  unit: string;
+  size?: number;
+}) {
+  const pct = Math.min(value / goal, 1);
+  const r = size / 2 - 8;
+  const c = 2 * Math.PI * r;
+
+  return (
+    <figure className="flex flex-col items-center gap-3">
+      <div className="relative" style={{ width: size, height: size }}>
+        <svg width={size} height={size} className="-rotate-90" aria-hidden="true">
+          <circle
+            cx={size / 2}
+            cy={size / 2}
+            r={r}
+            fill="none"
+            strokeWidth="3"
+            className="stroke-border"
+          />
+          <circle
+            cx={size / 2}
+            cy={size / 2}
+            r={r}
+            fill="none"
+            strokeWidth="3"
+            strokeLinecap="round"
+            strokeDasharray={c}
+            strokeDashoffset={c * (1 - pct)}
+            className="stroke-foreground transition-[stroke-dashoffset] duration-1000 ease-out"
+          />
+        </svg>
+        <div className="absolute inset-0 flex flex-col items-center justify-center">
+          <span className="numeric text-2xl font-medium">{value}</span>
+          <span className="numeric text-[0.625rem] text-muted-foreground">/ {goal}</span>
+        </div>
+      </div>
+      <figcaption className="text-center">
+        <p className="text-sm font-medium">{label}</p>
+        <p className="eyebrow">{unit}</p>
+      </figcaption>
+    </figure>
+  );
+}
+
+export function BarSeries({ data }: { data: { day: string; value: number }[] }) {
+  const max = Math.max(...data.map((d) => d.value));
+  const H = 140;
+  return (
+    <div className="flex items-end gap-2 sm:gap-3">
+      {data.map((d) => (
+        <div key={d.day} className="flex min-w-0 flex-1 flex-col items-center gap-3">
+          <div
+            className="w-full rounded-t-[3px] bg-foreground/85 transition-all duration-700 ease-out"
+            style={{ height: Math.max((d.value / max) * H, 4) }}
+            role="img"
+            aria-label={`${d.day}: ${d.value} minutes`}
+          />
+          <span className="eyebrow">{d.day}</span>
+        </div>
+      ))}
+    </div>
+  );
+}
+
+export function StackedBar({ segments }: { segments: { label: string; minutes: number }[] }) {
+  const total = segments.reduce((a, s) => a + s.minutes, 0);
+  const opacity = [1, 0.72, 0.44, 0.18];
+  return (
+    <div>
+      <div className="flex h-3 w-full overflow-hidden rounded-full border border-border">
+        {segments.map((s, i) => (
+          <div
+            key={s.label}
+            className="h-full bg-foreground"
+            style={{ width: `${(s.minutes / total) * 100}%`, opacity: opacity[i] ?? 0.2 }}
+          />
+        ))}
+      </div>
+      <dl className="mt-4 grid grid-cols-2 gap-x-6 gap-y-2 sm:grid-cols-4">
+        {segments.map((s, i) => (
+          <div key={s.label} className="flex items-center justify-between gap-2 border-b border-border pb-2">
+            <dt className="flex items-center gap-2 text-xs text-muted-foreground">
+              <span
+                className="size-2 shrink-0 rounded-full bg-foreground"
+                style={{ opacity: opacity[i] ?? 0.2 }}
+                aria-hidden="true"
+              />
+              {s.label}
+            </dt>
+            <dd className="numeric text-xs">{s.minutes}m</dd>
+          </div>
+        ))}
+      </dl>
+    </div>
+  );
+}
+
+/* ---------------- State blocks ---------------- */
+
+export function LoadingState({ label = "Syncing sensors" }: { label?: string }) {
+  return (
+    <div className="panel grain flex flex-col gap-5 p-6" aria-busy="true" aria-live="polite">
+      <div className="flex items-center gap-2 text-muted-foreground">
+        <Loader2 className="size-4 animate-spin" aria-hidden="true" />
+        <span className="eyebrow">{label}</span>
+      </div>
+      <div className="space-y-3">
+        <div className="h-10 w-2/3 animate-pulse rounded-md bg-muted" />
+        <div className="h-3 w-full animate-pulse rounded-md bg-muted" />
+        <div className="h-3 w-4/5 animate-pulse rounded-md bg-muted" />
+      </div>
+    </div>
+  );
+}
+
+export function EmptyState({
+  title,
+  body,
+  action,
+}: {
+  title: string;
+  body: string;
+  action?: ReactNode;
+}) {
+  return (
+    <div className="panel flex flex-col items-center gap-3 px-6 py-12 text-center">
+      <span className="grid size-10 place-items-center rounded-full border border-border">
+        <Inbox className="size-4 text-muted-foreground" aria-hidden="true" />
+      </span>
+      <h3 className="display text-xl">{title}</h3>
+      <p className="max-w-sm text-sm text-muted-foreground">{body}</p>
+      {action}
+    </div>
+  );
+}
+
+export function ErrorState({
+  title = "Sensor stream interrupted",
+  body = "We lost the connection to your device. Your data is safe and will backfill on reconnect.",
+  action,
+}: {
+  title?: string;
+  body?: string;
+  action?: ReactNode;
+}) {
+  return (
+    <div className="panel flex gap-4 border-destructive/30 p-6" role="alert">
+      <span className="mt-0.5 grid size-8 shrink-0 place-items-center rounded-full border border-destructive/40">
+        <AlertTriangle className="size-4 text-destructive" aria-hidden="true" />
+      </span>
+      <div className="min-w-0">
+        <h3 className="text-sm font-semibold">{title}</h3>
+        <p className="mt-1 text-sm text-muted-foreground">{body}</p>
+        {action ? <div className="mt-4">{action}</div> : null}
+      </div>
+    </div>
+  );
+}
+
+export function SuccessState({
+  title = "Plan saved",
+  body = "Your week is scheduled and synced across devices.",
+}: {
+  title?: string;
+  body?: string;
+}) {
+  return (
+    <div className="panel flex gap-4 p-6" role="status">
+      <span className="mt-0.5 grid size-8 shrink-0 place-items-center rounded-full border border-border bg-foreground">
+        <Check className="size-4 text-background" aria-hidden="true" />
+      </span>
+      <div className="min-w-0">
+        <h3 className="text-sm font-semibold">{title}</h3>
+        <p className="mt-1 text-sm text-muted-foreground">{body}</p>
+      </div>
+    </div>
+  );
+}

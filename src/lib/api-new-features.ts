@@ -84,16 +84,3 @@ export function apiNotificationUpdate(patch: Partial<NotificationSettings>) {
 export function apiNotificationTest() {
   return apiFetch<{ success: boolean }>("/api/notifications/test", { method: "POST" });
 }
-
-// ---------- Web Push (VAPID) — subscribe จริง ----------
-export function apiNotificationVapidPublicKey() {
-  return apiFetch<{ publicKey: string }>("/api/notifications/vapid-public-key");
-}
-
-export function apiNotificationSubscribe(sub: { endpoint: string; keys: { p256dh: string; auth: string } }) {
-  return apiFetch<{ success: boolean }>("/api/notifications/subscribe", { method: "POST", body: sub });
-}
-
-export function apiNotificationUnsubscribe(endpoint: string) {
-  return apiFetch<{ success: boolean }>("/api/notifications/unsubscribe", { method: "POST", body: { endpoint } });
-}
