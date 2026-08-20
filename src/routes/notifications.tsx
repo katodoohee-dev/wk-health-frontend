@@ -1,3 +1,3 @@
-import { createFileRoute } from "@tanstack/react-router";
-import { VisionPage } from "@/components/wk/vision-page";
-export const Route = createFileRoute("/notifications")({ head: () => ({ meta: [{ title: "Notifications — WK Health" }] }), component: () => <VisionPage page="notifications" /> });
+import { createFileRoute } from '@tanstack/react-router';
+import { Notifications } from '@/components/wk-design';
+export const Route=createFileRoute('/notifications')({component:Notifications});
