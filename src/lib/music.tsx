@@ -1,6 +1,9 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { useQueryClient } from "@tanstack/react-query";
-import { apiMusicPlayed, type Track } from "@/lib/api";
+import { apiFetch } from "@/lib/api";
+
+export type Track = { id: string; url: string; title: string; type: "youtube" | "audio"; ytId?: string };
+const apiMusicPlayed = (track: Track) => apiFetch<{ success: boolean }>("/api/music/played", { method: "POST", body: { url: track.url, title: track.title, type: track.type } });
 
 type MusicCtx = { current: Track | null; isPlaying: boolean; queue: Track[]; unlock: () => Promise<void>; play: (track: Track, queue?: Track[]) => void; toggle: () => void; stop: () => void; next: () => void; prev: () => void };
 const Ctx = createContext<MusicCtx | null>(null);
