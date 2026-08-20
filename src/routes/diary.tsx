@@ -1,5 +1,0 @@
-import { createFileRoute } from "@tanstack/react-router";
-import { ClipboardCheck, Moon, Utensils, Waves } from "lucide-react";
-import { AppShell } from "@/components/wk/shell";
-export const Route=createFileRoute("/diary")({component:CheckinPage});
-function CheckinPage(){return <AppShell title="Check-in"><section className="mx-auto max-w-4xl"><p className="label-xs">Daily check-in</p><h1 className="display mt-2 text-4xl">How are you today?</h1><div className="mt-8 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">{[[ClipboardCheck,"Readiness","How ready do you feel?"],[Moon,"Sleep","How did you sleep?"],[Utensils,"Nutrition","How balanced was today?"],[Waves,"Hydration","How hydrated are you?"]].map(([Icon,title,text])=>{const I=Icon as typeof ClipboardCheck;return <button type="button" key={String(title)} className="border border-border bg-card p-6 text-left hover:bg-accent"><I className="size-5"/><p className="mt-8 font-medium">{String(title)}</p><p className="mt-1 text-sm text-muted-foreground">{String(text)}</p><span className="num mt-6 inline-block text-[10px] uppercase text-signal">Open</span></button>})}</div></section></AppShell>}
