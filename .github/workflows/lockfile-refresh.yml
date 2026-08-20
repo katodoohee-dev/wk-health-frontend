@@ -1,0 +1,23 @@
+name: Lockfile Refresh
+
+on:
+  workflow_dispatch:
+  pull_request:
+    branches: [main]
+
+permissions:
+  contents: read
+
+jobs:
+  refresh:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - run: npm install --package-lock-only
+      - uses: actions/upload-artifact@v4
+        with:
+          name: canonical-package-lock
+          path: package-lock.json
