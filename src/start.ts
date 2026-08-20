@@ -22,5 +22,8 @@ const csrfMiddleware = createCsrfMiddleware({
 });
 
 export const startInstance = createStart(() => ({
+  // WK Health is browser-first: auth/localStorage, camera, GPS and other
+  // app features must not execute during the initial server render.
+  defaultSsr: false,
   requestMiddleware: [errorMiddleware, csrfMiddleware],
 }));
