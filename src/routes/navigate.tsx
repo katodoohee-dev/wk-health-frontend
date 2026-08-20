@@ -1,9 +1,14 @@
-import { Link } from "@tanstack/react-router";
+import { Link, createFileRoute } from "@tanstack/react-router";
 import { Compass, MapPinned, Navigation, Route } from "lucide-react";
 import { AppShell } from "@/components/wk/shell";
 import { Action, Metric, Panel, PageHeader } from "@/components/wk/ui";
 
-export default function NavigatePage() {
+export const Route = createFileRoute("/navigate")({
+  head: () => ({ meta: [{ title: "Navigate — WK Health" }] }),
+  component: NavigatePage,
+});
+
+function NavigatePage() {
   return (
     <AppShell title="Navigate">
       <PageHeader
