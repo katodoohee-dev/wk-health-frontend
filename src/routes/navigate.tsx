@@ -1,5 +1,5 @@
 import { Link, createFileRoute } from "@tanstack/react-router";
-import { Compass, MapPinned, Navigation, Route } from "lucide-react";
+import { Compass, MapPinned, Navigation, Route as RouteIcon } from "lucide-react";
 import { AppShell } from "@/components/wk/shell";
 import { Action, Metric, Panel, PageHeader } from "@/components/wk/ui";
 
@@ -31,7 +31,7 @@ function NavigatePage() {
           </div>
         </Panel>
         <aside className="space-y-6">
-          <Panel title="Route signal"><Metric label="Status" value="READY" size="lg" /><div className="mt-5 flex items-center gap-2 text-xs text-muted-foreground"><Route className="size-3.5" />Location permission required</div></Panel>
+          <Panel title="Route signal"><Metric label="Status" value="READY" size="lg" /><div className="mt-5 flex items-center gap-2 text-xs text-muted-foreground"><RouteIcon className="size-3.5" />Location permission required</div></Panel>
           <Panel title="Quick start"><Link to="/pedometer"><Action icon={Compass} variant="outline" className="w-full">เริ่มการติดตาม</Action></Link></Panel>
         </aside>
       </div>
