@@ -21,7 +21,8 @@ jobs:
         with:
           node-version: 22
           cache: npm
-      - run: npm ci
+      - name: Install dependencies
+        run: npm ci || npm install --no-audit --no-fund
       - run: npm run build
       - run: npx tsc --noEmit
       - run: npm run lint
@@ -37,7 +38,8 @@ jobs:
         with:
           node-version: 22
           cache: npm
-      - run: npm ci
+      - name: Install dependencies
+        run: npm ci || npm install --no-audit --no-fund
       - run: npm run test:production
 
   round-3-hardening:
@@ -50,6 +52,16 @@ jobs:
       - name: Check repository hygiene
         shell: bash
         run: |
-          ! find . -maxdepth 3 -type f \( -name '.env' -o -name '.env.local' \) -print | grep -q .
-          ! grep -R "AIza[0-9A-Za-z_-]\{20,\}" -n src scripts 2>/dev/null || true
-          ! grep -R "apigemini\.katodoohee\.workers\.dev" -n src 2>/dev/null || true
+          if find . -maxdepth 3 -type f \( -name '.env' -o -name '.env.local' \) -print | grep -q .; then
+            echo 'Tracked environment file found'
+            exit 1
+          fi
+          if grep -R "AIza[0-9A-Za-z_-]\{20,\}" -n src scripts 2>/dev/null; then
+            echo 'Possible hard-coded Google API key found'
+            exit 1
+          fi
+          if grep -R "apigemini\.katodoohee\.workers\.dev" -n src 2>/dev/null; then
+            echo 'Gemini proxy must come from environment, not frontend code'
+            exit 1
+          fi
+          echo 'Production hardening checks passed'
