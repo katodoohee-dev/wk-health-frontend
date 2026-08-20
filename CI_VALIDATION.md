@@ -1,1 +1,1 @@
-Temporary CI validation marker. The production build workflow is the source of truth for build verification.
+Production build validation marker for the post-Lovable frontend integration.
