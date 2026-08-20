@@ -24,7 +24,6 @@
 @utility shadow-panel{box-shadow:var(--shadow-panel)}
 @utility press{transition:opacity .18s ease,transform .18s ease}.press:hover{opacity:.88}.press:active{transform:scale(.98)}
 @media(prefers-reduced-motion:reduce){*,*::before,*::after{animation:none!important;transition:none!important}}
-/* Vision presentation */
 .vision-page{min-height:100vh;background:var(--background);color:var(--foreground)}
 .vision-topbar{height:72px;border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between;padding:0 clamp(20px,4vw,64px);position:sticky;top:0;z-index:40;background:color-mix(in oklab,var(--background) 88%,transparent);backdrop-filter:blur(18px)}
 .vision-mark{width:34px;height:34px;border:1px solid var(--foreground);display:grid;place-items:center;font:500 11px var(--font-mono)}
