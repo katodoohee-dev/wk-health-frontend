@@ -1,3 +1,3 @@
 import { createFileRoute } from '@tanstack/react-router';
-import { Health } from '@/components/wk-design';
-export const Route=createFileRoute('/health-mobile')({component:Health});
+import { MobileHealth } from '@/components/wk-mobile-variants';
+export const Route=createFileRoute('/health-mobile')({component:MobileHealth});
