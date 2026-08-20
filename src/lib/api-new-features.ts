@@ -1,54 +1,86 @@
-// ========================================================================
-// API functions for Export/Backup, Friends/Leaderboard, Notification Settings
-// and Friend Location Sharing.
-// ========================================================================
+// ==========================================================================
+// API functions สำหรับ 3 ฟีเจอร์ใหม่: Export/Backup, Friends/Leaderboard,
+// Notification Settings
+//
+// backend endpoints มีอยู่จริงแล้วที่ wk-health-backend
+// (src/routes/export.ts, friends.ts, notifications.ts)
+// หมายเหตุ: /api/notifications/test แค่ log ฝั่ง server เท่านั้น ยังไม่ใช่
+// push แจ้งเตือนจริงบนมือถือ จนกว่าจะตั้งค่า VAPID key + Service Worker
+// ==========================================================================
 
 import { apiFetch } from "./api";
 
+// ---------- Export / Backup ----------
+// ต้องสร้างที่ backend: POST /export, GET /export/history
 export type ExportFormat = "pdf" | "csv";
 export type ExportRange = "7d" | "30d" | "90d" | "all";
 
-export interface ExportHistoryItem { id: string; format: ExportFormat; range: ExportRange; createdAt: string; }
-
-export function apiExportRequest(params: { format: ExportFormat; range: ExportRange }) { return apiFetch<{ downloadUrl: string }>("/export", { method: "POST", body: params }); }
-export function apiExportHistory() { return apiFetch<ExportHistoryItem[]>("/export/history"); }
-
-export interface Friend { id: string; name: string; avatar?: string; streak: number; }
-export function apiFriendsList() { return apiFetch<Friend[]>("/friends"); }
-export function apiFriendsCheer(friendId: string) { return apiFetch<{ success: boolean }>(`/friends/cheer/${friendId}`, { method: "POST" }); }
-export function apiFriendsInviteCode() { return apiFetch<{ code: string }>("/friends/invite-code"); }
-export function apiFriendsAdd(code: string) { return apiFetch<{ success: boolean }>("/friends/add", { method: "POST", body: { code } }); }
-export function apiStatsWeekSummary() { return apiFetch<{ streak: number; avgKcal: number; daysOnGoal: number }>("/stats/week-summary"); }
-
-export interface FriendLocation { friendId: string; lat: number; lng: number; accuracy?: number; heading?: number; speedMps?: number; updatedAt: string; }
-export interface FriendLocationSharingStatus { enabled: boolean; visibleToConfirmedFriends: boolean; updatedAt?: string; }
-
-export function apiFriendLocationSharingStatus() { return apiFetch<FriendLocationSharingStatus>("/api/friends/location/status"); }
-export function apiFriendLocationShare(enabled: boolean) { return apiFetch<FriendLocationSharingStatus>("/api/friends/location/share", { method: "POST", body: { enabled } }); }
-export function apiFriendLocationPublish(payload: Omit<FriendLocation, "updatedAt">) { return apiFetch<{ success: boolean }>("/api/friends/location/publish", { method: "POST", body: payload }); }
-export function apiFriendLocations() { return apiFetch<FriendLocation[]>("/api/friends/location/live"); }
-
-export interface NotificationSettings { mealReminder: boolean; waterReminder: boolean; streakRisk: boolean; weeklyInsight: boolean; smartTiming: boolean; quietStart: string; quietEnd: string; }
-export function apiNotificationSettings() { return apiFetch<NotificationSettings>("/notifications/settings"); }
-export function apiNotificationUpdate(patch: Partial<NotificationSettings>) { return apiFetch<NotificationSettings>("/notifications/settings", { method: "PATCH", body: patch }); }
-export function apiNotificationTest() { return apiFetch<{ success: boolean }>("/notifications/test", { method: "POST" }); }
-
-export interface WeeklyInsightBestDay {
-  date: string;
-  kcal: number;
+export interface ExportHistoryItem {
+  id: string;
+  format: ExportFormat;
+  range: ExportRange;
+  createdAt: string;
 }
 
-export interface WeeklyInsight {
-  headline: string;
-  daysLogged: number;
-  avgKcal: number;
-  daysOnGoal: number;
-  totalSteps: number;
-  totalWorkoutMinutes: number;
-  bestDay?: WeeklyInsightBestDay | null;
-  tips: string[];
+export function apiExportRequest(params: { format: ExportFormat; range: ExportRange }) {
+  return apiFetch<{ downloadUrl: string }>("/api/export", { method: "POST", body: params });
 }
 
-export async function apiInsightWeekly(input?: unknown): Promise<WeeklyInsight> {
-  return apiFetch<WeeklyInsight>("/api/insight/weekly", { method: "POST", body: input ?? {} });
+export function apiExportHistory() {
+  return apiFetch<ExportHistoryItem[]>("/api/export/history");
+}
+
+// ---------- Friends / Leaderboard ----------
+// ต้องสร้างที่ backend: GET /friends, POST /friends/cheer/:id,
+// GET /friends/invite-code, POST /friends/add, GET /stats/week-summary
+export interface Friend {
+  id: string;
+  name: string;
+  avatar?: string;
+  streak: number;
+}
+
+export function apiFriendsList() {
+  return apiFetch<Friend[]>("/api/friends");
+}
+
+export function apiFriendsCheer(friendId: string) {
+  return apiFetch<{ success: boolean }>(`/api/friends/cheer/${friendId}`, { method: "POST" });
+}
+
+export function apiFriendsInviteCode() {
+  return apiFetch<{ code: string }>("/api/friends/invite-code");
+}
+
+export function apiFriendsAdd(code: string) {
+  return apiFetch<{ success: boolean }>("/api/friends/add", { method: "POST", body: { code } });
+}
+
+export function apiStatsWeekSummary() {
+  return apiFetch<{ streak: number; avgKcal: number; daysOnGoal: number }>("/api/stats/week-summary");
+}
+
+// ---------- Notification Settings ----------
+// ต้องสร้างที่ backend: GET /notifications/settings,
+// PATCH /notifications/settings, POST /notifications/test
+export interface NotificationSettings {
+  mealReminder: boolean;
+  waterReminder: boolean;
+  streakRisk: boolean;
+  weeklyInsight: boolean;
+  smartTiming: boolean;
+  quietStart: string;
+  quietEnd: string;
+}
+
+export function apiNotificationSettings() {
+  return apiFetch<NotificationSettings>("/api/notifications/settings");
+}
+
+export function apiNotificationUpdate(patch: Partial<NotificationSettings>) {
+  return apiFetch<NotificationSettings>("/api/notifications/settings", { method: "PATCH", body: patch });
+}
+
+export function apiNotificationTest() {
+  return apiFetch<{ success: boolean }>("/api/notifications/test", { method: "POST" });
 }

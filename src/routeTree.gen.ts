@@ -13,12 +13,15 @@ import { Route as IndexRouteImport } from './routes/index'
 import { Route as AssistantRouteImport } from './routes/assistant'
 import { Route as AuthRouteImport } from './routes/auth'
 import { Route as BudgetRouteImport } from './routes/budget'
+import { Route as DeviceConnectRouteImport } from './routes/device-connect'
 import { Route as DiaryRouteImport } from './routes/diary'
+import { Route as ExportRouteImport } from './routes/export'
+import { Route as FriendsRouteImport } from './routes/friends'
 import { Route as GalleryRouteImport } from './routes/gallery'
-import { Route as InsightRouteImport } from './routes/insight'
 import { Route as MoodRouteImport } from './routes/mood'
 import { Route as MusicRouteImport } from './routes/music'
 import { Route as NlpRouteImport } from './routes/nlp'
+import { Route as NotificationsRouteImport } from './routes/notifications'
 import { Route as PedometerRouteImport } from './routes/pedometer'
 import { Route as ProfileRouteImport } from './routes/profile'
 import { Route as ScanRouteImport } from './routes/scan'
@@ -45,19 +48,29 @@ const BudgetRoute = BudgetRouteImport.update({
   path: '/budget',
   getParentRoute: () => rootRouteImport,
 } as any)
+const DeviceConnectRoute = DeviceConnectRouteImport.update({
+  id: '/device-connect',
+  path: '/device-connect',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const DiaryRoute = DiaryRouteImport.update({
   id: '/diary',
   path: '/diary',
   getParentRoute: () => rootRouteImport,
 } as any)
+const ExportRoute = ExportRouteImport.update({
+  id: '/export',
+  path: '/export',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const FriendsRoute = FriendsRouteImport.update({
+  id: '/friends',
+  path: '/friends',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const GalleryRoute = GalleryRouteImport.update({
   id: '/gallery',
   path: '/gallery',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const InsightRoute = InsightRouteImport.update({
-  id: '/insight',
-  path: '/insight',
   getParentRoute: () => rootRouteImport,
 } as any)
 const MoodRoute = MoodRouteImport.update({
@@ -73,6 +86,11 @@ const MusicRoute = MusicRouteImport.update({
 const NlpRoute = NlpRouteImport.update({
   id: '/nlp',
   path: '/nlp',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const NotificationsRoute = NotificationsRouteImport.update({
+  id: '/notifications',
+  path: '/notifications',
   getParentRoute: () => rootRouteImport,
 } as any)
 const PedometerRoute = PedometerRouteImport.update({
@@ -106,12 +124,15 @@ export interface FileRoutesByFullPath {
   '/assistant': typeof AssistantRoute
   '/auth': typeof AuthRoute
   '/budget': typeof BudgetRoute
+  '/device-connect': typeof DeviceConnectRoute
   '/diary': typeof DiaryRoute
+  '/export': typeof ExportRoute
+  '/friends': typeof FriendsRoute
   '/gallery': typeof GalleryRoute
-  '/insight': typeof InsightRoute
   '/mood': typeof MoodRoute
   '/music': typeof MusicRoute
   '/nlp': typeof NlpRoute
+  '/notifications': typeof NotificationsRoute
   '/pedometer': typeof PedometerRoute
   '/profile': typeof ProfileRoute
   '/scan': typeof ScanRoute
@@ -123,12 +144,15 @@ export interface FileRoutesByTo {
   '/assistant': typeof AssistantRoute
   '/auth': typeof AuthRoute
   '/budget': typeof BudgetRoute
+  '/device-connect': typeof DeviceConnectRoute
   '/diary': typeof DiaryRoute
+  '/export': typeof ExportRoute
+  '/friends': typeof FriendsRoute
   '/gallery': typeof GalleryRoute
-  '/insight': typeof InsightRoute
   '/mood': typeof MoodRoute
   '/music': typeof MusicRoute
   '/nlp': typeof NlpRoute
+  '/notifications': typeof NotificationsRoute
   '/pedometer': typeof PedometerRoute
   '/profile': typeof ProfileRoute
   '/scan': typeof ScanRoute
@@ -141,12 +165,15 @@ export interface FileRoutesById {
   '/assistant': typeof AssistantRoute
   '/auth': typeof AuthRoute
   '/budget': typeof BudgetRoute
+  '/device-connect': typeof DeviceConnectRoute
   '/diary': typeof DiaryRoute
+  '/export': typeof ExportRoute
+  '/friends': typeof FriendsRoute
   '/gallery': typeof GalleryRoute
-  '/insight': typeof InsightRoute
   '/mood': typeof MoodRoute
   '/music': typeof MusicRoute
   '/nlp': typeof NlpRoute
+  '/notifications': typeof NotificationsRoute
   '/pedometer': typeof PedometerRoute
   '/profile': typeof ProfileRoute
   '/scan': typeof ScanRoute
@@ -160,12 +187,15 @@ export interface FileRouteTypes {
     | '/assistant'
     | '/auth'
     | '/budget'
+    | '/device-connect'
     | '/diary'
+    | '/export'
+    | '/friends'
     | '/gallery'
-    | '/insight'
     | '/mood'
     | '/music'
     | '/nlp'
+    | '/notifications'
     | '/pedometer'
     | '/profile'
     | '/scan'
@@ -177,12 +207,15 @@ export interface FileRouteTypes {
     | '/assistant'
     | '/auth'
     | '/budget'
+    | '/device-connect'
     | '/diary'
+    | '/export'
+    | '/friends'
     | '/gallery'
-    | '/insight'
     | '/mood'
     | '/music'
     | '/nlp'
+    | '/notifications'
     | '/pedometer'
     | '/profile'
     | '/scan'
@@ -194,12 +227,15 @@ export interface FileRouteTypes {
     | '/assistant'
     | '/auth'
     | '/budget'
+    | '/device-connect'
     | '/diary'
+    | '/export'
+    | '/friends'
     | '/gallery'
-    | '/insight'
     | '/mood'
     | '/music'
     | '/nlp'
+    | '/notifications'
     | '/pedometer'
     | '/profile'
     | '/scan'
@@ -212,12 +248,15 @@ export interface RootRouteChildren {
   AssistantRoute: typeof AssistantRoute
   AuthRoute: typeof AuthRoute
   BudgetRoute: typeof BudgetRoute
+  DeviceConnectRoute: typeof DeviceConnectRoute
   DiaryRoute: typeof DiaryRoute
+  ExportRoute: typeof ExportRoute
+  FriendsRoute: typeof FriendsRoute
   GalleryRoute: typeof GalleryRoute
-  InsightRoute: typeof InsightRoute
   MoodRoute: typeof MoodRoute
   MusicRoute: typeof MusicRoute
   NlpRoute: typeof NlpRoute
+  NotificationsRoute: typeof NotificationsRoute
   PedometerRoute: typeof PedometerRoute
   ProfileRoute: typeof ProfileRoute
   ScanRoute: typeof ScanRoute
@@ -255,6 +294,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof BudgetRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/device-connect': {
+      id: '/device-connect'
+      path: '/device-connect'
+      fullPath: '/device-connect'
+      preLoaderRoute: typeof DeviceConnectRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/diary': {
       id: '/diary'
       path: '/diary'
@@ -262,18 +308,25 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof DiaryRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/export': {
+      id: '/export'
+      path: '/export'
+      fullPath: '/export'
+      preLoaderRoute: typeof ExportRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/friends': {
+      id: '/friends'
+      path: '/friends'
+      fullPath: '/friends'
+      preLoaderRoute: typeof FriendsRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/gallery': {
       id: '/gallery'
       path: '/gallery'
       fullPath: '/gallery'
       preLoaderRoute: typeof GalleryRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/insight': {
-      id: '/insight'
-      path: '/insight'
-      fullPath: '/insight'
-      preLoaderRoute: typeof InsightRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/mood': {
@@ -295,6 +348,13 @@ declare module '@tanstack/react-router' {
       path: '/nlp'
       fullPath: '/nlp'
       preLoaderRoute: typeof NlpRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/notifications': {
+      id: '/notifications'
+      path: '/notifications'
+      fullPath: '/notifications'
+      preLoaderRoute: typeof NotificationsRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/pedometer': {
@@ -340,12 +400,15 @@ const rootRouteChildren: RootRouteChildren = {
   AssistantRoute: AssistantRoute,
   AuthRoute: AuthRoute,
   BudgetRoute: BudgetRoute,
+  DeviceConnectRoute: DeviceConnectRoute,
   DiaryRoute: DiaryRoute,
+  ExportRoute: ExportRoute,
+  FriendsRoute: FriendsRoute,
   GalleryRoute: GalleryRoute,
-  InsightRoute: InsightRoute,
   MoodRoute: MoodRoute,
   MusicRoute: MusicRoute,
   NlpRoute: NlpRoute,
+  NotificationsRoute: NotificationsRoute,
   PedometerRoute: PedometerRoute,
   ProfileRoute: ProfileRoute,
   ScanRoute: ScanRoute,

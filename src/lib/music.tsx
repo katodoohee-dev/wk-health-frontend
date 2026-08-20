@@ -15,7 +15,6 @@ type MusicCtx = {
   current: Track | null;
   isPlaying: boolean;
   queue: Track[];
-  unlock: () => Promise<void>;
   play: (track: Track, queue?: Track[]) => void;
   toggle: () => void;
   stop: () => void;
@@ -24,7 +23,6 @@ type MusicCtx = {
 };
 
 const Ctx = createContext<MusicCtx | null>(null);
-const SILENT_WAV = "data:audio/wav;base64,UklGRiQAAABXQVZFZm10IBAAAAABAAEAIlYAAESsAAACABAAZGF0YQAAAAA=";
 
 export function useMusic() {
   const ctx = useContext(Ctx);
@@ -89,31 +87,13 @@ export function MusicProvider({ children }: { children: ReactNode }) {
     };
   }, []);
 
-  const unlock = useCallback(async () => {
-    const audio = audioRef.current;
-    if (!audio) return;
-    const previousSrc = audio.src;
-    const previousVolume = audio.volume;
-    audio.volume = 0;
-    audio.src = SILENT_WAV;
-    try {
-      await audio.play();
-    } catch {
-      // Browser autoplay policy may still reject programmatic playback.
-    }
-    audio.pause();
-    audio.currentTime = 0;
-    audio.volume = previousVolume;
-    if (previousSrc) audio.src = previousSrc;
-    else audio.removeAttribute("src");
-    audio.load();
-  }, []);
-
   const playTrack = useCallback((track: Track) => {
     const audio = audioRef.current;
     if (track.type === "youtube") {
       audio?.pause();
       const vid = track.ytId || "";
+      // FIX: ถ้าไม่มี video id จริง (parseYouTubeId คืนค่าว่าง เพราะลิงก์ไม่ใช่รูปแบบ YouTube ที่รู้จัก)
+      // อย่าแสร้งว่ากำลังเล่น — โชว์สถานะไม่เล่นไปเลย ดีกว่าปุ่ม pause ค้างแบบไม่มีเสียงจริง
       if (!vid) {
         setIsPlaying(false);
         return;
@@ -128,6 +108,8 @@ export function MusicProvider({ children }: { children: ReactNode }) {
             playerVars: { autoplay: 1, playsinline: 1 },
             events: {
               onReady: (e: { target: YTPlayer }) => e.target.playVideo(),
+              // FIX: isPlaying มาจาก event onStateChange จริงเท่านั้น ไม่ใช่ optimistic setIsPlaying(true)
+              // ก่อนหน้านี้ (เดิมเซ็ต true ทันทีตอนกดเล่น ทำให้ UI โชว์ปุ่ม pause แม้เสียงไม่ออกจริง)
               onStateChange: (e: { data: number }) => {
                 if (e.data === 1) setIsPlaying(true);
                 if (e.data === 2 || e.data === 0) setIsPlaying(false);
@@ -139,10 +121,15 @@ export function MusicProvider({ children }: { children: ReactNode }) {
           ytRef.current.playVideo();
         }
       });
-    } else if (audio) {
+    } else {
       ytRef.current?.pauseVideo();
-      audio.src = track.url;
-      void audio.play().then(() => setIsPlaying(true)).catch(() => setIsPlaying(false));
+      if (audio) {
+        audio.src = track.url;
+        audio
+          .play()
+          .then(() => setIsPlaying(true))
+          .catch(() => setIsPlaying(false));
+      }
     }
   }, []);
 
@@ -151,6 +138,8 @@ export function MusicProvider({ children }: { children: ReactNode }) {
       if (list) setQueue(list);
       setCurrent(track);
       playTrack(track);
+      // ต้อง invalidate cache ของหน้า "ประวัติการฟัง" เอง เพราะ MusicProvider อยู่นอก route
+      // ของหน้า /music — ถ้าไม่ invalidate ประวัติจะไม่อัปเดตจนกว่าจะออกแล้วกลับเข้าหน้าใหม่
       void apiMusicPlayed(track)
         .then(() => void qc.invalidateQueries({ queryKey: ["music", "history"] }))
         .catch(() => undefined);
@@ -166,7 +155,8 @@ export function MusicProvider({ children }: { children: ReactNode }) {
       setIsPlaying(false);
     } else {
       if (current.type === "youtube") ytRef.current?.playVideo();
-      else void audioRef.current?.play().then(() => setIsPlaying(true)).catch(() => setIsPlaying(false));
+      else void audioRef.current?.play().catch(() => undefined);
+      setIsPlaying(true);
     }
   }, [current, isPlaying]);
 
@@ -210,8 +200,8 @@ export function MusicProvider({ children }: { children: ReactNode }) {
   }, [current, isPlaying, toggle, next, prev]);
 
   const value = useMemo(
-    () => ({ current, isPlaying, queue, unlock, play, toggle, stop, next, prev }),
-    [current, isPlaying, queue, unlock, play, toggle, stop, next, prev],
+    () => ({ current, isPlaying, queue, play, toggle, stop, next, prev }),
+    [current, isPlaying, queue, play, toggle, stop, next, prev],
   );
 
   return (
