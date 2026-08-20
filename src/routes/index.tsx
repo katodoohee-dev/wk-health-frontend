@@ -1,5 +1,3 @@
-import { createFileRoute } from "@tanstack/react-router";
-import { User, Activity, HeartPulse, Music } from "lucide-react";
-import { AppShell } from "@/components/wk/shell";
-export const Route=createFileRoute("/")({component:YouPage});
-function YouPage(){return <AppShell title="You"><section className="mx-auto max-w-5xl"><p className="label-xs">WK Health / You</p><div className="mt-3 flex flex-col justify-between gap-6 sm:flex-row sm:items-end"><div><h1 className="display text-5xl">Your health, your pace.</h1><p className="mt-3 max-w-2xl text-sm leading-6 text-muted-foreground">One place for your profile, connected signals and personal controls.</p></div><div className="grid size-16 place-items-center rounded-full border border-border bg-card"><User className="size-6"/></div></div><div className="mt-10 grid gap-4 sm:grid-cols-3">{[[Activity,"Activity","Keep your movement visible."],[HeartPulse,"Recovery","See the signals that matter."],[Music,"Environment","Shape your focus and recovery." ]].map(([I,t,d])=>{const Icon=I as typeof Activity;return <article key={String(t)} className="border border-border bg-card p-6"><Icon className="size-5"/><h2 className="mt-8 font-medium">{String(t)}</h2><p className="mt-2 text-sm text-muted-foreground">{String(d)}</p></article>})}</div></section></AppShell>}
+import { createFileRoute } from '@tanstack/react-router';
+import { Health } from '@/components/wk-design';
+export const Route=createFileRoute('/')({component:()=> <Health/>});
