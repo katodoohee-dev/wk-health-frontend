@@ -19,7 +19,6 @@ import { Route as ProfileRouteImport } from './routes/profile'
 import { Route as ScanRouteImport } from './routes/scan'
 import { Route as StatsRouteImport } from './routes/stats'
 import { Route as WorkoutRouteImport } from './routes/workout'
-import { Route as SettingsRouteImport } from './routes/settings'
 import { Route as SoundControlRouteImport } from './routes/sound-control'
 import { Route as VisionRouteImport } from './routes/vision'
 const make=(source:any,id:string,path:string)=>source.update({id,path,getParentRoute:()=>rootRouteImport} as any)
@@ -42,8 +41,8 @@ const MoodBudgetRoute=make(VisionRouteImport,'/moodBudget','/moodBudget')
 const NlpRoute=make(NlpRouteImport,'/nlp','/nlp')
 const NotificationsRoute=make(NotificationsRouteImport,'/notifications','/notifications')
 const PedometerRoute=make(PedometerRouteImport,'/pedometer','/pedometer')
-const RouteRoute=make(SettingsRouteImport,'/route','/route')
-const WaterRoute=make(SettingsRouteImport,'/water','/water')
+const RouteRoute=make(SoundControlRouteImport,'/route','/route')
+const WaterRoute=make(VisionRouteImport,'/water','/water')
 const WorkoutRoute=make(WorkoutRouteImport,'/workout','/workout')
 const ProfileRoute=make(ProfileRouteImport,'/profile','/profile')
 export type FileRouteTypes=any
