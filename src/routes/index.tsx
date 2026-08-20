@@ -1,9 +1,9 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import {
-  Footprints, LogOut, MessageSquareHeart, Wallet,
-  Dumbbell, Music2, UserRound, Plus, Snowflake, Image as ImageIcon,
-  Users, Download, BellRing, ScanLine, Watch,
+  Footprints, LogOut, MessageSquareHeart, Wallet, Dumbbell, Music2,
+  UserRound, Plus, Snowflake, Image as ImageIcon, Users, Download,
+  BellRing, ScanLine, Watch, ArrowUpRight, Droplets, Flame, Target,
 } from "lucide-react";
 import { ThemeToggle } from "@/components/app/theme-toggle";
 import { ErrorState, Skeleton } from "@/components/app/states";
@@ -13,232 +13,126 @@ import { apiCheckin, apiCheckinToday, apiDiary, apiPedometerToday, apiStatsToday
 export const Route = createFileRoute("/")({
   head: () => ({
     meta: [
-      { title: "WK Health — Health OS ประจำวันของคุณ" },
-      { name: "description", content: "ศูนย์กลางสุขภาพรายวัน: แคลอรีคงเหลือ ก้าวเดิน น้ำ มื้ออาหาร และเครื่องมือทั้งหมดของ WK Health ในหน้าเดียว" },
-      { property: "og:title", content: "WK Health — Health OS ประจำวันของคุณ" },
-      { property: "og:description", content: "ตัวเลขสุขภาพจริงจากระบบ WK Health พร้อมสแกนอาหาร นับก้าวด้วย GPS และผู้ช่วย AI" },
+      { title: "WK Health — Health OS" },
+      { name: "description", content: "แดชบอร์ดสุขภาพแบบใหม่ของ WK Health พร้อมข้อมูลจริงจาก API" },
     ],
   }),
   component: Home,
 });
 
-// หมายเหตุ: ยังไม่มี route "/run" แยกต่างหากใน repo นี้ — การนับก้าว/GPS ทำงานอยู่ที่ "/pedometer"
 const tools = [
-  { to: "/mood", icon: MessageSquareHeart, title: "Mood Menu", desc: "เมนูตามอารมณ์" },
-  { to: "/budget", icon: Wallet, title: "Budget Planner", desc: "วางแผนตามงบ" },
-  { to: "/pedometer", icon: Footprints, title: "Pedometer", desc: "นับก้าว + GPS" },
-  { to: "/device-connect", icon: Watch, title: "เชื่อมอุปกรณ์", desc: "HealthKit/Google Fit" },
-  { to: "/workout", icon: Dumbbell, title: "Workout", desc: "ตารางฝึก AI" },
-  { to: "/music", icon: Music2, title: "Music", desc: "เพลย์ลิสต์คลอ" },
-  { to: "/profile", icon: UserRound, title: "Profile & BMI", desc: "ข้อมูล + คำนวณ BMI" },
-  { to: "/gallery", icon: ImageIcon, title: "แกลเลอรี", desc: "ย้อนดูรูปอาหาร" },
-  { to: "/friends", icon: Users, title: "เพื่อนและ Streak", desc: "เชียร์กัน ไม่แข่งตัวเลข" },
-  { to: "/export", icon: Download, title: "ส่งออกข้อมูล", desc: "PDF/CSV + สำรองข้อมูล" },
-  { to: "/notifications", icon: BellRing, title: "การแจ้งเตือน", desc: "แจ้งเตือนอัจฉริยะ" },
+  { to: "/scan", icon: ScanLine, title: "สแกนอาหาร", desc: "AI calorie scan", tone: "mint" },
+  { to: "/pedometer", icon: Footprints, title: "ออกวิ่ง", desc: "Live GPS track", tone: "sky" },
+  { to: "/mood", icon: MessageSquareHeart, title: "Mood Menu", desc: "เมนูตามอารมณ์", tone: "lilac" },
+  { to: "/budget", icon: Wallet, title: "Budget Planner", desc: "วางแผนตามงบ", tone: "peach" },
+  { to: "/workout", icon: Dumbbell, title: "Workout", desc: "ตารางฝึก AI", tone: "mint" },
+  { to: "/device-connect", icon: Watch, title: "เชื่อมอุปกรณ์", desc: "HealthKit / Fit", tone: "sky" },
+  { to: "/gallery", icon: ImageIcon, title: "แกลเลอรี", desc: "รูปอาหารของคุณ", tone: "lilac" },
+  { to: "/friends", icon: Users, title: "เพื่อน & Streak", desc: "เชียร์กัน", tone: "peach" },
 ] as const;
 
 function Home() {
   const { user, logout, isAuthenticated } = useAuth();
   const qc = useQueryClient();
   const date = todayISO();
-
   const stats = useQuery({ queryKey: ["stats", "today"], queryFn: apiStatsToday, enabled: isAuthenticated });
   const ped = useQuery({ queryKey: ["pedometer", "today"], queryFn: apiPedometerToday, enabled: isAuthenticated });
   const diary = useQuery({ queryKey: ["diary", date], queryFn: () => apiDiary(date), enabled: isAuthenticated });
   const checkin = useQuery({ queryKey: ["checkin", "today"], queryFn: apiCheckinToday, enabled: isAuthenticated });
-
-  const doCheckin = useMutation({
-    mutationFn: apiCheckin,
-    onSuccess: () => void qc.invalidateQueries({ queryKey: ["checkin"] }),
-  });
+  const doCheckin = useMutation({ mutationFn: apiCheckin, onSuccess: () => void qc.invalidateQueries({ queryKey: ["checkin"] }) });
 
   const s = stats.data;
   const remaining = s ? s.goal - s.eaten + s.burned : 0;
-  const waterGoal = s?.waterGoal ?? 8;
   const water = s?.water ?? 0;
-  const macroBars = s
-    ? [
-        { label: "Protein", th: "โปรตีน", value: s.protein, max: s.proteinGoal },
-        { label: "Carb", th: "คาร์บ", value: s.carb, max: s.carbGoal },
-        { label: "Fat", th: "ไขมัน", value: s.fat, max: s.fatGoal },
-      ]
-    : [];
+  const waterGoal = s?.waterGoal ?? 8;
 
   return (
-    <div className="anim-rise pb-8">
-      <header className="hairline-b flex items-center justify-between py-5">
-        <div className="min-w-0">
-          <span className="label-editorial">Today</span>
-          <h1 className="font-display mt-1 truncate text-[20px] font-medium tracking-tight">
-            คุณ{user?.name ?? user?.email ?? "ผู้ใช้"}
-          </h1>
+    <div className="pb-10">
+      <header className="flex items-center justify-between py-5">
+        <div>
+          <div className="label-editorial">WK HEALTH · TODAY</div>
+          <h1 className="mt-1 text-2xl font-bold tracking-tight">สวัสดี {user?.name ?? user?.email ?? "คุณ"} 👋</h1>
+          <p className="mt-1 text-sm text-muted-foreground">พร้อมดูแลสุขภาพของคุณวันนี้หรือยัง?</p>
         </div>
-        <div className="flex shrink-0 items-center gap-1">
-          {s?.streak ? (
-            <span className="mr-1 border border-hairline px-3 py-1.5 font-mono text-[10px] tracking-[0.14em] uppercase text-muted-foreground">
-              streak {s.streak}
-            </span>
-          ) : null}
-          <Link to="/profile" aria-label="โปรไฟล์" className="press grid size-10 place-items-center border border-hairline">
-            <UserRound className="size-4" />
-          </Link>
+        <div className="flex items-center gap-2">
+          <Link to="/profile" className="glass press grid size-10 place-items-center rounded-2xl shadow-soft"><UserRound className="size-4" /></Link>
           <ThemeToggle />
-          <button onClick={() => void logout()} aria-label="ออกจากระบบ" className="press grid size-10 place-items-center border border-hairline">
-            <LogOut className="size-4" />
-          </button>
+          <button onClick={() => void logout()} className="glass press grid size-10 place-items-center rounded-2xl shadow-soft" aria-label="ออกจากระบบ"><LogOut className="size-4" /></button>
         </div>
       </header>
 
-      {stats.isLoading || !s ? (
-        <Skeleton className="mt-8 h-48 w-full" />
-      ) : stats.isError ? (
-        <div className="mt-8"><ErrorState error={stats.error} onRetry={() => void stats.refetch()} /></div>
-      ) : (
-        <section className="pt-8 pb-10">
-          <div className="flex items-end gap-4">
-            <span className="numeral text-[104px] font-semibold tabular-nums">{remaining}</span>
-            <div className="pb-4">
-              <div className="label-editorial">kcal เหลือได้</div>
-              <div className="mt-2 font-mono text-[11px] text-muted-foreground">
-                {s!.eaten} กิน · {s!.burned} เผาผลาญ · เป้า {s!.goal}
+      <section className="bg-hero shadow-glow relative overflow-hidden rounded-[2rem] p-6 text-primary-foreground sm:p-8">
+        <div className="absolute -right-12 -top-16 size-44 rounded-full bg-white/30 blur-2xl" />
+        <div className="relative">
+          <div className="flex items-center justify-between">
+            <span className="rounded-full bg-white/35 px-3 py-1 font-mono text-[10px] tracking-widest uppercase">Daily Health OS</span>
+            {s?.streak ? <span className="rounded-full bg-white/35 px-3 py-1 font-mono text-[10px]">🔥 {s.streak} day streak</span> : null}
+          </div>
+          {stats.isLoading || !s ? <Skeleton className="mt-7 h-24 w-full bg-white/25" /> : stats.isError ? <div className="mt-6 rounded-2xl bg-white/40 p-4"><ErrorState error={stats.error} onRetry={() => void stats.refetch()} /></div> : (
+            <div className="mt-7">
+              <div className="text-sm opacity-80">แคลอรีที่เหลือวันนี้</div>
+              <div className="mt-1 flex items-end gap-3">
+                <span className="text-7xl font-extrabold leading-none tracking-[-0.06em]">{remaining}</span>
+                <span className="pb-2 text-sm font-medium">kcal</span>
+              </div>
+              <div className="mt-5 grid grid-cols-3 gap-2">
+                <MiniStat label="กิน" value={`${s.eaten}`} icon={<Flame className="size-3.5" />} />
+                <MiniStat label="เผาผลาญ" value={`${s.burned}`} icon={<ArrowUpRight className="size-3.5" />} />
+                <MiniStat label="เป้าหมาย" value={`${s.goal}`} icon={<Target className="size-3.5" />} />
               </div>
             </div>
-          </div>
+          )}
+        </div>
+      </section>
 
-          <div className="mt-10 space-y-5">
-            {macroBars.map((m) => (
-              <div key={m.label}>
-                <div className="flex items-baseline justify-between">
-                  <span className="label-editorial">{m.label}</span>
-                  <span className="font-mono text-[11px] text-muted-foreground">
-                    {Math.round(m.value)} / {Math.round(m.max)} g
-                  </span>
-                </div>
-                <div className="mt-2 h-px w-full bg-hairline">
-                  <div
-                    className="h-px bg-foreground"
-                    style={{ width: `${Math.min(100, m.max ? (m.value / m.max) * 100 : 0)}%` }}
-                  />
-                </div>
-              </div>
-            ))}
-          </div>
-        </section>
-      )}
-
-      {checkin.data && (
-        <button
-          onClick={() => !checkin.data!.alreadyCheckedInToday && doCheckin.mutate()}
-          disabled={checkin.data.alreadyCheckedInToday || doCheckin.isPending}
-          className="hairline-t press flex w-full items-center justify-between gap-3 py-6 text-left disabled:cursor-default"
-        >
-          <span className="min-w-0">
-            <span className="label-editorial">Check-in</span>
-            <span className="mt-2 block truncate text-[15px]">{checkin.data.greeting}</span>
-            <span className="mt-1 flex items-center gap-2 font-mono text-[10px] tracking-[0.14em] uppercase text-muted-foreground">
-              streak {checkin.data.streak} วัน
-              {checkin.data.freezeAvailable > 0 && (
-                <span className="flex items-center gap-0.5"><Snowflake className="size-3" />×{checkin.data.freezeAvailable}</span>
-              )}
-            </span>
-          </span>
-          <span className={`shrink-0 px-4 py-2 font-mono text-[10px] tracking-[0.14em] uppercase ${checkin.data.alreadyCheckedInToday ? "text-live" : "bg-foreground text-background"}`}>
-            {checkin.data.alreadyCheckedInToday ? "เช็คอินแล้ว" : doCheckin.isPending ? "กำลังเช็คอิน…" : "เช็คอิน"}
-          </span>
-        </button>
-      )}
-
-      <section className="hairline-t grid grid-cols-2">
-        <Link to="/scan" className="press flex items-center gap-3 border-r border-hairline py-7 pr-6">
-          <ScanLine className="size-5" />
-          <span className="min-w-0">
-            <span className="block truncate text-[15px] font-medium">สแกนอาหาร</span>
-            <span className="label-editorial block">instant kcal</span>
-          </span>
+      <section className="mt-4 grid gap-4 sm:grid-cols-2">
+        <Link to="/scan" className="bg-mint-gradient shadow-soft press rounded-[1.75rem] p-5 text-primary-foreground">
+          <div className="flex items-start justify-between"><span className="grid size-11 place-items-center rounded-2xl bg-white/30"><ScanLine /></span><ArrowUpRight className="size-4" /></div>
+          <h2 className="mt-8 text-xl font-bold">สแกนอาหาร</h2><p className="mt-1 text-sm opacity-80">ถ่ายรูป → AI วิเคราะห์แคลอรี</p>
         </Link>
-        <Link to="/pedometer" className="press flex items-center gap-3 py-7 pl-6">
-          <Footprints className="size-5" />
-          <span className="min-w-0">
-            <span className="block truncate text-[15px] font-medium">ออกวิ่ง</span>
-            <span className="label-editorial block">live gps track</span>
-          </span>
+        <Link to="/pedometer" className="rounded-[1.75rem] bg-sky-soft shadow-soft press p-5 text-secondary-foreground">
+          <div className="flex items-start justify-between"><span className="grid size-11 place-items-center rounded-2xl bg-sky/25"><Footprints /></span><ArrowUpRight className="size-4" /></div>
+          <h2 className="mt-8 text-xl font-bold">ออกวิ่ง</h2><p className="mt-1 text-sm opacity-80">GPS จริง · ระยะทาง · ความเร็ว</p>
         </Link>
       </section>
 
-      <section className="hairline-t grid grid-cols-2">
-        {ped.isLoading ? (
-          <div className="col-span-2 py-7"><Skeleton className="h-20 w-full" /></div>
-        ) : ped.isError || !ped.data ? (
-          <div className="col-span-2 py-7"><ErrorState error={ped.error} onRetry={() => void ped.refetch()} /></div>
-        ) : (
-          <>
-            <Link to="/pedometer" className="press border-r border-hairline py-7 pr-6">
-              <div className="label-editorial">Steps</div>
-              <div className="numeral mt-3 text-[30px] font-medium">{ped.data!.steps.toLocaleString()}</div>
-              <div className="mt-2 text-[12px] text-muted-foreground">
-                เป้า {ped.data!.goal.toLocaleString()} · {ped.data!.distanceKm} กม.
-              </div>
-            </Link>
-            <div className="py-7 pl-6">
-              <div className="label-editorial">Water</div>
-              <div className="numeral mt-3 text-[30px] font-medium">
-                {water}
-                <span className="font-mono text-[11px] text-muted-foreground"> / {waterGoal} แก้ว</span>
-              </div>
-              <div className="mt-3 flex gap-1">
-                {Array.from({ length: waterGoal }).map((_, i) => (
-                  <span key={i} className={`h-1.5 w-3 ${i < water ? "bg-live" : "bg-surface-2"}`} />
-                ))}
-              </div>
-            </div>
-          </>
-        )}
+      <section className="mt-4 grid gap-4 sm:grid-cols-2">
+        <div className="glass shadow-soft rounded-[1.75rem] p-5">
+          <div className="flex items-center justify-between"><span className="label-editorial">STEPS</span><Footprints className="size-4 text-primary" /></div>
+          {ped.isLoading ? <Skeleton className="mt-5 h-12 w-32" /> : ped.isError || !ped.data ? <ErrorState error={ped.error} onRetry={() => void ped.refetch()} /> : <><div className="mt-4 text-4xl font-extrabold tabular-nums">{ped.data.steps.toLocaleString()}</div><p className="mt-2 text-xs text-muted-foreground">เป้า {ped.data.goal.toLocaleString()} · {ped.data.distanceKm} กม.</p></>}
+        </div>
+        <div className="glass shadow-soft rounded-[1.75rem] p-5">
+          <div className="flex items-center justify-between"><span className="label-editorial">WATER</span><Droplets className="size-4 text-signal" /></div>
+          <div className="mt-4 text-4xl font-extrabold tabular-nums">{water}<span className="ml-2 text-sm font-medium text-muted-foreground">/ {waterGoal} แก้ว</span></div>
+          <div className="mt-4 flex gap-1.5">{Array.from({ length: waterGoal }).map((_, i) => <span key={i} className={`h-2 flex-1 rounded-full ${i < water ? "bg-live" : "bg-surface-2"}`} />)}</div>
+        </div>
       </section>
 
-      <section className="hairline-t py-8">
-        <div className="flex items-center justify-between">
-          <span className="label-editorial">มื้อล่าสุด</span>
-          <Link to="/diary" className="label-editorial hover:text-foreground">ดูทั้งหมด</Link>
+      {checkin.data && <button onClick={() => !checkin.data!.alreadyCheckedInToday && doCheckin.mutate()} disabled={checkin.data.alreadyCheckedInToday || doCheckin.isPending} className="glass shadow-soft press mt-4 flex w-full items-center justify-between rounded-[1.5rem] p-5 text-left"><span><span className="label-editorial">DAILY CHECK-IN</span><span className="mt-1 block font-medium">{checkin.data.greeting}</span><span className="mt-1 block text-xs text-muted-foreground">Streak {checkin.data.streak} วัน {checkin.data.freezeAvailable > 0 ? `· ❄️ ${checkin.data.freezeAvailable}` : ""}</span></span><span className={`rounded-full px-4 py-2 text-xs font-semibold ${checkin.data.alreadyCheckedInToday ? "bg-live/15 text-live" : "bg-foreground text-background"}`}>{checkin.data.alreadyCheckedInToday ? "เช็คอินแล้ว" : doCheckin.isPending ? "กำลังเช็คอิน…" : "เช็คอิน"}</span></button>}
+
+      <section className="mt-8">
+        <div className="mb-4 flex items-end justify-between"><div><span className="label-editorial">QUICK TOOLS</span><h2 className="mt-1 text-xl font-bold">เครื่องมือของคุณ</h2></div><Link to="/diary" className="text-xs font-semibold text-primary">ดูไดอารี →</Link></div>
+        <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+          {tools.map((t) => { const Icon = t.icon; const tone = t.tone === "mint" ? "bg-mint-soft text-primary" : t.tone === "sky" ? "bg-sky-soft text-signal" : t.tone === "peach" ? "bg-peach-soft text-accent-foreground" : "bg-[color:var(--lilac)]/15 text-foreground"; return <Link key={t.to} to={t.to} className="glass shadow-soft press rounded-2xl p-4"><span className={`grid size-10 place-items-center rounded-xl ${tone}`}><Icon className="size-4" /></span><p className="mt-4 truncate text-sm font-semibold">{t.title}</p><p className="mt-1 truncate text-[11px] text-muted-foreground">{t.desc}</p></Link>; })}
         </div>
-        {diary.isLoading ? (
-          <div className="mt-6 space-y-2"><Skeleton className="h-12 w-full" /><Skeleton className="h-12 w-full" /></div>
-        ) : diary.isError || !diary.data ? (
-          <div className="mt-6"><ErrorState error={diary.error} onRetry={() => void diary.refetch()} /></div>
-        ) : diary.data!.length === 0 ? (
-          <p className="mt-6 text-[14px] text-muted-foreground">ยังไม่มีมื้ออาหารวันนี้ — เริ่มจากการสแกนอาหารได้เลย</p>
-        ) : (
-          <ul className="mt-6 space-y-5">
-            {diary.data!.slice(-3).reverse().map((m) => (
-              <li key={m.id} className="flex items-center gap-4">
-                <span className="w-12 shrink-0 font-mono text-[11px] text-muted-foreground">{m.time}</span>
-                <div className="min-w-0 flex-1">
-                  <p className="truncate text-[14px]">{m.emoji} {m.name}</p>
-                  <p className="label-editorial mt-1">{m.slot}</p>
-                </div>
-                <span className="numeral shrink-0 text-[20px] font-medium">{m.kcal}</span>
-              </li>
-            ))}
-          </ul>
-        )}
       </section>
 
-      <section className="hairline-t py-8">
-        <div className="flex items-center justify-between">
-          <span className="label-editorial">เครื่องมือของคุณ</span>
-          <Link to="/diary" className="press label-editorial inline-flex items-center gap-1 hover:text-foreground">
-            <Plus className="size-3" /> บันทึกมื้อ
-          </Link>
-        </div>
-        <div className="mt-6 grid grid-cols-2 border-t border-l border-hairline lg:grid-cols-4">
-          {tools.map((t) => (
-            <Link key={t.to} to={t.to} className="press border-r border-b border-hairline p-5">
-              <t.icon className="size-4" />
-              <p className="mt-4 truncate text-[14px] font-medium">{t.title}</p>
-              <p className="mt-1 truncate text-[12px] text-muted-foreground">{t.desc}</p>
-            </Link>
-          ))}
+      <section className="mt-8">
+        <div className="mb-4 flex items-center justify-between"><span className="label-editorial">RECENT MEALS</span><Link to="/diary" className="text-xs font-semibold text-primary">ทั้งหมด →</Link></div>
+        <div className="glass shadow-soft rounded-[1.5rem] p-5">
+          {diary.isLoading ? <div className="space-y-3"><Skeleton className="h-10 w-full" /><Skeleton className="h-10 w-full" /></div> : diary.isError || !diary.data ? <ErrorState error={diary.error} onRetry={() => void diary.refetch()} /> : diary.data.length === 0 ? <p className="text-sm text-muted-foreground">ยังไม่มีมื้ออาหารวันนี้ — เริ่มจากการสแกนอาหารได้เลย</p> : <ul className="space-y-3">{diary.data.slice(-4).reverse().map((m) => <li key={m.id} className="flex items-center gap-3 rounded-xl bg-muted/50 px-3 py-2.5"><span className="text-xl">{m.emoji}</span><div className="min-w-0 flex-1"><p className="truncate text-sm font-medium">{m.name}</p><p className="text-[10px] text-muted-foreground">{m.time} · {m.slot}</p></div><span className="font-bold tabular-nums">{m.kcal}<span className="ml-1 text-[10px] font-normal text-muted-foreground">kcal</span></span></li>)}</ul>}
         </div>
       </section>
+
+      <div className="mt-8 grid grid-cols-2 gap-3 sm:grid-cols-3">
+        <Link to="/diary" className="glass press rounded-2xl p-4"><Plus className="size-4 text-primary" /><p className="mt-3 text-sm font-semibold">บันทึกมื้อ</p></Link>
+        <Link to="/assistant" className="glass press rounded-2xl p-4"><MessageSquareHeart className="size-4 text-primary" /><p className="mt-3 text-sm font-semibold">ถาม AI</p></Link>
+        <Link to="/stats" className="glass press rounded-2xl p-4"><Target className="size-4 text-primary" /><p className="mt-3 text-sm font-semibold">ดูสถิติ</p></Link>
+      </div>
     </div>
   );
+}
+
+function MiniStat({ label, value, icon }: { label: string; value: string; icon: React.ReactNode }) {
+  return <div className="rounded-2xl bg-white/25 px-3 py-2.5 backdrop-blur-sm"><div className="flex items-center gap-1 text-[10px] opacity-75">{icon}{label}</div><div className="mt-1 font-mono text-sm font-semibold">{value}</div></div>;
 }
