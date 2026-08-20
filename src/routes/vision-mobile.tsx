@@ -1,3 +1,3 @@
 import { createFileRoute } from '@tanstack/react-router';
-import { Vision } from '@/components/wk-design';
-export const Route=createFileRoute('/vision-mobile')({component:Vision});
+import { MobileVision } from '@/components/wk-mobile-variants';
+export const Route=createFileRoute('/vision-mobile')({component:MobileVision});
