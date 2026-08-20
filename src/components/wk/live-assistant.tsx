@@ -1,4 +1,5 @@
-import { FormEvent, useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
+import type { FormEvent } from "react";
 import { ArrowUp, Mic, Paperclip, Sparkles } from "lucide-react";
 import { assistantHistory, chat } from "@/lib/wk-api";
 import { Shell } from "@/components/wk-design";
