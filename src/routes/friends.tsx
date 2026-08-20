@@ -1,176 +1,31 @@
 import { useState } from "react";
 import { createFileRoute } from "@tanstack/react-router";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { Users, Flame, Heart, Share2, UserPlus, Copy, Loader2, Check } from "lucide-react";
-import { PageHeader, GlassCard } from "@/components/app/ui-bits";
+import { Check, Copy, Heart, Loader2, Share2, Flame, UserPlus, Users } from "lucide-react";
+import { AppShell } from "@/components/app/app-shell";
+import { Chip, Eyebrow, Panel, SectionHeader, SuccessState } from "@/components/app/lovable-primitives";
 import { ErrorState, Skeleton } from "@/components/app/states";
 import { useAuth } from "@/lib/auth";
 import { apiFriendsList, apiFriendsCheer, apiFriendsInviteCode, apiFriendsAdd, apiStatsWeekSummary } from "@/lib/api-new-features";
 import { renderWeekShareImage, shareOrDownloadImage } from "@/lib/share-image";
 
-export const Route = createFileRoute("/friends")({
-  head: () => ({
-    meta: [
-      { title: "เพื่อนและ Streak — WK Health App" },
-      { name: "description", content: "ดู streak ของเพื่อน ให้กำลังใจกัน และแชร์สรุปสัปดาห์ของคุณ" },
-    ],
-  }),
-  component: FriendsPage,
-});
+export const Route = createFileRoute("/friends")({ head: () => ({ meta: [{ title: "Friends — WK Health" }, { name: "description", content: "สังคมสุขภาพที่แชร์เฉพาะสัญญาณที่คุณเลือก" }] }), component: FriendsPage });
 
 function FriendsPage() {
-  const { isAuthenticated } = useAuth();
-  const qc = useQueryClient();
-  const [code, setCode] = useState("");
+  const { isAuthenticated } = useAuth(); const qc = useQueryClient(); const [code,setCode]=useState(""); const [shareResult,setShareResult]=useState<"shared"|"downloaded"|null>(null);
+  const friends=useQuery({queryKey:["friends","list"],queryFn:apiFriendsList,enabled:isAuthenticated}); const invite=useQuery({queryKey:["friends","invite"],queryFn:apiFriendsInviteCode,enabled:isAuthenticated}); const week=useQuery({queryKey:["stats","week-summary"],queryFn:apiStatsWeekSummary,enabled:isAuthenticated});
+  const cheer=useMutation({mutationFn:apiFriendsCheer,onSuccess:()=>void qc.invalidateQueries({queryKey:["friends","list"]})});
+  const addFriend=useMutation({mutationFn:()=>apiFriendsAdd(code),onSuccess:()=>{setCode("");void qc.invalidateQueries({queryKey:["friends","list"]})}});
+  const share=useMutation({mutationFn:async()=>{const blob=await renderWeekShareImage({streak:week.data?.streak??0,avgKcal:week.data?.avgKcal??0,daysOnGoal:week.data?.daysOnGoal??0});return shareOrDownloadImage(blob,`wk-health-week-summary-${new Date().toISOString().slice(0,10)}.png`)},onSuccess:(result)=>{if(result!=="cancelled"){setShareResult(result);setTimeout(()=>setShareResult(null),3000)}}});
+  const sorted=[...(friends.data??[])].sort((a,b)=>b.streak-a.streak);
 
-  const friends = useQuery({ queryKey: ["friends", "list"], queryFn: apiFriendsList, enabled: isAuthenticated });
-  const invite = useQuery({ queryKey: ["friends", "invite"], queryFn: apiFriendsInviteCode, enabled: isAuthenticated });
-  const week = useQuery({ queryKey: ["stats", "week-summary"], queryFn: apiStatsWeekSummary, enabled: isAuthenticated });
-
-  const cheer = useMutation({
-    mutationFn: apiFriendsCheer,
-    onSuccess: () => void qc.invalidateQueries({ queryKey: ["friends", "list"] }),
-  });
-
-  const addFriend = useMutation({
-    mutationFn: () => apiFriendsAdd(code),
-    onSuccess: () => {
-      setCode("");
-      void qc.invalidateQueries({ queryKey: ["friends", "list"] });
-    },
-  });
-
-  const sorted = [...(friends.data ?? [])].sort((a, b) => b.streak - a.streak);
-
-  const [shareResult, setShareResult] = useState<"shared" | "downloaded" | null>(null);
-  const share = useMutation({
-    mutationFn: async () => {
-      const blob = await renderWeekShareImage({
-        streak: week.data?.streak ?? 0,
-        avgKcal: week.data?.avgKcal ?? 0,
-        daysOnGoal: week.data?.daysOnGoal ?? 0,
-      });
-      return shareOrDownloadImage(blob, `wk-health-week-summary-${new Date().toISOString().slice(0, 10)}.png`);
-    },
-    onSuccess: (result) => {
-      if (result !== "cancelled") {
-        setShareResult(result);
-        setTimeout(() => setShareResult(null), 3000);
-      }
-    },
-  });
-
-  return (
-    <div className="rise-in">
-      <PageHeader title="เพื่อนและ Streak" subtitle="ให้กำลังใจกัน ไม่ต้องแข่งตัวเลขแคล" />
-
-      {/* weekly share card */}
-      <GlassCard className="p-5">
-        <div className="flex items-center justify-between">
-          <p className="font-display font-semibold">สรุปสัปดาห์ของคุณ</p>
-          <button
-            onClick={() => share.mutate()}
-            disabled={share.isPending || week.isLoading}
-            className="press glass grid size-9 place-items-center rounded-xl disabled:opacity-50"
-            aria-label="แชร์เป็นรูป"
-          >
-            {share.isPending ? <Loader2 className="size-4 animate-spin" /> : <Share2 className="size-4" />}
-          </button>
-        </div>
-        {shareResult && (
-          <p className="mt-2 flex items-center gap-1 text-xs text-mint">
-            <Check className="size-3.5" />
-            {shareResult === "shared" ? "แชร์รูปสำเร็จ" : "บันทึกรูปลงเครื่องแล้ว"}
-          </p>
-        )}
-        {share.isError && (
-          <p className="mt-2 text-xs text-destructive">สร้างรูปไม่สำเร็จ ลองใหม่อีกครั้ง</p>
-        )}
-        {week.isLoading ? (
-          <Skeleton className="mt-3 h-20 w-full rounded-2xl" />
-        ) : week.isError ? (
-          <ErrorState error={week.error} onRetry={() => void week.refetch()} />
-        ) : (
-          <div className="mt-3 grid grid-cols-3 gap-2 text-center">
-            <div className="rounded-2xl bg-muted/60 px-2 py-3">
-              <p className="font-display text-lg font-bold tabular-nums">{week.data?.streak ?? 0}</p>
-              <p className="text-[10px] text-muted-foreground">วัน streak</p>
-            </div>
-            <div className="rounded-2xl bg-muted/60 px-2 py-3">
-              <p className="font-display text-lg font-bold tabular-nums">{week.data?.avgKcal ?? 0}</p>
-              <p className="text-[10px] text-muted-foreground">kcal เฉลี่ย</p>
-            </div>
-            <div className="rounded-2xl bg-muted/60 px-2 py-3">
-              <p className="font-display text-lg font-bold tabular-nums">{week.data?.daysOnGoal ?? 0}/7</p>
-              <p className="text-[10px] text-muted-foreground">วันตามเป้า</p>
-            </div>
-          </div>
-        )}
-      </GlassCard>
-
-      {/* add friend */}
-      <GlassCard className="mt-4 p-5">
-        <p className="mb-3 flex items-center gap-2 font-display font-semibold"><UserPlus className="size-4" /> เพิ่มเพื่อน</p>
-        <div className="flex gap-2">
-          <input
-            value={code}
-            onChange={(e) => setCode(e.target.value)}
-            placeholder="กรอกโค้ดเชิญ"
-            className="glass min-w-0 flex-1 rounded-xl px-3 py-2.5 text-sm outline-none"
-          />
-          <button
-            onClick={() => code && addFriend.mutate()}
-            disabled={!code || addFriend.isPending}
-            className="press bg-mint-gradient shrink-0 rounded-xl px-4 py-2.5 text-sm font-medium text-primary-foreground shadow-glow disabled:opacity-50"
-          >
-            เพิ่ม
-          </button>
-        </div>
-        {invite.data?.code && (
-          <button
-            onClick={() => void navigator.clipboard.writeText(invite.data!.code)}
-            className="press glass mt-3 flex w-full items-center justify-center gap-2 rounded-xl px-3 py-2.5 text-xs text-muted-foreground"
-          >
-            <Copy className="size-3.5" /> โค้ดเชิญของคุณ: <span className="font-semibold text-foreground">{invite.data.code}</span>
-          </button>
-        )}
-      </GlassCard>
-
-      {/* leaderboard */}
-      <section className="mt-6">
-        <p className="mb-2 flex items-center gap-2 text-sm font-semibold text-muted-foreground">
-          <Users className="size-4" /> Streak เพื่อน
-        </p>
-        {friends.isLoading ? (
-          <div className="space-y-2"><Skeleton className="h-16 w-full rounded-2xl" /><Skeleton className="h-16 w-full rounded-2xl" /></div>
-        ) : friends.isError ? (
-          <ErrorState error={friends.error} onRetry={() => void friends.refetch()} />
-        ) : sorted.length === 0 ? (
-          <p className="glass-strong rounded-3xl p-6 text-center text-sm text-muted-foreground">
-            ยังไม่มีเพื่อนในระบบ — แชร์โค้ดเชิญให้เพื่อนเริ่มเช็คอินไปด้วยกัน
-          </p>
-        ) : (
-          <div className="space-y-2">
-            {sorted.map((f, i) => (
-              <div key={f.id} className="glass-strong flex items-center gap-3 rounded-2xl p-3 shadow-soft">
-                <span className="grid size-8 shrink-0 place-items-center rounded-full bg-muted text-xs font-bold text-muted-foreground">#{i + 1}</span>
-                <span className="grid size-11 shrink-0 place-items-center rounded-2xl bg-mint-soft text-lg">{f.avatar ?? "🙂"}</span>
-                <div className="min-w-0 flex-1">
-                  <p className="truncate font-medium">{f.name}</p>
-                  <p className="flex items-center gap-1 text-xs text-muted-foreground"><Flame className="size-3" />{f.streak} วันติด</p>
-                </div>
-                <button
-                  onClick={() => cheer.mutate(f.id)}
-                  disabled={cheer.isPending}
-                  className="press glass flex shrink-0 items-center gap-1 rounded-xl px-3 py-2 text-xs font-medium text-peach"
-                >
-                  <Heart className="size-3.5" /> เชียร์
-                </button>
-              </div>
-            ))}
-          </div>
-        )}
-      </section>
-    </div>
-  );
+  return <AppShell><div className="rise-in pb-10">
+    <header className="border-b border-border py-7 sm:py-9"><div className="flex flex-wrap items-end justify-between gap-5"><div><Eyebrow>Social layer</Eyebrow><h1 className="display mt-2 text-3xl sm:text-4xl">Friends</h1><p className="mt-2 text-sm text-muted-foreground">แชร์แรงส่งและกิจกรรม โดยไม่เปิดเผยข้อมูลสุขภาพดิบ</p></div><Chip tone="signal">Private by design</Chip></div></header>
+    <section className="grid gap-6 py-7 lg:grid-cols-[minmax(0,1.2fr)_minmax(0,.8fr)]">
+      <Panel className="grain flex flex-col justify-between gap-8"><div><div className="flex items-center justify-between gap-4"><Eyebrow>Weekly summary</Eyebrow><button onClick={()=>share.mutate()} disabled={share.isPending||week.isLoading} aria-label="Share weekly summary" className="press grid size-10 place-items-center rounded-xl border border-border disabled:opacity-50">{share.isPending?<Loader2 className="size-4 animate-spin"/>:<Share2 className="size-4"/>}</button></div>{week.isLoading?<Skeleton className="mt-5 h-20 w-full rounded-2xl"/>:week.isError?<div className="mt-4"><ErrorState error={week.error} onRetry={()=>void week.refetch()}/></div>:<><p className="numeric mt-4 text-6xl font-medium">{week.data?.streak??0}<span className="ml-2 text-base font-normal text-muted-foreground">day streak</span></p><div className="mt-6 grid grid-cols-2 gap-4 sm:grid-cols-3"><Stat label="Avg kcal" value={week.data?.avgKcal??0}/><Stat label="Days on goal" value={`${week.data?.daysOnGoal??0}/7`}/><Stat label="Share" value="Ready"/></div></>}{shareResult?<div className="mt-5"><SuccessState title={shareResult==="shared"?"Shared successfully":"Saved to device"} body="Weekly summary is ready to share."/></div>:null}</div></Panel>
+      <Panel><Eyebrow>Your circle</Eyebrow><p className="display mt-2 text-2xl">Invite someone in</p><p className="mt-2 text-sm leading-6 text-muted-foreground">Use a private invite code. Location and raw health metrics stay hidden unless explicitly shared.</p><div className="mt-6 flex gap-2"><input value={code} onChange={e=>setCode(e.target.value)} placeholder="Invite code" className="min-h-11 min-w-0 flex-1 rounded-xl border border-border bg-surface-2 px-3 text-sm outline-none"/><button onClick={()=>code&&addFriend.mutate()} disabled={!code||addFriend.isPending} className="press flex min-h-11 items-center gap-2 rounded-xl bg-foreground px-4 text-sm text-background disabled:opacity-50">{addFriend.isPending?<Loader2 className="size-4 animate-spin"/>:<UserPlus className="size-4"/>}Add</button></div>{invite.data?.code?<button onClick={()=>void navigator.clipboard.writeText(invite.data!.code)} className="press mt-3 flex min-h-11 w-full items-center justify-center gap-2 rounded-xl border border-border text-xs text-muted-foreground"><Copy className="size-3.5"/>Your invite code <span className="font-semibold text-foreground">{invite.data.code}</span></button>:null}</Panel>
+    </section>
+    <section className="py-2"><SectionHeader eyebrow="Circle" title="Activity standing" action={<Chip>{sorted.length} people</Chip>}/><div className="mt-2 divide-y divide-border">{friends.isLoading?<div className="space-y-2 py-5"><Skeleton className="h-16 rounded-2xl"/><Skeleton className="h-16 rounded-2xl"/></div>:friends.isError?<ErrorState error={friends.error} onRetry={()=>void friends.refetch()}/>:sorted.length===0?<div className="py-12 text-center"><Users className="mx-auto size-5 text-muted-foreground"/><p className="mt-3 text-sm text-muted-foreground">No friends yet. Invite someone to start your shared streak.</p></div>:sorted.map((f,i)=><div key={f.id} className="grid grid-cols-[auto_minmax(0,1fr)_auto] items-center gap-4 py-5"><span className="numeric grid size-10 place-items-center rounded-full border border-border text-xs">#{i+1}</span><div className="grid grid-cols-[auto_minmax(0,1fr)] items-center gap-3 min-w-0"><span className="numeric grid size-11 place-items-center rounded-full border border-border text-xs">{(f.name??"WK").slice(0,2).toUpperCase()}</span><div className="min-w-0"><p className="truncate text-sm font-medium">{f.name}</p><p className="mt-1 flex items-center gap-1 text-xs text-muted-foreground"><Flame className="size-3"/>{f.streak} day streak</p></div></div><button onClick={()=>cheer.mutate(f.id)} disabled={cheer.isPending} className="press flex min-h-10 items-center gap-1.5 rounded-full border border-border px-3 text-xs"><Heart className="size-3.5"/>Cheer</button></div>)}</div></section>
+  </div></AppShell>;
 }
+function Stat({label,value}:{label:string;value:string|number}){return <div><Eyebrow>{label}</Eyebrow><p className="numeric mt-1.5 text-lg font-medium">{value}</p></div>}
