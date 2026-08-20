@@ -1,99 +1,26 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useQuery } from "@tanstack/react-query";
-import { Flame, Footprints, Dumbbell, Trophy, Lightbulb, TrendingUp } from "lucide-react";
-import { PageHeader, GlassCard, SectionTitle } from "@/components/app/ui-bits";
-import { ErrorState, LoadingState, Skeleton } from "@/components/app/states";
+import { Lightbulb, RefreshCw, TrendingUp } from "lucide-react";
+import { Bar, BarChart, CartesianGrid, Line, LineChart, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
+import { AppShell } from "@/components/wk/shell";
+import { Action, DataRow, Metric, Panel, PageHeader, ProgressIndicator, SectionHeader, StatusIndicator } from "@/components/wk/ui";
 import { useAuth } from "@/lib/auth";
 import { apiInsightWeekly } from "@/lib/api-new-features";
+import { apiStatsWeekly } from "@/lib/api";
 
-export const Route = createFileRoute("/insight")({
-  head: () => ({
-    meta: [
-      { title: "Weekly Insight — WK Health App" },
-      { name: "description", content: "สรุปผลลัพธ์รายสัปดาห์จากข้อมูลจริงในระบบ พร้อมคำแนะนำที่เหมาะกับคุณ" },
-      { property: "og:title", content: "Weekly Insight — WK Health App" },
-      { property: "og:description", content: "ดูภาพรวมสัปดาห์นี้ของคุณ" },
-    ],
-  }),
-  component: InsightPage,
-});
+export const Route=createFileRoute("/insight")({head:()=>({meta:[{title:"Weekly Insight — WK Health"},{name:"description",content:"Live weekly health insight from WK Health data."}]}),component:InsightPage});
 
-function StatTile({ icon: Icon, label, value, tint }: { icon: typeof Flame; label: string; value: string; tint: string }) {
-  return (
-    <GlassCard className="p-4">
-      <span className={`grid size-10 place-items-center rounded-2xl ${tint}`}>
-        <Icon className="size-5" />
-      </span>
-      <p className="mt-3 text-lg font-bold">{value}</p>
-      <p className="text-xs text-muted-foreground">{label}</p>
-    </GlassCard>
-  );
-}
-
-function InsightPage() {
-  const { isAuthenticated } = useAuth();
-  const q = useQuery({ queryKey: ["insight", "weekly"], queryFn: apiInsightWeekly, enabled: isAuthenticated });
-
-  return (
-    <div className="rise-in">
-      <PageHeader title="Weekly Insight" emoji="✨" subtitle="สรุปผลลัพธ์จากข้อมูลจริงของคุณ 7 วันล่าสุด" />
-
-      {q.isLoading ? (
-        <div className="space-y-3">
-          <Skeleton className="h-24 w-full rounded-3xl" />
-          <div className="grid grid-cols-2 gap-3">
-            <Skeleton className="h-28 rounded-3xl" />
-            <Skeleton className="h-28 rounded-3xl" />
-            <Skeleton className="h-28 rounded-3xl" />
-            <Skeleton className="h-28 rounded-3xl" />
-          </div>
-        </div>
-      ) : q.isError ? (
-        <ErrorState error={q.error} onRetry={() => void q.refetch()} />
-      ) : !q.data ? (
-        <LoadingState />
-      ) : (
-        <>
-          <GlassCard className="p-5">
-            <div className="flex items-center gap-2 text-primary">
-              <TrendingUp className="size-5" />
-              <p className="font-display font-semibold">สรุปสัปดาห์นี้</p>
-            </div>
-            <p className="mt-2 text-sm leading-relaxed">{q.data.headline}</p>
-          </GlassCard>
-
-          <div className="mt-4 grid grid-cols-2 gap-3">
-            <StatTile icon={Flame} label={`เฉลี่ย kcal/วัน (บันทึก ${q.data.daysLogged}/7 วัน)`} value={`${q.data.avgKcal}`} tint="bg-peach-soft text-peach" />
-            <StatTile icon={Trophy} label="วันที่อยู่ในเป้าหมาย" value={`${q.data.daysOnGoal}/7`} tint="bg-mint-soft text-mint" />
-            <StatTile icon={Footprints} label="ก้าวเดินรวมสัปดาห์" value={q.data.totalSteps.toLocaleString("th-TH")} tint="bg-sky-soft text-sky" />
-            <StatTile icon={Dumbbell} label="นาทีออกกำลังกายรวม" value={`${q.data.totalWorkoutMinutes}`} tint="bg-secondary text-secondary-foreground" />
-          </div>
-
-          {q.data.bestDay ? (
-            <GlassCard className="mt-4 p-5">
-              <SectionTitle title="วันที่ทำได้ดีที่สุด" />
-              <p className="text-sm text-muted-foreground">
-                {q.data.bestDay.date} — {q.data.bestDay.kcal} kcal
-              </p>
-            </GlassCard>
-          ) : null}
-
-          <GlassCard className="mt-4 p-5">
-            <div className="flex items-center gap-2">
-              <Lightbulb className="size-5 text-peach" />
-              <p className="font-display font-semibold">คำแนะนำสำหรับสัปดาห์หน้า</p>
-            </div>
-            <ul className="mt-3 space-y-2">
-              {q.data.tips.map((tip, i) => (
-                <li key={i} className="flex gap-2 text-sm text-muted-foreground">
-                  <span className="text-primary">•</span>
-                  <span>{tip}</span>
-                </li>
-              ))}
-            </ul>
-          </GlassCard>
-        </>
-      )}
-    </div>
-  );
+function InsightPage(){
+ const {isAuthenticated}=useAuth();
+ const q=useQuery({queryKey:["insight","weekly"],queryFn:apiInsightWeekly,enabled:isAuthenticated});
+ const w=useQuery({queryKey:["stats","weekly"],queryFn:apiStatsWeekly,enabled:isAuthenticated});
+ const data=(w.data??[]).map(x=>({day:x.day,kcal:x.kcal,burn:x.burn,steps:x.steps}));
+ const goal= q.data?.daysLogged?Math.round(q.data.avgKcal):0;
+ return <AppShell title="Insight"><PageHeader eyebrow="Intelligence / Weekly Insight" title="See the pattern, not the noise." description="สรุป 7 วันล่าสุดจากข้อมูลจริง พร้อมกราฟและคำแนะนำที่อ่านได้ทันที" actions={<div className="flex items-center gap-3"><StatusIndicator label={q.isFetching||w.isFetching?"SYNCING":"LIVE"} state={q.isError||w.isError?"warn":"live"}/><Action icon={RefreshCw} size="sm" onClick={()=>{void q.refetch();void w.refetch()}} disabled={q.isFetching||w.isFetching}/></div>}/>
+ {q.isError||w.isError?<Panel className="mt-8 border-destructive/30"><p className="text-sm text-destructive">โหลด Weekly Insight ไม่สำเร็จ</p><p className="mt-1 text-xs text-muted-foreground">{String(q.error??w.error??"Backend error")}</p></Panel>:null}
+ <section className="hairline-b grid grid-cols-2 gap-y-8 py-10 lg:grid-cols-4"><Metric label="Avg kcal" value={q.isLoading?"—":String(q.data?.avgKcal??0)} unit="/ logged day" size="lg"/><Metric label="Days on goal" value={q.isLoading?"—":`${q.data?.daysOnGoal??0}`} unit="/ 7" size="lg"/><Metric label="Steps" value={q.isLoading?"—":(q.data?.totalSteps??0).toLocaleString("th-TH")} size="lg"/><Metric label="Workout" value={q.isLoading?"—":String(q.data?.totalWorkoutMinutes??0)} unit="min" size="lg"/></section>
+ <div className="grid gap-8 py-10 lg:grid-cols-[1.35fr_.65fr]"><main className="space-y-8"><Panel title="Energy trend" meta="7 DAYS"><div className="h-[280px] w-full pt-4">{data.length?<ResponsiveContainer width="100%" height="100%"><LineChart data={data} margin={{left:-18,right:8,top:8,bottom:0}}><CartesianGrid strokeDasharray="2 4" stroke="currentColor" opacity={.08}/><XAxis dataKey="day" tick={{fontSize:10}} tickLine={false} axisLine={false}/><YAxis tick={{fontSize:10}} tickLine={false} axisLine={false}/><Tooltip contentStyle={{background:"var(--card)",border:"1px solid var(--border)",borderRadius:0,fontSize:11}}/><Line type="monotone" dataKey="kcal" stroke="currentColor" strokeWidth={2} dot={{r:2}}/><Line type="monotone" dataKey="burn" stroke="var(--signal)" strokeWidth={2} dot={{r:2}}/></LineChart></ResponsiveContainer>:<div className="grid h-full place-items-center text-sm text-muted-foreground">ยังไม่มีข้อมูลรายสัปดาห์</div>}</div><div className="mt-4 flex gap-5 text-[10px] uppercase tracking-[.12em] text-muted-foreground"><span>— Intake</span><span className="text-signal">— Burn</span></div></Panel>
+ <Panel title="Daily movement" meta="STEPS"><div className="h-[250px] w-full pt-4">{data.length?<ResponsiveContainer width="100%" height="100%"><BarChart data={data} margin={{left:-18,right:8,top:8,bottom:0}}><CartesianGrid strokeDasharray="2 4" stroke="currentColor" opacity={.08}/><XAxis dataKey="day" tick={{fontSize:10}} tickLine={false} axisLine={false}/><YAxis tick={{fontSize:10}} tickLine={false} axisLine={false}/><Tooltip contentStyle={{background:"var(--card)",border:"1px solid var(--border)",borderRadius:0,fontSize:11}}/><Bar dataKey="steps" fill="currentColor" radius={[1,1,0,0]} /></BarChart></ResponsiveContainer>:<div className="grid h-full place-items-center text-sm text-muted-foreground">ยังไม่มีข้อมูลก้าว</div>}</div></Panel>
+ <Panel tone="ink" className="border-transparent"><div className="flex items-start gap-5"><TrendingUp className="mt-1 size-5"/><div><p className="label-xs opacity-60">THIS WEEK</p><p className="display mt-4 text-3xl">{q.data?.headline??"กำลังสร้างภาพรวมจากข้อมูลของคุณ…"}</p></div></div></Panel>
+ </main><aside className="space-y-8"><Panel title="Best day" bare><div className="px-5 py-6">{q.data?.bestDay?<><Metric label="Date" value={q.data.bestDay.date} size="sm"/><div className="mt-6"><Metric label="Energy" value={q.data.bestDay.kcal.toLocaleString("th-TH")} unit="kcal" size="lg"/></div></>:<p className="text-sm text-muted-foreground">ยังไม่มีวันที่โดดเด่น</p>}</div></Panel><Panel title="Consistency" bare><div className="px-5 py-2"><DataRow label="Days logged" value={`${q.data?.daysLogged??0}/7`}/><DataRow label="Days on goal" value={`${q.data?.daysOnGoal??0}/7`}/><DataRow label="Average intake" value={`${goal.toLocaleString("th-TH")} kcal`}/><div className="py-5"><ProgressIndicator label="Logging consistency" right={`${Math.round(((q.data?.daysLogged??0)/7)*100)}%`} value={((q.data?.daysLogged??0)/7)*100} tone="signal"/></div></div></Panel><Panel title="Next week" bare><div className="px-5 py-2">{(q.data?.tips??["เก็บข้อมูลเพิ่มเพื่อสร้างคำแนะนำที่แม่นขึ้น"]).map((tip,i)=><div key={i} className="hairline-b flex gap-3 py-4 last:border-b-0"><Lightbulb className="mt-0.5 size-4 shrink-0 text-muted-foreground"/><p className="text-sm leading-6">{tip}</p></div>)}</div></Panel></aside></div></AppShell>
 }
