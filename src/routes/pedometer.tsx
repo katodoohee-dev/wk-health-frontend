@@ -1,3 +1,3 @@
 import { createFileRoute } from '@tanstack/react-router';
-import { MobilePedometer } from '@/components/wk/mobile-pages';
-export const Route=createFileRoute('/pedometer')({component:MobilePedometer});
+import { PrototypeScreen } from '@/components/wk/prototype-screens';
+export const Route=createFileRoute('/pedometer')({component:()=> <PrototypeScreen page="pedometer"/>});
