@@ -6,7 +6,7 @@ import { Action, Metric, Panel, PageHeader, StatusIndicator } from '@/components
 
 export const Route=createFileRoute('/sound-control')({component:SoundControl});
 
-function SoundControl(){
+export function SoundControl(){
  const [enabled,setEnabled]=useState(false); const [level,setLevel]=useState(0); const [status,setStatus]=useState('IDLE'); const [error,setError]=useState('');
  const streamRef=useRef<MediaStream|null>(null); const ctxRef=useRef<AudioContext|null>(null); const rafRef=useRef<number|null>(null);
  useEffect(()=>()=>{if(rafRef.current)cancelAnimationFrame(rafRef.current);streamRef.current?.getTracks().forEach(t=>t.stop());void ctxRef.current?.close()},[]);
