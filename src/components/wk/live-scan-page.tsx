@@ -1,6 +1,7 @@
-import { AppShell } from "@/components/wk/app-shell";
-import { LiveScan } from "./live-scan";
+import { AppShell } from '@/components/wk/app-shell';
+import { LiveScan } from './live-scan';
+import { Panel, PageHeader, StatusIndicator } from './ui';
 
 export function LiveScanPage(){
-  return <AppShell eyebrow="Capture" title="Point, hold, resolve."><div className="wk-page"><p className="mb-6 text-sm text-muted-foreground">Use the camera or upload a photo. WK will analyse the image, estimate nutrition and save the result to your diary.</p><div className="max-w-3xl"><LiveScan/></div></div></AppShell>;
+ return <AppShell title="Make everything visible." wide><PageHeader eyebrow="SCAN / VISION UI" title="Make everything visible." description="Capture a meal with the camera or upload a photo. The live vision service analyses it, calculates nutrition and saves the result." actions={<StatusIndicator label="VISION API" state="live"/>}/><div className="grid gap-6 lg:grid-cols-[minmax(0,1.4fr)_minmax(320px,.6fr)]"><Panel className="rounded-none shadow-none p-4"><LiveScan/></Panel><aside className="space-y-6"><Panel className="rounded-none shadow-none"><span className="eyebrow">WORKFLOW</span><h2 className="display mt-2 text-3xl">Capture → analyse → save.</h2><div className="mt-6 divide-y divide-border">{['Use the camera or upload a clear food photo.','WK sends the image to the vision API.','Nutrition is calculated from the returned description.','The completed meal is saved to your diary.'].map((x,i)=><div key={x} className="flex gap-3 py-4 text-xs"><span className="numeric text-muted-foreground">0{i+1}</span><p>{x}</p></div>)}</div></Panel><Panel className="rounded-none shadow-none"><span className="eyebrow">PRIVACY</span><p className="mt-3 text-xs leading-5 text-muted-foreground">Images are uploaded only when you start an analysis. Camera access remains in your browser until you capture or stop it.</p></Panel></aside></div></AppShell>;
 }
