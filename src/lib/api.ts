@@ -1,11 +1,16 @@
-// ชั้นเชื่อมต่อ REST API จริง (Express + SQLite แยกโปรเจกต์)
-// Production backend: wk-health-backend (Render)
-// Override ได้ผ่าน VITE_API_BASE_URL / VITE_API_URL / VITE_BACKEND_URL
+// ชั้นเชื่อมต่อ REST API จริงของ WK Health
+// Production ใช้ same-origin /api proxy บน Render เพื่อไม่ให้ browser ติด CORS
 const configuredApiBase =
   (import.meta.env["VITE_API_BASE_URL"] as string | undefined) ??
   (import.meta.env["VITE_API_URL"] as string | undefined) ??
   (import.meta.env["VITE_BACKEND_URL"] as string | undefined);
-export const API_BASE_URL = (configuredApiBase?.trim() || "https://wk-health-backend.onrender.com").replace(/\/$/, "");
+
+const normalizedConfiguredBase = configuredApiBase?.trim().replace(/\/$/, "");
+export const API_BASE_URL =
+  normalizedConfiguredBase && normalizedConfiguredBase !== "__SAME_ORIGIN__"
+    ? normalizedConfiguredBase
+    : (typeof window !== "undefined" ? window.location.origin : "http://localhost:3000");
+
 export const TOKEN_KEY = "wk_token";
 export function getToken(): string | null { if (typeof window === "undefined") return null; return window.localStorage.getItem(TOKEN_KEY); }
 export function setToken(token: string | null) { if (typeof window === "undefined") return; if (token) window.localStorage.setItem(TOKEN_KEY, token); else window.localStorage.removeItem(TOKEN_KEY); }
@@ -60,8 +65,31 @@ export type BudgetPlanInput = { monthlyBudget: number; conditions: string[]; all
 export type BudgetMeal = { name: string; price: number; kcal: number; protein: number; emoji: string; slot: string };
 export type BudgetDay = { day: string; meals: BudgetMeal[]; total: number };
 export type BudgetPlan = { days: BudgetDay[]; totalCost: number; note?: string };
-export async function apiBudgetPlan(input: BudgetPlanInput): Promise<BudgetPlan> { const data = await apiFetch("/api/budget/plan", { method: "POST", body: input }); const rawDays = pick<Json[]>(data, ["plan", "days", "data"], []); const emojiFor = (slot: string) => slot === "breakfast" ? "🍳" : slot === "lunch" ? "🍚" : "🌙"; const slotLabel = (slot: string) => slot === "breakfast" ? "เช้า" : slot === "lunch" ? "กลางวัน" : "เย็น"; const days: BudgetDay[] = (Array.isArray(rawDays) ? rawDays : []).map((d, i) => { const meals = (["breakfast", "lunch", "dinner"] as const).map((slot) => { const m = pick<Json | null>(d, [slot], null); if (!m) return null; return { name: pick<string>(m, ["name", "menu", "title"], "-"), price: num(pick(m, ["cost", "price", "baht"], 0)), kcal: num(pick(m, ["kcal", "calories"], 0)), protein: num(pick(m, ["protein"], 0)), emoji: pick<string>(m, ["emoji", "icon"], emojiFor(slot)), slot: slotLabel(slot) }; }).filter((m): m is BudgetMeal => m !== null); return { day: String(pick(d, ["day", "date"], i + 1)), meals, total: num(pick(d, ["total", "cost", "price"], meals.reduce((s, m) => s + m.price, 0))) }; }); return { days, totalCost: num(pick(data as Json, ["totalCost", "total_cost"], days.reduce((s, d) => s + d.total, 0))), note: pick<string>(data as Json, ["note", "message"], "") }; }
+export async function apiBudgetPlan(input: BudgetPlanInput): Promise<BudgetPlan> { const data = await apiFetch("/api/budget/plan", { method: "POST", body: input }); const rawDays = pick<Json[]>(data, ["plan", "days", "data"], []); const emojiFor = (slot: string) => slot === "breakfast" ? "🍳" : slot === "lunch" ? "🍚" : "🌙"; const slotLabel = (slot: string) => slot === "breakfast" ? "เช้า" : slot === "lunch" ? "กลางวัน" : "เย็น"; const days: BudgetDay[] = (Array.isArray(rawDays) ? rawDays : []).map((d, i) => { const meals = (["breakfast", "lunch", "dinner"] as const).map((slot) => { const raw = (d[slot] ?? {}) as Json; return { name: pick<string>(raw, ["name", "menu", "title"], "-"), price: num(pick(raw, ["price", "cost"], 0)), kcal: num(pick(raw, ["kcal", "calories"], 0)), protein: num(pick(raw, ["protein"], 0)), emoji: pick<string>(raw, ["emoji", "icon"], emojiFor(slot)), slot: slotLabel(slot) }; }); return { day: String(pick(d, ["day", "date"], `Day ${i + 1}`)), meals, total: num(pick(d, ["total", "cost"], meals.reduce((s, m) => s + m.price, 0))) }; }); return { days, totalCost: num(pick(data, ["totalCost", "total_cost", "cost"], days.reduce((s, d) => s + d.total, 0))), note: pick<string>(data, ["note", "message"], "") }; }
 
-export type WorkoutHistoryItem = { id: string; exercise: string; minutes: number; calories: number; startedAt: string };
-export async function apiWorkoutHistory(): Promise<WorkoutHistoryItem[]> { const data = await apiFetch("/api/workout/history"); const list = pick<Json[]>(data, ["items", "workouts", "data"], []); return (Array.isArray(list) ? list : []).map((w) => ({ id: String(pick(w, ["id"], "")), exercise: pick<string>(w, ["exercise", "name", "title"], ""), minutes: num(pick(w, ["minutes", "duration"], 0)), calories: num(pick(w, ["calories", "kcal"], 0)), startedAt: String(pick(w, ["started_at", "startedAt", "created_at"], "")) })); }
-export async function apiWorkoutSave(payload: Json) { return apiFetch("/api/workout", { method: "POST", body: payload }); }
+export async function apiMoodLog(mood: string) { return apiFetch("/api/mood/log", { method: "POST", body: { mood } }); }
+export async function apiWater(glasses: number) { return apiFetch("/api/water", { method: "POST", body: { glasses } }); }
+export async function apiCheckin() { return apiFetch("/api/checkin/today", { method: "GET" }); }
+export async function apiWorkoutStart(payload: Json) { return apiFetch("/api/workout/start", { method: "POST", body: payload }); }
+export async function apiWorkoutStop(id: string) { return apiFetch(`/api/workout/${encodeURIComponent(id)}/stop`, { method: "POST" }); }
+export async function apiRouteHistory() { return apiFetch("/api/route/history"); }
+export async function apiRouteSave(payload: Json) { return apiFetch("/api/route/save", { method: "POST", body: payload }); }
+export async function apiAssistantChat(message: string, history: Json[] = []) { return apiFetch("/api/assistant/chat", { method: "POST", body: { message, history } }); }
+export async function apiAssistantHistory() { return apiFetch("/api/assistant/history"); }
+export async function apiBarcodeLookup(code: string) { return apiFetch(`/api/barcode/${encodeURIComponent(code)}`); }
+export async function apiMusicList() { return apiFetch("/api/music"); }
+export async function apiMusicAdd(payload: Json) { return apiFetch("/api/music", { method: "POST", body: payload }); }
+export async function apiMusicDelete(id: string) { return apiFetch(`/api/music/${encodeURIComponent(id)}`, { method: "DELETE" }); }
+export async function apiGalleryList() { return apiFetch("/api/gallery"); }
+export async function apiGalleryUpload(payload: Json) { return apiFetch("/api/gallery/upload", { method: "POST", body: payload }); }
+export async function apiGalleryDelete(id: string) { return apiFetch(`/api/gallery/${encodeURIComponent(id)}`, { method: "DELETE" }); }
+export async function apiFriendsList() { return apiFetch("/api/friends"); }
+export async function apiFriendsInvite(email: string) { return apiFetch("/api/friends/invite", { method: "POST", body: { email } }); }
+export async function apiNotifications() { return apiFetch("/api/notifications"); }
+export async function apiNotificationsSettings(payload: Json) { return apiFetch("/api/notifications/settings", { method: "PATCH", body: payload }); }
+export async function apiDeviceList() { return apiFetch("/api/devices"); }
+export async function apiDeviceConnect(payload: Json) { return apiFetch("/api/devices/connect", { method: "POST", body: payload }); }
+export async function apiDeviceDisconnect(id: string) { return apiFetch(`/api/devices/${encodeURIComponent(id)}/disconnect`, { method: "POST" }); }
+export async function apiSoundState() { return apiFetch("/api/sound"); }
+export async function apiSoundSet(payload: Json) { return apiFetch("/api/sound", { method: "PUT", body: payload }); }
+export async function apiHealth() { return apiFetch("/api/health"); }
