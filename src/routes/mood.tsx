@@ -1,3 +1,3 @@
 import { createFileRoute } from '@tanstack/react-router';
-import { MobileMood } from '@/components/wk/mobile-pages';
-export const Route=createFileRoute('/mood')({component:MobileMood});
+import { PrototypeScreen } from '@/components/wk/prototype-screens';
+export const Route=createFileRoute('/mood')({component:()=> <PrototypeScreen page="mood"/>});
