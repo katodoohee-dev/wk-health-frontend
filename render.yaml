@@ -39,7 +39,7 @@ services:
     autoDeploy: true
     buildCommand: npm ci --include=dev && npm run build && npm run test:production
     startCommand: npm start
-    healthCheckPath: /
+    healthCheckPath: /healthz
     envVars:
       - key: NODE_VERSION
         value: 22.12.0
