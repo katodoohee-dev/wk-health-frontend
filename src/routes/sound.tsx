@@ -1,3 +1,3 @@
 import { createFileRoute } from '@tanstack/react-router';
-import { MobileSound } from '@/components/wk/mobile-pages';
-export const Route=createFileRoute('/sound')({component:MobileSound});
+import { SoundControl } from '@/components/wk/sound-control';
+export const Route=createFileRoute('/sound')({component:SoundControl});
