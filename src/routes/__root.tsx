@@ -15,15 +15,13 @@ function AuthGate(){
   const [hasSession,setHasSession]=useState(false);
   useEffect(()=>{
     const session=localStorage.getItem('wk_session_token')||localStorage.getItem('wk_token');
-    if(session&&!localStorage.getItem('wk_token')&&session)localStorage.setItem('wk_token',session);
+    if(session&&!localStorage.getItem('wk_token'))localStorage.setItem('wk_token',session);
     setHasSession(Boolean(session));
     setReady(true);
   },[location.pathname]);
   if(!ready)return <div className="min-h-screen bg-background" aria-label="Loading WK Health"/>;
-  if(location.pathname==='/auth'){
-    return hasSession?<Navigate to="/" replace/>:<Outlet/>;
-  }
-  if(!hasSession)return <Navigate to="/auth" search={{next:location.pathname}} replace/>;
+  if(location.pathname==='/auth')return hasSession?<Navigate to="/" replace/>:<Outlet/>;
+  if(!hasSession)return <Navigate to="/auth" replace/>;
   return <Outlet/>;
 }
 
