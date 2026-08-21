@@ -23,4 +23,5 @@ const auth = (req,res,next) => {
 };
 require('./features')(capturedApp, { db, auth });
 require('./runtime-features')(capturedApp, { db, auth });
+require('./compat-routes')(capturedApp, { db, auth });
 originalListen.apply(capturedApp, capturedArgs);
