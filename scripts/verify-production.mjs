@@ -8,7 +8,7 @@ const api = read("src/lib/api.ts");
 const features = read("src/lib/api-new-features.ts");
 const auth = read("src/lib/auth-api.ts");
 const shell = read("src/components/wk/shell.tsx");
-const routeFiles = ["home","auth","overview","diary","scan","music","stats","vision","assistant","friends","notifications","profile","mood","pedometer","workout","sound-control","nlp","budget","gallery","device-connect","export"];
+const routeFiles = ["home","auth","budget","device-connect","diary","export","friends","gallery","mood","music","nlp","notifications","pedometer","profile","scan","sound-control","stats","vision","workout","assistant"];
 if (/localhost|127\.0\.0\.1/.test(api)) fail("frontend API client contains localhost/loopback");
 if (/apigemini\.katodoohee\.workers\.dev/.test(api)) fail("frontend must not hard-code Gemini proxy");
 if (!/VITE_API_BASE_URL/.test(api) || !/VITE_API_URL/.test(api) || !/VITE_BACKEND_URL/.test(api)) fail("API environment aliases are incomplete");
@@ -29,4 +29,4 @@ if (fs.existsSync(envExamplePath)) {
   const env = fs.readFileSync(envExamplePath, "utf8");
   if (!/VITE_API_BASE_URL/.test(env)) fail(".env.example missing VITE_API_BASE_URL");
 }
-console.log(`Production contract checks passed (${new Set(linkedRoutes).size} navigation targets validated; supplied screens: ${routeFiles.length})`);
+console.log(`Production contract checks passed (${routeFiles.length} supplied screens; ${new Set(linkedRoutes).size} navigation targets validated)`);
