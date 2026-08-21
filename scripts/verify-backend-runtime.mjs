@@ -51,6 +51,7 @@ try {
   let x = await request('POST', '/api/auth/register', { name: 'Runtime Test', email, password: 'password123' });
   token = x.data.token;
   if (!token) throw new Error('register did not return token');
+  const ownerToken = token;
   await request('POST', '/api/auth/login', { email, password: 'password123' });
   await request('GET', '/api/auth/me');
   await request('PATCH', '/api/auth/me', { displayName: 'Runtime Verified' });
@@ -69,51 +70,42 @@ try {
   await request('POST', '/api/mood/log', { mood: 'calm' });
   await request('POST', '/api/nlp/analyze', { text: 'ข้าวไก่' });
   await request('POST', '/api/budget/plan', { monthlyBudget: 5000, conditions: [], allergies: [], days: 2 });
-
   await request('POST', '/api/workout/start', { title: 'Contract Test', durationMin: 20 });
   const workout = await request('GET', '/api/workout');
   const workoutId = workout.data.sessions?.[0]?.id;
   if (workoutId) await request('POST', `/api/workout/${workoutId}/stop`, { durationMin: 20 });
-
   await request('GET', '/api/route/history');
   await request('POST', '/api/route/save', { title: 'Test Route', distanceKm: 1.2, durationMin: 15 });
   await request('GET', '/api/route/history');
-
   await request('POST', '/api/assistant/chat', { message: 'สวัสดี' });
   await request('GET', '/api/assistant/history');
   await request('GET', '/api/barcode/0000000000000', undefined, [404, 502]);
-
   const music = await request('POST', '/api/music', { url: 'https://example.com/track.mp3', title: 'Contract Track' });
   await request('GET', '/api/music');
   if (music.data.id) await request('DELETE', `/api/music/${music.data.id}`);
-
   const pixel = 'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNk+A8AAQUBAScY42YAAAAASUVORK5CYII=';
   const gallery = await request('POST', '/api/gallery/upload', { imageBase64: pixel, mimeType: 'image/png', filename: 'contract.png' });
   await request('GET', '/api/gallery');
   if (gallery.data.id) { await request('GET', `/api/gallery/${gallery.data.id}`); await request('DELETE', `/api/gallery/${gallery.data.id}`); }
-
   const device = await request('POST', '/api/devices', { name: 'Contract Watch', deviceType: 'wearable' });
   await request('GET', '/api/devices');
   if (device.data.device?.id) { await request('POST', `/api/devices/${device.data.device.id}/sync`); await request('POST', `/api/devices/${device.data.device.id}/disconnect`); await request('DELETE', `/api/devices/${device.data.device.id}`); }
   const connected = await request('POST', '/api/devices/connect', { name: 'Contract Watch 2', kind: 'wearable' });
   if (connected.data.id) await request('POST', `/api/devices/${connected.data.id}/disconnect`);
-
   await request('GET', '/api/sound');
   await request('PUT', '/api/sound', { volume: 70, mode: 'focus', voiceEnabled: true });
-
   await request('GET', '/api/notifications');
   await request('GET', '/api/notifications/settings');
   await request('PATCH', '/api/notifications/settings', { smartTiming: true });
   await request('POST', '/api/notifications/test');
   await request('GET', '/api/insight/weekly');
-
   await request('GET', '/api/friends');
-  const inviteCode = await request('GET', '/api/friends/invite-code');
+  await request('GET', '/api/friends/invite-code');
   const friend = await request('POST', '/api/auth/register', { name: 'Runtime Friend', email: email2, password: 'password123' });
-  const friendToken = token;
-  token = friend.data.token;
-  const friendCode = await request('GET', '/api/friends/invite-code');
+  const friendToken = friend.data.token;
   token = friendToken;
+  const friendCode = await request('GET', '/api/friends/invite-code');
+  token = ownerToken;
   await request('POST', '/api/friends/invite', { email: email2 });
   await request('POST', '/api/friends/add', { code: friendCode.data.code });
   const friends = await request('GET', '/api/friends');
@@ -122,7 +114,6 @@ try {
   await request('POST', '/api/friends/location/publish', { friendId: friendId || 'none', lat: 13.7563, lng: 100.5018, accuracy: 10, heading: 90, speedMps: 1.2 });
   await request('POST', '/api/friends/location/share', { enabled: true });
   await request('GET', '/api/friends/location/status');
-
   await request('POST', '/api/export', { format: 'csv', range: '7d' });
   await request('GET', '/api/export/history');
   await request('GET', '/api/health');
