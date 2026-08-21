@@ -1,0 +1,148 @@
+const crypto = require('crypto');
+
+module.exports = function mountCompatRoutes(app, { db, auth }) {
+  const uid = (req) => req.user.sub;
+  const now = () => new Date().toISOString();
+
+  db.exec(`
+    CREATE TABLE IF NOT EXISTS saved_routes (
+      id TEXT PRIMARY KEY,
+      user_id TEXT NOT NULL,
+      title TEXT DEFAULT '',
+      distance_km REAL DEFAULT 0,
+      duration_min REAL DEFAULT 0,
+      payload_json TEXT NOT NULL,
+      created_at TEXT NOT NULL
+    );
+    CREATE TABLE IF NOT EXISTS app_notifications (
+      id TEXT PRIMARY KEY,
+      user_id TEXT NOT NULL,
+      type TEXT NOT NULL,
+      title TEXT NOT NULL,
+      body TEXT DEFAULT '',
+      read_at TEXT,
+      created_at TEXT NOT NULL
+    );
+  `);
+
+  // Frontend contract aliases for runtime feature routes.
+  app.post('/api/workout/start', auth, (req, res) => {
+    const p = req.body || {};
+    const id = crypto.randomUUID();
+    db.prepare('INSERT INTO workout_sessions(id,user_id,title,duration_min,load,status,created_at) VALUES(?,?,?,?,?,?,?)')
+      .run(id, uid(req), String(p.title || p.name || 'Workout'), Number(p.durationMin || p.duration_min || 0), Number(p.load || 0), 'active', now());
+    res.json({ success: true, id, status: 'active' });
+  });
+
+  app.post('/api/workout/:id/stop', auth, (req, res) => {
+    const p = req.body || {};
+    db.prepare('UPDATE workout_sessions SET status=?, duration_min=COALESCE(?,duration_min), completed_at=? WHERE id=? AND user_id=?')
+      .run('completed', p.durationMin == null ? null : Number(p.durationMin), now(), req.params.id, uid(req));
+    res.json({ success: true, id: req.params.id, status: 'completed' });
+  });
+
+  app.get('/api/route/history', auth, (req, res) => {
+    const rows = db.prepare('SELECT id,title,distance_km distanceKm,duration_min durationMin,payload_json payload,created_at createdAt FROM saved_routes WHERE user_id=? ORDER BY created_at DESC LIMIT 50').all(uid(req));
+    res.json({ success: true, routes: rows.map((r) => ({ ...r, payload: JSON.parse(r.payload || '{}') })) });
+  });
+
+  app.post('/api/route/save', auth, (req, res) => {
+    const p = req.body || {};
+    const id = crypto.randomUUID();
+    const payload = JSON.stringify(p);
+    db.prepare('INSERT INTO saved_routes(id,user_id,title,distance_km,duration_min,payload_json,created_at) VALUES(?,?,?,?,?,?,?)')
+      .run(id, uid(req), String(p.title || p.name || 'Route'), Number(p.distanceKm || p.distance_km || p.distance || 0), Number(p.durationMin || p.duration_min || p.duration || 0), payload, now());
+    res.json({ success: true, id });
+  });
+
+  // api.ts uses /api/assistant/chat while the original backend exposed /api/assistant.
+  app.post('/api/assistant/chat', auth, async (req, res) => {
+    const message = String(req.body?.message || req.body?.text || '').trim();
+    if (!message) return res.status(400).json({ success: false, error: 'ข้อความว่าง' });
+    // Delegate through the same provider contract without duplicating chat persistence logic.
+    db.prepare('INSERT INTO chat_messages(id,user_id,role,content,created_at) VALUES(?,?,?,?,?)').run(crypto.randomUUID(), uid(req), 'user', message, now());
+    let answer = `รับทราบครับ: ${message}`;
+    if (process.env.DEEPSEEK_API_KEY) {
+      try {
+        const history = db.prepare('SELECT role,content FROM chat_messages WHERE user_id=? ORDER BY created_at DESC LIMIT 12').all(uid(req)).reverse();
+        const r = await fetch(process.env.DEEPSEEK_API_URL || 'https://api.deepseek.com/chat/completions', {
+          method: 'POST',
+          headers: { 'content-type': 'application/json', Authorization: `Bearer ${process.env.DEEPSEEK_API_KEY}` },
+          body: JSON.stringify({ model: process.env.DEEPSEEK_MODEL || 'deepseek-chat', messages: [{ role: 'system', content: 'You are WK Health, a concise Thai health assistant. Do not diagnose. Give practical general wellness guidance.' }, ...history] })
+        });
+        const j = await r.json();
+        answer = j?.choices?.[0]?.message?.content || answer;
+      } catch (e) { console.error('assistant/chat provider failed', e); }
+    }
+    db.prepare('INSERT INTO chat_messages(id,user_id,role,content,created_at) VALUES(?,?,?,?,?)').run(crypto.randomUUID(), uid(req), 'assistant', answer, now());
+    res.json({ success: true, reply: answer, message: answer, content: answer });
+  });
+
+  app.get('/api/barcode/:code', auth, async (req, res) => {
+    const code = String(req.params.code || '').replace(/[^0-9A-Za-z.-]/g, '');
+    if (!code) return res.status(400).json({ success: false, error: 'รหัสบาร์โค้ดไม่ถูกต้อง' });
+    try {
+      const r = await fetch(`https://world.openfoodfacts.org/api/v2/product/${encodeURIComponent(code)}.json`, { headers: { accept: 'application/json', 'user-agent': 'WK-Health/1.0' } });
+      const j = await r.json();
+      if (j.status !== 1 || !j.product) return res.status(404).json({ success: false, error: 'ไม่พบสินค้า' });
+      const p = j.product;
+      res.json({ success: true, barcode: code, product: { name: p.product_name_th || p.product_name || '', brand: p.brands || '', image: p.image_front_url || '', calories: Number(p.nutriments?.['energy-kcal_100g'] || 0), protein: Number(p.nutriments?.proteins_100g || 0), carbs: Number(p.nutriments?.carbohydrates_100g || 0), fat: Number(p.nutriments?.fat_100g || 0) } });
+    } catch (e) {
+      console.error('barcode provider failed', e);
+      res.status(502).json({ success: false, error: 'บริการค้นหาบาร์โค้ดไม่พร้อมใช้งาน' });
+    }
+  });
+
+  // Music: accept direct URLs as requested by the UI and map to the persistent session model.
+  app.post('/api/music', auth, (req, res) => {
+    const p = req.body || {};
+    const id = crypto.randomUUID();
+    const track = String(p.url || p.track || p.title || '').trim();
+    if (!track) return res.status(400).json({ success: false, error: 'กรุณาใส่ลิงก์หรือชื่อเพลง' });
+    db.prepare('INSERT INTO music_sessions(id,user_id,track,mode,playing,progress_sec,duration_sec,updated_at) VALUES(?,?,?,?,?,?,?,?)')
+      .run(id, uid(req), track, String(p.mode || 'focus'), p.playing ? 1 : 0, Number(p.progressSec || 0), Number(p.durationSec || 0), now());
+    res.json({ success: true, id, track });
+  });
+  app.delete('/api/music/:id', auth, (req, res) => {
+    db.prepare('DELETE FROM music_sessions WHERE id=? AND user_id=?').run(req.params.id, uid(req));
+    res.json({ success: true });
+  });
+
+  app.delete('/api/gallery/:id', auth, (req, res) => {
+    db.prepare('DELETE FROM health_media WHERE id=? AND user_id=?').run(req.params.id, uid(req));
+    res.json({ success: true });
+  });
+
+  // Frontend contract aliases for device connection actions.
+  app.post('/api/devices/connect', auth, (req, res) => {
+    const p = req.body || {};
+    const id = crypto.randomUUID();
+    db.prepare('INSERT INTO device_connections(id,user_id,name,kind,status,metadata_json,updated_at) VALUES(?,?,?,?,?,?,?)')
+      .run(id, uid(req), String(p.name || p.deviceName || 'WK Device'), String(p.kind || 'wearable'), 'connected', JSON.stringify(p.metadata || {}), now());
+    res.json({ success: true, id, status: 'connected' });
+  });
+  app.post('/api/devices/:id/disconnect', auth, (req, res) => {
+    db.prepare('UPDATE device_connections SET status=?,updated_at=? WHERE id=? AND user_id=?').run('disconnected', now(), req.params.id, uid(req));
+    res.json({ success: true, id: req.params.id, status: 'disconnected' });
+  });
+
+  // api.ts uses PUT for sound; runtime-features uses PATCH.
+  app.put('/api/sound', auth, (req, res) => {
+    const p = req.body || {};
+    db.prepare('INSERT INTO sound_sessions(user_id,mode,volume,voice_enabled,output_name,input_name,updated_at) VALUES(?,?,?,?,?,?,?) ON CONFLICT(user_id) DO UPDATE SET mode=excluded.mode,volume=excluded.volume,voice_enabled=excluded.voice_enabled,output_name=excluded.output_name,input_name=excluded.input_name,updated_at=excluded.updated_at')
+      .run(uid(req), String(p.mode || 'ambient'), Math.max(0, Math.min(100, Number(p.volume ?? 68))), p.voiceEnabled === false ? 0 : 1, String(p.outputName || ''), String(p.inputName || ''), now());
+    res.json({ success: true });
+  });
+
+  app.get('/api/notifications', auth, (req, res) => {
+    const rows = db.prepare('SELECT id,type,title,body,read_at readAt,created_at createdAt FROM app_notifications WHERE user_id=? ORDER BY created_at DESC LIMIT 50').all(uid(req));
+    const settings = db.prepare('SELECT * FROM notification_settings WHERE user_id=?').get(uid(req));
+    res.json({ success: true, items: rows, notifications: rows, settings: settings ? { mealReminder: !!settings.meal_reminder, waterReminder: !!settings.water_reminder, streakRisk: !!settings.streak_risk, weeklyInsight: !!settings.weekly_insight, smartTiming: !!settings.smart_timing } : null });
+  });
+
+  app.get('/api/health', auth, (req, res) => {
+    const user = db.prepare('SELECT 1 ok FROM users WHERE id=?').get(uid(req));
+    const dbOk = !!db.prepare('SELECT 1 ok').get()?.ok;
+    res.json({ success: true, status: 'ok', db: dbOk, user: !!user, timestamp: now() });
+  });
+};
