@@ -6,24 +6,20 @@ const configuredApiBase =
   (import.meta.env["VITE_BACKEND_URL"] as string | undefined);
 
 const normalizedConfiguredBase = configuredApiBase?.trim().replace(/\/$/, "");
+const isLocal = typeof window === "undefined" || /^(localhost|127\.0\.0\.1)(:\d+)?$/i.test(window.location.host);
 export const API_BASE_URL =
-  normalizedConfiguredBase && normalizedConfiguredBase !== "__SAME_ORIGIN__"
-    ? normalizedConfiguredBase
+  isLocal
+    ? (normalizedConfiguredBase && normalizedConfiguredBase !== "__SAME_ORIGIN__"
+        ? normalizedConfiguredBase
+        : (typeof window !== "undefined" ? window.location.origin : "http://localhost:3000"))
     : (typeof window !== "undefined" ? window.location.origin : "http://localhost:3000");
 
 export const TOKEN_KEY = "wk_token";
-export function getToken(): string | null { if (typeof window === "undefined") return null; return window.localStorage.getItem(TOKEN_KEY); }
-export function setToken(token: string | null) { if (typeof window === "undefined") return; if (token) window.localStorage.setItem(TOKEN_KEY, token); else window.localStorage.removeItem(TOKEN_KEY); }
+export function getToken(): string | null { if (typeof window === "undefined") return null; return window.localStorage.getItem(TOKEN_KEY) || window.localStorage.getItem("wk_session_token"); }
+export function setToken(token: string | null) { if (typeof window === "undefined") return; if (token) { window.localStorage.setItem(TOKEN_KEY, token); window.localStorage.setItem("wk_session_token", token); } else { window.localStorage.removeItem(TOKEN_KEY); window.localStorage.removeItem("wk_session_token"); } }
 export class ApiError extends Error { status: number; constructor(message: string, status = 0) { super(message); this.name = "ApiError"; this.status = status; } }
 type Json = Record<string, unknown>;
-export async function apiFetch<T = Json>(path: string, options: { method?: string; body?: unknown; signal?: AbortSignal } = {}): Promise<T> {
-  const token = getToken(); const url = `${API_BASE_URL}${path}`; let res: Response;
-  try { res = await fetch(url, { method: options.method ?? "GET", headers: { "Content-Type": "application/json", ...(token ? { Authorization: `Bearer ${token}` } : {}) }, ...(options.body !== undefined ? { body: JSON.stringify(options.body) } : {}), ...(options.signal ? { signal: options.signal } : {}) }); }
-  catch { throw new ApiError("เชื่อมต่อ WK Health Backend ไม่สำเร็จ กรุณาตรวจสอบอินเทอร์เน็ตหรือเซิร์ฟเวอร์"); }
-  let data: Json = {}; try { data = (await res.json()) as Json; } catch { if (!res.ok) throw new ApiError(`เกิดข้อผิดพลาด (${res.status})`, res.status); }
-  if (!res.ok || data["success"] === false) { const msg = (typeof data["error"] === "string" && data["error"]) || (typeof data["message"] === "string" && data["message"]) || `เกิดข้อผิดพลาด (${res.status})`; throw new ApiError(msg, res.status); }
-  return data as T;
-}
+export async function apiFetch<T = Json>(path: string, options: { method?: string; body?: unknown; signal?: AbortSignal } = {}): Promise<T> { const token = getToken(); const url = `${API_BASE_URL}${path}`; let res: Response; try { res = await fetch(url, { method: options.method ?? "GET", headers: { "Content-Type": "application/json", ...(token ? { Authorization: `Bearer ${token}` } : {}) }, ...(options.body !== undefined ? { body: JSON.stringify(options.body) } : {}), ...(options.signal ? { signal: options.signal } : {}) }); } catch { throw new ApiError("เชื่อมต่อ WK Health Backend ไม่สำเร็จ กรุณาตรวจสอบอินเทอร์เน็ตหรือเซิร์ฟเวอร์"); } let data: Json = {}; try { data = (await res.json()) as Json; } catch { if (!res.ok) throw new ApiError(`เกิดข้อผิดพลาด (${res.status})`, res.status); } if (!res.ok || data["success"] === false) { const msg = (typeof data["error"] === "string" && data["error"]) || (typeof data["message"] === "string" && data["message"]) || `เกิดข้อผิดพลาด (${res.status})`; throw new ApiError(msg, res.status); } return data as T; }
 export function pick<T>(obj: unknown, keys: string[], fallback: T): T { if (!obj || typeof obj !== "object") return fallback; const rec = obj as Record<string, unknown>; for (const k of keys) { const v = rec[k]; if (v !== undefined && v !== null) return v as T; } return fallback; }
 export function num(v: unknown, d = 0): number { const n = typeof v === "string" ? Number(v) : (v as number); return Number.isFinite(n) ? n : d; }
 export function todayISO(d: Date = new Date()): string { return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`; }
