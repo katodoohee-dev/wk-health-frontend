@@ -21,7 +21,7 @@ const auth = (req,res,next) => {
   try { req.user = jwt.verify(h.slice(7), process.env.JWT_SECRET || 'change-this-secret-in-render'); next(); }
   catch { return res.status(401).json({success:false,error:'เซสชันหมดอายุ'}); }
 };
+require('./compat-routes')(capturedApp, { db, auth });
 require('./features')(capturedApp, { db, auth });
 require('./runtime-features')(capturedApp, { db, auth });
-require('./compat-routes')(capturedApp, { db, auth });
 originalListen.apply(capturedApp, capturedArgs);
