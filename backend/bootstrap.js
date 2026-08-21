@@ -13,11 +13,14 @@ require('./server');
 
 express.application.listen = originalListen;
 if (!capturedApp) throw new Error('WK Health backend failed to initialize Express app');
-require('./features')(capturedApp, { db: require('better-sqlite3')(process.env.DB_PATH || '/var/data/wk-health.db'), auth: (req,res,next) => {
-  const jwt = require('jsonwebtoken');
+const db = require('better-sqlite3')(process.env.DB_PATH || '/var/data/wk-health.db');
+const jwt = require('jsonwebtoken');
+const auth = (req,res,next) => {
   const h = req.headers.authorization || '';
   if (!h.startsWith('Bearer ')) return res.status(401).json({success:false,error:'ต้องเข้าสู่ระบบ'});
   try { req.user = jwt.verify(h.slice(7), process.env.JWT_SECRET || 'change-this-secret-in-render'); next(); }
   catch { return res.status(401).json({success:false,error:'เซสชันหมดอายุ'}); }
-} });
+};
+require('./features')(capturedApp, { db, auth });
+require('./runtime-features')(capturedApp, { db, auth });
 originalListen.apply(capturedApp, capturedArgs);
