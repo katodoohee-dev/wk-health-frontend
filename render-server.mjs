@@ -5,13 +5,18 @@ import { fileURLToPath } from 'node:url';
 
 const projectRoot = path.dirname(fileURLToPath(import.meta.url));
 const port = Number(process.env.PORT || 3000);
-const backendUrl = (
+const configuredBackend = (
   process.env.BACKEND_URL ||
   process.env.VITE_API_BASE_URL ||
   process.env.VITE_API_URL ||
   process.env.VITE_BACKEND_URL ||
   ''
 ).trim().replace(/\/$/, '');
+// Render's Blueprint normally injects BACKEND_URL. Keep a deterministic production
+// fallback so an older manually-created frontend service cannot silently disable API use.
+const backendUrl = configuredBackend && configuredBackend !== '__SAME_ORIGIN__'
+  ? configuredBackend
+  : (process.env.NODE_ENV === 'production' ? 'https://wk-health-backend.onrender.com' : '');
 const mime = {'.html':'text/html; charset=utf-8','.js':'text/javascript; charset=utf-8','.mjs':'text/javascript; charset=utf-8','.css':'text/css; charset=utf-8','.json':'application/json; charset=utf-8','.svg':'image/svg+xml','.png':'image/png','.jpg':'image/jpeg','.jpeg':'image/jpeg','.webp':'image/webp','.ico':'image/x-icon','.woff':'font/woff','.woff2':'font/woff2'};
 
 async function firstExisting(paths) { for (const candidate of paths) { try { await access(candidate); return candidate; } catch {} } throw new Error(`No frontend build output found. Checked: ${paths.join(', ')}`); }
@@ -31,6 +36,7 @@ async function proxyApi(req, res) {
       if (key.toLowerCase() === 'host' || value == null) continue;
       headers.set(key, Array.isArray(value) ? value.join(', ') : value);
     }
+    headers.set('x-forwarded-host', req.headers.host || '');
     const chunks = [];
     for await (const chunk of req) chunks.push(chunk);
     const body = ['GET','HEAD'].includes(req.method || 'GET') ? undefined : Buffer.concat(chunks);
@@ -39,12 +45,13 @@ async function proxyApi(req, res) {
     upstream.headers.forEach((value, key) => {
       if (!['connection','keep-alive','transfer-encoding','upgrade'].includes(key.toLowerCase())) responseHeaders[key] = value;
     });
+    responseHeaders['cache-control'] = 'no-store';
     res.writeHead(upstream.status, responseHeaders);
     if (req.method === 'HEAD') return res.end();
     const arrayBuffer = await upstream.arrayBuffer();
     return res.end(Buffer.from(arrayBuffer));
   } catch (error) {
-    console.error('API proxy failed:', req.method, req.url, error);
+    console.error('API proxy failed:', req.method, req.url, 'target:', target, error);
     res.writeHead(502, {'Content-Type':'application/json; charset=utf-8', 'Cache-Control':'no-store'});
     return res.end(JSON.stringify({success:false,error:'backend_unreachable'}));
   }
@@ -54,7 +61,12 @@ const server=http.createServer(async(req,res)=>{
   const pathname=(req.url||'/').split('?')[0];
   if(pathname.startsWith('/api/')) return proxyApi(req,res);
   if(req.method!=='GET'&&req.method!=='HEAD'){res.writeHead(405,{Allow:'GET, HEAD'});return res.end();}
-  if(pathname==='/healthz'){res.writeHead(200,{'Content-Type':'application/json; charset=utf-8','Cache-Control':'no-store'});return res.end(JSON.stringify({status:'ok',service:'wk-health-frontend',backendConfigured:Boolean(backendUrl)}));}
+  if(pathname==='/healthz'){
+    let backendStatus = 'not-configured';
+    if (backendUrl) { try { const r = await fetch(`${backendUrl}/healthz`, { headers: { accept: 'application/json' } }); backendStatus = r.ok ? 'ok' : `http-${r.status}`; } catch { backendStatus = 'unreachable'; } }
+    res.writeHead(200,{'Content-Type':'application/json; charset=utf-8','Cache-Control':'no-store'});
+    return res.end(JSON.stringify({status:'ok',service:'wk-health-frontend',backendConfigured:Boolean(backendUrl),backendStatus,backendUrl}));
+  }
   let file=safePath(req.url); if(!file){res.writeHead(400);return res.end('Bad request');}
   try { const info=await stat(file); if(info.isDirectory()) file=path.join(file,'index.html'); } catch { file=indexFile; }
   let body; try { body=await readFile(file); } catch { body=await readFile(indexFile); file=indexFile; }
