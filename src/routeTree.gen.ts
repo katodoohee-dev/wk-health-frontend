@@ -12,6 +12,7 @@ import { Route as SettingsRouteImport } from './routes/settings'
 import { Route as AuthRouteImport } from './routes/auth'
 import { Route as StateLibraryRouteImport } from './routes/state-library'
 import { Route as VisionRouteImport } from './routes/vision'
+import { Route as OverviewRouteImport } from './routes/overview'
 import { Route as ScanRouteImport } from './routes/scan'
 import { Route as MusicRouteImport } from './routes/music'
 import { Route as StatsRouteImport } from './routes/stats'
@@ -21,6 +22,11 @@ import { Route as PedometerRouteImport } from './routes/pedometer'
 import { Route as WorkoutRouteImport } from './routes/workout'
 import { Route as SoundRouteImport } from './routes/sound'
 import { Route as YouRouteImport } from './routes/you'
+import { Route as NlpRouteImport } from './routes/nlp'
+import { Route as BudgetRouteImport } from './routes/budget'
+import { Route as GalleryRouteImport } from './routes/gallery'
+import { Route as DeviceConnectRouteImport } from './routes/device-connect'
+import { Route as ExportRouteImport } from './routes/export'
 const make=(source:any,id:string,path:string)=>source.update({id,path,getParentRoute:()=>rootRouteImport} as any)
 const IndexRoute=make(IndexRouteImport,'/','/')
 const AssistantRoute=make(AssistantRouteImport,'/assistant','/assistant')
@@ -33,6 +39,7 @@ const SettingsRoute=make(SettingsRouteImport,'/settings','/settings')
 const AuthRoute=make(AuthRouteImport,'/auth','/auth')
 const StateLibraryRoute=make(StateLibraryRouteImport,'/state-library','/state-library')
 const VisionRoute=make(VisionRouteImport,'/vision','/vision')
+const OverviewRoute=make(OverviewRouteImport,'/overview','/overview')
 const ScanRoute=make(ScanRouteImport,'/scan','/scan')
 const MusicRoute=make(MusicRouteImport,'/music','/music')
 const StatsRoute=make(StatsRouteImport,'/stats','/stats')
@@ -42,10 +49,15 @@ const PedometerRoute=make(PedometerRouteImport,'/pedometer','/pedometer')
 const WorkoutRoute=make(WorkoutRouteImport,'/workout','/workout')
 const SoundRoute=make(SoundRouteImport,'/sound','/sound')
 const YouRoute=make(YouRouteImport,'/you','/you')
+const NlpRoute=make(NlpRouteImport,'/nlp','/nlp')
+const BudgetRoute=make(BudgetRouteImport,'/budget','/budget')
+const GalleryRoute=make(GalleryRouteImport,'/gallery','/gallery')
+const DeviceConnectRoute=make(DeviceConnectRouteImport,'/device-connect','/device-connect')
+const ExportRoute=make(ExportRouteImport,'/export','/export')
 export type FileRouteTypes=any
 export type RootRouteChildren=any
 declare module '@tanstack/react-router' { interface FileRoutesByPath { [key:string]: any } }
-const rootRouteChildren:any={IndexRoute,AssistantRoute,ActivityRoute,NavigateRoute,FriendsRoute,NotificationsRoute,ProfileRoute,SettingsRoute,AuthRoute,StateLibraryRoute,VisionRoute,ScanRoute,MusicRoute,StatsRoute,DiaryRoute,MoodRoute,PedometerRoute,WorkoutRoute,SoundRoute,YouRoute}
+const rootRouteChildren:any={IndexRoute,AssistantRoute,ActivityRoute,NavigateRoute,FriendsRoute,NotificationsRoute,ProfileRoute,SettingsRoute,AuthRoute,StateLibraryRoute,VisionRoute,OverviewRoute,ScanRoute,MusicRoute,StatsRoute,DiaryRoute,MoodRoute,PedometerRoute,WorkoutRoute,SoundRoute,YouRoute,NlpRoute,BudgetRoute,GalleryRoute,DeviceConnectRoute,ExportRoute}
 export const routeTree=rootRouteImport._addFileChildren(rootRouteChildren)._addFileTypes<FileRouteTypes>()
 import type { getRouter } from './router.tsx'
 import type { startInstance } from './start.ts'
