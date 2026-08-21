@@ -25,3 +25,5 @@ jobs:
         run: npm install --no-audit --no-fund
       - name: Production build
         run: npm run build
+      - name: Production contract checks
+        run: npm run test:production
