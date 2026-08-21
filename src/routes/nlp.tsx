@@ -1,3 +1,3 @@
 import { createFileRoute } from '@tanstack/react-router';
-import { PrototypeScreen } from '@/components/wk/prototype-screens';
-export const Route=createFileRoute('/nlp')({component:()=> <PrototypeScreen page="nlp"/>});
+import { LiveDataPage } from '@/components/wk/live-data-page';
+export const Route=createFileRoute('/nlp')({component:()=> <LiveDataPage page="nlp"/>});
