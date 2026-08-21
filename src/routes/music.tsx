@@ -1,4 +1,4 @@
 import { createFileRoute } from '@tanstack/react-router';
-import { Music } from '@/components/wk-design';
+import { LiveDataPage } from '@/components/wk/live-data-page';
 
-export const Route = createFileRoute('/music')({ component: Music });
+export const Route = createFileRoute('/music')({ component: () => <LiveDataPage page="music" /> });
