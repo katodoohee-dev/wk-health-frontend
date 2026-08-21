@@ -1,45 +1,17 @@
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { cn } from "@/lib/utils";
 import { Pause, Play, SkipBack, SkipForward } from "lucide-react";
-import { track } from "@/lib/wk-data";
+import { track as fallbackTrack } from "@/lib/wk-data";
+import { apiFetch } from "@/lib/api";
 
-function fmt(sec: number) {
-  const m = Math.floor(sec / 60);
-  const s = Math.floor(sec % 60);
-  return `${m}:${String(s).padStart(2, "0")}`;
-}
-
-export function MusicMiniPlayer({
-  className,
-  compact = false,
-}: {
-  className?: string;
-  compact?: boolean;
-}) {
-  const [playing, setPlaying] = useState(true);
-  const pct = (track.elapsed / track.duration) * 100;
-
-  return (
-    <div className={cn("panel grain overflow-hidden p-0", className)}>
-      <div className="flex items-center gap-3 p-3">
-        <div className="grid size-11 shrink-0 place-items-center rounded-md border border-border bg-surface-2" aria-hidden="true">
-          <div className="flex items-end gap-[2px]">
-            {[8, 14, 6, 11].map((h, i) => (
-              <span key={i} className={cn("w-[2px] rounded-full bg-foreground", playing && "animate-pulse")} style={{ height: h, animationDelay: `${i * 120}ms` }} />
-            ))}
-          </div>
-        </div>
-        <div className="min-w-0 flex-1">
-          <p className="truncate text-sm font-medium">{track.title}</p>
-          <p className="truncate text-xs text-muted-foreground">{track.artist} · {track.album}</p>
-        </div>
-        <div className="flex shrink-0 items-center gap-1">
-          {!compact && <button type="button" aria-label="Previous track" className="grid size-9 place-items-center rounded-full text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"><SkipBack className="size-4" /></button>}
-          <button type="button" onClick={() => setPlaying((p) => !p)} aria-label={playing ? "Pause" : "Play"} className="grid size-11 place-items-center rounded-full bg-foreground text-background transition-transform hover:scale-105">{playing ? <Pause className="size-4" /> : <Play className="size-4" />}</button>
-          {!compact && <button type="button" aria-label="Next track" className="grid size-9 place-items-center rounded-full text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"><SkipForward className="size-4" /></button>}
-        </div>
-      </div>
-      <div className="flex items-center gap-3 px-3 pb-3"><span className="numeric text-[0.625rem] text-muted-foreground">{fmt(track.elapsed)}</span><div className="h-[3px] flex-1 overflow-hidden rounded-full bg-border" role="progressbar" aria-label="Playback progress" aria-valuenow={Math.round(pct)} aria-valuemin={0} aria-valuemax={100}><div className="h-full rounded-full bg-foreground" style={{ width: `${pct}%` }} /></div><span className="numeric text-[0.625rem] text-muted-foreground">{fmt(track.duration)}</span></div>
-    </div>
-  );
+type Track={id?:string;url:string;title:string;artist?:string;album?:string;type?:"audio"|"youtube";duration?:number};
+function fmt(sec:number){const m=Math.floor(sec/60);const s=Math.floor(sec%60);return `${m}:${String(s).padStart(2,"0")}`}
+export function MusicMiniPlayer({className,compact=false}:{className?:string;compact?:boolean}){
+ const audioRef=useRef<HTMLAudioElement|null>(null);const[tracks,setTracks]=useState<Track[]>([]);const[index,setIndex]=useState(0);const[playing,setPlaying]=useState(false);const[current,setCurrent]=useState(0);const[duration,setDuration]=useState(Number(fallbackTrack.duration)||0);
+ useEffect(()=>{apiFetch<any>("/api/music/library").then(r=>{const list=Array.isArray(r?.tracks)?r.tracks:[];setTracks(list.map((x:any)=>({id:String(x.id),url:String(x.url),title:String(x.title||"Untitled"),artist:x.artist,album:x.album,type:x.type,duration:Number(x.duration)||0}))) }).catch(()=>{})},[]);
+ const selected=tracks[index];const title=selected?.title||fallbackTrack.title;const artist=selected?.artist||fallbackTrack.artist;const album=selected?.album||fallbackTrack.album;const src=selected?.type==="audio"?selected.url:null;const pct=duration?Math.min(100,current/duration*100):0;
+ useEffect(()=>{const a=audioRef.current;if(!a||!src)return; a.src=src; a.load(); if(playing)void a.play().catch(()=>setPlaying(false));},[src]);
+ function toggle(){const a=audioRef.current;if(!src){setPlaying(p=>!p);return}if(playing){a?.pause();setPlaying(false)}else{void a?.play().then(()=>setPlaying(true)).catch(()=>setPlaying(false))}}
+ function next(){if(!tracks.length)return;setIndex(i=>(i+1)%tracks.length);setPlaying(true)}function prev(){if(!tracks.length)return;setIndex(i=>(i-1+tracks.length)%tracks.length);setPlaying(true)}
+ return <div className={cn("panel grain overflow-hidden p-0",className)}><audio ref={audioRef} onTimeUpdate={e=>setCurrent(e.currentTarget.currentTime)} onLoadedMetadata={e=>setDuration(e.currentTarget.duration||Number(selected?.duration)||0)} onEnded={next}/><div className="flex items-center gap-3 p-3"><div className="grid size-11 shrink-0 place-items-center rounded-md border border-border bg-surface-2"><div className="flex items-end gap-[2px]">{[8,14,6,11].map((h,i)=><span key={i} className={cn("w-[2px] rounded-full bg-foreground",playing&&"animate-pulse")} style={{height:h,animationDelay:`${i*120}ms`}}/>)}</div></div><div className="min-w-0 flex-1"><p className="truncate text-sm font-medium">{title}</p><p className="truncate text-xs text-muted-foreground">{artist} {album?`· ${album}`:""}</p></div><div className="flex shrink-0 items-center gap-1">{!compact&&<button type="button" onClick={prev} aria-label="Previous track" className="grid size-9 place-items-center rounded-full text-muted-foreground hover:bg-accent"><SkipBack className="size-4"/></button>}<button type="button" onClick={toggle} aria-label={playing?"Pause":"Play"} className="grid size-11 place-items-center rounded-full bg-foreground text-background">{playing?<Pause className="size-4"/>:<Play className="size-4"/>}</button>{!compact&&<button type="button" onClick={next} aria-label="Next track" className="grid size-9 place-items-center rounded-full text-muted-foreground hover:bg-accent"><SkipForward className="size-4"/></button>}</div></div><div className="flex items-center gap-3 px-3 pb-3"><span className="numeric text-[0.625rem] text-muted-foreground">{fmt(current)}</span><div className="h-[3px] flex-1 overflow-hidden rounded-full bg-border"><div className="h-full rounded-full bg-foreground" style={{width:`${pct}%`}}/></div><span className="numeric text-[0.625rem] text-muted-foreground">{fmt(duration)}</span></div></div>
 }
