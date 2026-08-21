@@ -1,3 +1,3 @@
 import { createFileRoute } from '@tanstack/react-router';
-import { VisionPage } from '@/components/wk/vision-page';
-export const Route=createFileRoute('/budget')({component:()=> <VisionPage page="budget"/>});
+import { PrototypeScreen } from '@/components/wk/prototype-screens';
+export const Route=createFileRoute('/budget')({component:()=> <PrototypeScreen page="budget"/>});
