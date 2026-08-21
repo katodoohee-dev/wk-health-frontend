@@ -1,3 +1,4 @@
 import { createFileRoute } from '@tanstack/react-router';
-import { LiveAssistant } from '@/components/wk/live-assistant';
-export const Route=createFileRoute('/assistant')({component:LiveAssistant});
+import { Assistant } from '@/components/wk-design';
+
+export const Route = createFileRoute('/assistant')({ component: Assistant });
