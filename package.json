@@ -7,7 +7,7 @@
   "scripts": {
     "dev": "vite dev",
     "build": "vite build --config vite.config.ts",
-    "start": "node server.mjs",
+    "start": "node render-server.mjs",
     "lint": "eslint .",
     "test:production": "node scripts/verify-production.mjs"
   },
