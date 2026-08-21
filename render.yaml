@@ -6,7 +6,7 @@ services:
     branch: main
     rootDir: backend
     autoDeploy: true
-    buildCommand: npm ci --include=dev
+    buildCommand: npm install --include=dev
     startCommand: npm start
     healthCheckPath: /healthz
     disk:
