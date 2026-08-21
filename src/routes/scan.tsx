@@ -1,4 +1,4 @@
 import { createFileRoute } from '@tanstack/react-router';
-import { Scan } from '@/components/wk-design';
+import { LiveScanPage } from '@/components/wk/live-scan-page';
 
-export const Route = createFileRoute('/scan')({ component: Scan });
+export const Route = createFileRoute('/scan')({ component: LiveScanPage });
