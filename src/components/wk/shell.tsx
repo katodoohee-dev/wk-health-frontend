@@ -4,13 +4,13 @@ import { useState, type ReactNode } from 'react';
 import { cn } from '@/lib/utils';
 type NavItem={to:string;label:string;icon:LucideIcon};
 const GROUPS:{title:string;items:NavItem[]}[]=[
- {title:'Today',items:[{to:'/',label:'Overview',icon:Activity},{to:'/scan',label:'Scan',icon:Camera},{to:'/diary',label:'Diary',icon:BookOpen},{to:'/mood',label:'Mood',icon:HeartPulse}]},
+ {title:'Today',items:[{to:'/overview',label:'Overview',icon:Activity},{to:'/scan',label:'Scan',icon:Camera},{to:'/diary',label:'Diary',icon:BookOpen},{to:'/mood',label:'Mood',icon:HeartPulse}]},
  {title:'Movement',items:[{to:'/pedometer',label:'Pedometer',icon:Footprints},{to:'/workout',label:'Workout',icon:Dumbbell},{to:'/music',label:'Music',icon:Music},{to:'/stats',label:'Stats',icon:Activity}]},
  {title:'Intelligence',items:[{to:'/assistant',label:'Assistant',icon:MessageSquare},{to:'/nlp',label:'Language',icon:Languages},{to:'/device-connect',label:'Devices',icon:Settings}]},
  {title:'Life',items:[{to:'/budget',label:'Budget',icon:Wallet},{to:'/gallery',label:'Gallery',icon:Grid2X2},{to:'/friends',label:'Friends',icon:Users},{to:'/export',label:'Export',icon:Download}]},
  {title:'Account',items:[{to:'/profile',label:'Profile',icon:User},{to:'/notifications',label:'Notifications',icon:Bell},{to:'/settings',label:'Access',icon:Settings}]},
 ];
-function active(item:NavItem,p:string){return item.to==='/'?p==='/':p===item.to||p.startsWith(`${item.to}/`)}
+function active(item:NavItem,p:string){return p===item.to||p.startsWith(`${item.to}/`)}
 function NavLink({item,p,onNavigate}:{item:NavItem;p:string;onNavigate?:()=>void}){return <Link to={item.to} onClick={onNavigate} className={cn('group relative flex min-h-9 items-center gap-3 rounded-md px-3 py-2 text-[12px]',active(item,p)?'bg-surface-2 text-foreground':'text-muted-foreground hover:bg-surface-2 hover:text-foreground')}><item.icon className="size-3.5 shrink-0" strokeWidth={1.4}/><span className="truncate">{item.label}</span></Link>}
 export function WKMark({className}:{className?:string}){return <span className={cn('numeric grid size-8 shrink-0 place-items-center rounded-md bg-foreground text-[10px] font-bold text-background',className)}>WK</span>}
 export function Sidebar({onNavigate}:{onNavigate?:()=>void}){const p=useRouterState({select:s=>s.location.pathname});return <nav className="flex h-full min-h-0 flex-col"><div className="flex shrink-0 items-center gap-3 border-b border-border px-5 py-5"><WKMark/><div><p className="display text-xl leading-none">WK Health</p><p className="eyebrow mt-1.5">Vision OS</p></div></div><div className="min-h-0 flex-1 overflow-y-auto px-3 py-4">{GROUPS.map(g=><div key={g.title} className="mb-5"><p className="eyebrow px-2 pb-1.5 text-[8px]">{g.title}</p>{g.items.map(x=><NavLink key={x.to} item={x} p={p} onNavigate={onNavigate}/>)}</div>)}<div className="border-t border-dashed border-border pt-4"><NavLink item={{to:'/state-library',label:'State library',icon:Grid2X2}} p={p} onNavigate={onNavigate}/></div></div></nav>}
