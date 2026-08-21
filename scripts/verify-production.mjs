@@ -8,12 +8,20 @@ const api = read("src/lib/api.ts");
 const features = read("src/lib/api-new-features.ts");
 const auth = read("src/lib/auth-api.ts");
 const shell = read("src/components/wk/shell.tsx");
+const contracts = read("src/lib/page-contract.ts");
+const runtime = read("backend/runtime-features.js");
+const bootstrap = read("backend/bootstrap.js");
 const routeFiles = ["home","auth","budget","device-connect","diary","export","friends","gallery","mood","music","nlp","notifications","pedometer","profile","scan","sound-control","stats","vision","workout","assistant"];
 if (/localhost|127\.0\.0\.1/.test(api)) fail("frontend API client contains localhost/loopback");
 if (/apigemini\.katodoohee\.workers\.dev/.test(api)) fail("frontend must not hard-code Gemini proxy");
 if (!/VITE_API_BASE_URL/.test(api) || !/VITE_API_URL/.test(api) || !/VITE_BACKEND_URL/.test(api)) fail("API environment aliases are incomplete");
 if (!/\/api\/export/.test(features)) fail("export must use the backend endpoint");
 if (!/\/api\/auth\/(login|register|me)/.test(auth)) fail("auth API contract missing");
+if (!/PAGE_CONTRACTS/.test(contracts) || !/Health Overview/.test(contracts) || !/Food Scan/.test(contracts)) fail("page contracts missing backend-aligned titles");
+if (!/require\('\.\/runtime-features'\)/.test(bootstrap)) fail("runtime backend feature routes are not mounted");
+for (const endpoint of ["/api/health/overview","/api/pedometer","/api/workout","/api/music","/api/devices","/api/sound","/api/gallery","/api/gallery/upload"]) {
+  if (!runtime.includes(`'${endpoint}'`)) fail(`runtime backend endpoint missing: ${endpoint}`);
+}
 for (const route of routeFiles) {
   const routeFile = routePath(`/${route}`);
   if (!fs.existsSync(routeFile)) fail(`required route source missing: /${route}`);
