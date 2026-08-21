@@ -1,3 +1,3 @@
 import { createFileRoute } from '@tanstack/react-router';
-import { PrototypeScreen } from '@/components/wk/prototype-screens';
-export const Route=createFileRoute('/gallery')({component:()=> <PrototypeScreen page="gallery"/>});
+import { LiveGallery } from '@/components/wk/live-gallery';
+export const Route=createFileRoute('/gallery')({component:LiveGallery});
