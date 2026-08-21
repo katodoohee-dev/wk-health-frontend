@@ -8,7 +8,7 @@ const api = read("src/lib/api.ts");
 const features = read("src/lib/api-new-features.ts");
 const auth = read("src/lib/auth-api.ts");
 const shell = read("src/components/wk/shell.tsx");
-const routeFiles = ["auth","settings","diary","scan","navigate","music","stats","vision","assistant","friends","notifications","profile","mood","pedometer","workout","sound","nlp","budget","gallery","device-connect","export"];
+const routeFiles = ["auth","overview","settings","diary","scan","navigate","music","stats","vision","assistant","friends","notifications","profile","mood","pedometer","workout","sound","nlp","budget","gallery","device-connect","export"];
 if (/localhost|127\.0\.0\.1/.test(api)) fail("frontend API client contains localhost/loopback");
 if (/apigemini\.katodoohee\.workers\.dev/.test(api)) fail("frontend must not hard-code Gemini proxy");
 if (!/VITE_API_BASE_URL/.test(api) || !/VITE_API_URL/.test(api) || !/VITE_BACKEND_URL/.test(api)) fail("API environment aliases are incomplete");
@@ -22,7 +22,7 @@ for (const route of routeFiles) {
 }
 const linkedRoutes = [...shell.matchAll(/to:\s*[\"'](\/[^^\"']*)[\"']/g)].map((m) => m[1]);
 for (const route of [...new Set(linkedRoutes)]) {
-  if (route !== "/" && !fs.existsSync(routePath(route))) fail(`navigation points to missing route source: ${route}`);
+  if (!fs.existsSync(routePath(route))) fail(`navigation points to missing route source: ${route}`);
 }
 const envExamplePath = path.join(root, ".env.example");
 if (fs.existsSync(envExamplePath)) {
