@@ -4,7 +4,7 @@ import { useState, type ReactNode } from 'react';
 import { cn } from '@/lib/utils';
 type NavItem={to:string;label:string;icon:LucideIcon};
 const GROUPS:{title:string;items:NavItem[]}[]=[
- {title:'Today',items:[{to:'/overview',label:'Overview',icon:Activity},{to:'/scan',label:'Scan',icon:Camera},{to:'/diary',label:'Diary',icon:BookOpen},{to:'/mood',label:'Mood',icon:HeartPulse}]},
+ {title:'Today',items:[{to:'/home',label:'Overview',icon:Activity},{to:'/scan',label:'Scan',icon:Camera},{to:'/diary',label:'Diary',icon:BookOpen},{to:'/mood',label:'Mood',icon:HeartPulse}]},
  {title:'Movement',items:[{to:'/pedometer',label:'Pedometer',icon:Footprints},{to:'/workout',label:'Workout',icon:Dumbbell},{to:'/music',label:'Music',icon:Music},{to:'/stats',label:'Stats',icon:Activity}]},
  {title:'Intelligence',items:[{to:'/assistant',label:'Assistant',icon:MessageSquare},{to:'/nlp',label:'Language',icon:Languages},{to:'/device-connect',label:'Devices',icon:Settings},{to:'/sound-control',label:'Sound Control',icon:Volume2}]},
  {title:'Life',items:[{to:'/budget',label:'Budget',icon:Wallet},{to:'/gallery',label:'Gallery',icon:Activity},{to:'/friends',label:'Friends',icon:Users},{to:'/export',label:'Export',icon:Download}]},
