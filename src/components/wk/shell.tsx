@@ -1,12 +1,12 @@
 import { Link, useRouterState } from '@tanstack/react-router';
-import { Activity, Bell, BookOpen, Camera, Dumbbell, Footprints, HeartPulse, MessageSquare, Music, Download, Settings, User, Users, Grid2X2, Wallet, Languages, type LucideIcon } from 'lucide-react';
+import { Activity, Bell, BookOpen, Camera, Dumbbell, Footprints, HeartPulse, MessageSquare, Music, Download, Settings, User, Users, Grid2X2, Wallet, Languages, Volume2, type LucideIcon } from 'lucide-react';
 import { useState, type ReactNode } from 'react';
 import { cn } from '@/lib/utils';
 type NavItem={to:string;label:string;icon:LucideIcon};
 const GROUPS:{title:string;items:NavItem[]}[]=[
- {title:'Today',items:[{to:'/overview',label:'Overview',icon:Activity},{to:'/scan',label:'Scan',icon:Camera},{to:'/diary',label:'Diary',icon:BookOpen},{to:'/mood',label:'Mood',icon:HeartPulse}]},
+ {title:'Today',items:[{to:'/overview',label:'Overview',icon:Activity},{to:'/scan',label:'Scan',icon:Camera},{to:'/diary',label:'Diary',icon:BookOpen},{to:'/mood',label:'Mood',icon:HeartPulse},{to:'/vision',label:'Vision',icon:Grid2X2}]},
  {title:'Movement',items:[{to:'/pedometer',label:'Pedometer',icon:Footprints},{to:'/workout',label:'Workout',icon:Dumbbell},{to:'/music',label:'Music',icon:Music},{to:'/stats',label:'Stats',icon:Activity}]},
- {title:'Intelligence',items:[{to:'/assistant',label:'Assistant',icon:MessageSquare},{to:'/nlp',label:'Language',icon:Languages},{to:'/device-connect',label:'Devices',icon:Settings}]},
+ {title:'Intelligence',items:[{to:'/assistant',label:'Assistant',icon:MessageSquare},{to:'/nlp',label:'Language',icon:Languages},{to:'/device-connect',label:'Devices',icon:Settings},{to:'/sound-control',label:'Sound Control',icon:Volume2}]},
  {title:'Life',items:[{to:'/budget',label:'Budget',icon:Wallet},{to:'/gallery',label:'Gallery',icon:Grid2X2},{to:'/friends',label:'Friends',icon:Users},{to:'/export',label:'Export',icon:Download}]},
  {title:'Account',items:[{to:'/profile',label:'Profile',icon:User},{to:'/notifications',label:'Notifications',icon:Bell},{to:'/settings',label:'Access',icon:Settings}]},
 ];
