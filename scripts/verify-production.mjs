@@ -20,7 +20,7 @@ for (const route of routeFiles) {
   const source = fs.readFileSync(routeFile, "utf8");
   if (!source.includes(`createFileRoute(\"/${route}\")`) && !source.includes(`createFileRoute('/${route}')`)) fail(`route source is not a TanStack file route: /${route}`);
 }
-const linkedRoutes = [...shell.matchAll(/to:\s*[\"'](\/[^^\"']*)[\"']/g)].map((m) => m[1]);
+const linkedRoutes = [...shell.matchAll(/to:\s*[\"'](\/[^\"']*)[\"']/g)].map((m) => m[1]);
 for (const route of [...new Set(linkedRoutes)]) {
   if (!fs.existsSync(routePath(route))) fail(`navigation points to missing route source: ${route}`);
 }
