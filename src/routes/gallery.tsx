@@ -1,3 +1,3 @@
 import { createFileRoute } from '@tanstack/react-router';
-import { VisionPage } from '@/components/wk/vision-page';
-export const Route=createFileRoute('/gallery')({component:()=> <VisionPage page="gallery"/>});
+import { LiveGallery } from '@/components/wk/live-gallery';
+export const Route=createFileRoute('/gallery')({component:LiveGallery});
