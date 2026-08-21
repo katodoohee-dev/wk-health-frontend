@@ -6,7 +6,7 @@ services:
     branch: main
     rootDir: backend
     autoDeploy: true
-    buildCommand: npm install --no-audit --no-fund
+    buildCommand: npm ci --include=dev
     startCommand: npm start
     healthCheckPath: /healthz
     disk:
@@ -37,7 +37,7 @@ services:
     plan: free
     branch: main
     autoDeploy: true
-    buildCommand: npm install --no-audit --no-fund && npm run build && npm run test:production
+    buildCommand: npm ci --include=dev && npm run build && npm run test:production
     startCommand: npm start
     healthCheckPath: /
     envVars:
