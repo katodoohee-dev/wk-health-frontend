@@ -1,9 +1,9 @@
 import http from 'node:http';
-import { readFile, stat } from 'node:fs/promises';
+import { access, readFile, stat } from 'node:fs/promises';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 
-const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), 'dist');
+const projectRoot = path.dirname(fileURLToPath(import.meta.url));
 const port = Number(process.env.PORT || 3000);
 const mime = {
   '.html': 'text/html; charset=utf-8',
@@ -21,12 +21,25 @@ const mime = {
   '.woff2': 'font/woff2',
 };
 
+async function firstExisting(paths) {
+  for (const candidate of paths) {
+    try { await access(candidate); return candidate; } catch {}
+  }
+  throw new Error(`No frontend build output found. Checked: ${paths.join(', ')}`);
+}
+
+const root = await firstExisting([
+  path.join(projectRoot, 'dist'),
+  path.join(projectRoot, '.output', 'public'),
+]);
+
 function safePath(urlPath) {
   const pathname = decodeURIComponent((urlPath || '/').split('?')[0]);
   const candidate = path.resolve(root, `.${pathname}`);
   return candidate.startsWith(root + path.sep) || candidate === root ? candidate : null;
 }
 
+const indexFile = path.join(root, 'index.html');
 const server = http.createServer(async (req, res) => {
   if (req.method !== 'GET' && req.method !== 'HEAD') {
     res.writeHead(405, { Allow: 'GET, HEAD' });
@@ -43,16 +56,15 @@ const server = http.createServer(async (req, res) => {
     const info = await stat(file);
     if (info.isDirectory()) file = path.join(file, 'index.html');
   } catch {
-    file = path.join(root, 'index.html');
+    file = indexFile;
   }
 
   let body;
   try {
     body = await readFile(file);
   } catch {
-    // SPA fallback: client-side routes must still resolve to index.html.
-    body = await readFile(path.join(root, 'index.html'));
-    file = path.join(root, 'index.html');
+    body = await readFile(indexFile);
+    file = indexFile;
   }
 
   const ext = path.extname(file).toLowerCase();
@@ -65,5 +77,5 @@ const server = http.createServer(async (req, res) => {
 });
 
 server.listen(port, '0.0.0.0', () => {
-  console.log(`WK Health frontend listening on ${port}`);
+  console.log(`WK Health frontend listening on ${port}; build root: ${root}`);
 });
