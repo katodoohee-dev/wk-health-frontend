@@ -12,8 +12,6 @@ const configuredBackend = (
   process.env.VITE_BACKEND_URL ||
   ''
 ).trim().replace(/\/$/, '');
-// Render's Blueprint normally injects BACKEND_URL. Keep a deterministic production
-// fallback so an older manually-created frontend service cannot silently disable API use.
 const backendUrl = configuredBackend && configuredBackend !== '__SAME_ORIGIN__'
   ? configuredBackend
   : (process.env.NODE_ENV === 'production' ? 'https://wk-health-backend.onrender.com' : '');
@@ -33,17 +31,22 @@ async function proxyApi(req, res) {
   try {
     const headers = new Headers();
     for (const [key, value] of Object.entries(req.headers)) {
-      if (key.toLowerCase() === 'host' || value == null) continue;
+      const lower = key.toLowerCase();
+      // These are browser/client connection headers. The proxy is the actual
+      // server-to-server caller, so do not forward browser Origin/Host and let
+      // the backend receive a clean internal request.
+      if (['host','origin','referer','connection','keep-alive','transfer-encoding','upgrade'].includes(lower) || value == null) continue;
       headers.set(key, Array.isArray(value) ? value.join(', ') : value);
     }
     headers.set('x-forwarded-host', req.headers.host || '');
+    headers.set('x-forwarded-proto', 'https');
     const chunks = [];
     for await (const chunk of req) chunks.push(chunk);
     const body = ['GET','HEAD'].includes(req.method || 'GET') ? undefined : Buffer.concat(chunks);
     const upstream = await fetch(target, { method: req.method, headers, body, redirect: 'manual' });
     const responseHeaders = {};
     upstream.headers.forEach((value, key) => {
-      if (!['connection','keep-alive','transfer-encoding','upgrade'].includes(key.toLowerCase())) responseHeaders[key] = value;
+      if (!['connection','keep-alive','transfer-encoding','upgrade','access-control-allow-origin','access-control-allow-credentials'].includes(key.toLowerCase())) responseHeaders[key] = value;
     });
     responseHeaders['cache-control'] = 'no-store';
     res.writeHead(upstream.status, responseHeaders);
