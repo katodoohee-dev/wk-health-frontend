@@ -1,4 +1,4 @@
 import { createFileRoute } from '@tanstack/react-router';
-import { Vision } from '@/components/wk-design';
+import { LiveDataPage } from '@/components/wk/live-data-page';
 
-export const Route = createFileRoute('/vision')({ component: Vision });
+export const Route = createFileRoute('/vision')({ component: () => <LiveDataPage page="vision" /> });
