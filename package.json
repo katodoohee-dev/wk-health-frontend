@@ -9,7 +9,8 @@
     "build": "vite build --config vite.config.ts",
     "start": "node render-server.mjs",
     "lint": "eslint .",
-    "test:production": "node scripts/verify-production.mjs"
+    "test:production": "node scripts/verify-production.mjs",
+    "test:backend": "node scripts/verify-backend-runtime.mjs"
   },
   "dependencies": {
     "@tailwindcss/vite": "^4.2.1",
@@ -35,7 +36,6 @@
     "@types/node": "^22.16.5",
     "@types/react": "^19.2.0",
     "@types/react-dom": "^19.2.0",
-    "@vitejs/plugin-react": "^5.2.0",
     "eslint": "^9.36.0",
     "eslint-plugin-react-hooks": "^7.0.0",
     "typescript": "^5.8.3",
