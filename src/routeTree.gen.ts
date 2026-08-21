@@ -9,7 +9,6 @@ import { Route as NotificationsRouteImport } from './routes/notifications'
 import { Route as ProfileRouteImport } from './routes/profile'
 import { Route as AuthRouteImport } from './routes/auth'
 import { Route as VisionRouteImport } from './routes/vision'
-import { Route as OverviewRouteImport } from './routes/overview'
 import { Route as ScanRouteImport } from './routes/scan'
 import { Route as MusicRouteImport } from './routes/music'
 import { Route as StatsRouteImport } from './routes/stats'
@@ -32,7 +31,6 @@ const NotificationsRoute=make(NotificationsRouteImport,'/notifications','/notifi
 const ProfileRoute=make(ProfileRouteImport,'/profile','/profile')
 const AuthRoute=make(AuthRouteImport,'/auth','/auth')
 const VisionRoute=make(VisionRouteImport,'/vision','/vision')
-const OverviewRoute=make(OverviewRouteImport,'/overview','/overview')
 const ScanRoute=make(ScanRouteImport,'/scan','/scan')
 const MusicRoute=make(MusicRouteImport,'/music','/music')
 const StatsRoute=make(StatsRouteImport,'/stats','/stats')
@@ -49,7 +47,7 @@ const SoundControlRoute=make(SoundControlRouteImport,'/sound-control','/sound-co
 export type FileRouteTypes=any
 export type RootRouteChildren=any
 declare module '@tanstack/react-router' { interface FileRoutesByPath { [key:string]: any } }
-const rootRouteChildren:any={IndexRoute,HomeRoute,AssistantRoute,FriendsRoute,NotificationsRoute,ProfileRoute,AuthRoute,VisionRoute,OverviewRoute,ScanRoute,MusicRoute,StatsRoute,DiaryRoute,MoodRoute,PedometerRoute,WorkoutRoute,NlpRoute,BudgetRoute,GalleryRoute,DeviceConnectRoute,ExportRoute,SoundControlRoute}
+const rootRouteChildren:any={IndexRoute,HomeRoute,AssistantRoute,FriendsRoute,NotificationsRoute,ProfileRoute,AuthRoute,VisionRoute,ScanRoute,MusicRoute,StatsRoute,DiaryRoute,MoodRoute,PedometerRoute,WorkoutRoute,NlpRoute,BudgetRoute,GalleryRoute,DeviceConnectRoute,ExportRoute,SoundControlRoute}
 export const routeTree=rootRouteImport._addFileChildren(rootRouteChildren)._addFileTypes<FileRouteTypes>()
 import type { getRouter } from './router.tsx'
 import type { startInstance } from './start.ts'
