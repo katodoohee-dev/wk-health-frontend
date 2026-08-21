@@ -43,24 +43,9 @@ services:
     envVars:
       - key: NODE_VERSION
         value: 22.12.0
-      # Browser API calls use the same backend URL as the original deployment.
-      # Keep BACKEND_URL for the server-side proxy/health check as a fallback.
+      # Browser calls stay same-origin. The Node server proxies /api/* to the backend.
+      # This preserves the original connection model and avoids browser CORS issues.
       - key: BACKEND_URL
-        fromService:
-          type: web
-          name: wk-health-backend
-          envVarKey: RENDER_EXTERNAL_URL
-      - key: VITE_API_BASE_URL
-        fromService:
-          type: web
-          name: wk-health-backend
-          envVarKey: RENDER_EXTERNAL_URL
-      - key: VITE_API_URL
-        fromService:
-          type: web
-          name: wk-health-backend
-          envVarKey: RENDER_EXTERNAL_URL
-      - key: VITE_BACKEND_URL
         fromService:
           type: web
           name: wk-health-backend
