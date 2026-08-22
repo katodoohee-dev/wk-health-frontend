@@ -1,3 +1,3 @@
 import { createFileRoute } from '@tanstack/react-router';
-import { LiveDataPage } from '@/components/wk/live-data-page';
-export const Route=createFileRoute('/pedometer')({component:()=> <LiveDataPage page="pedometer"/>});
+import { PrototypeScreen } from '@/components/wk/prototype-screens';
+export const Route=createFileRoute('/pedometer')({component:()=> <PrototypeScreen page="pedometer"/>});
