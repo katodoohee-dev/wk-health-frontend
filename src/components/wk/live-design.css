@@ -1,0 +1,15 @@
+.wk-design-page{background:var(--color-background,#fff);color:var(--color-foreground,#111)}
+.dark .wk-design-page{background:var(--color-background,#111);color:var(--color-foreground,#fff)}
+.numeric{font-variant-numeric:tabular-nums;letter-spacing:-.04em}
+.display{font-family:var(--font-display,Georgia,serif);font-weight:400;line-height:.95}
+.grain{background-color:var(--color-card,#fff)}
+.assistant-grid{display:grid;grid-template-columns:minmax(0,1fr) 320px;gap:24px}
+.assistant-side{display:flex;flex-direction:column;gap:20px}
+.conversation{min-height:640px}
+.chat-input{display:flex;align-items:center;gap:8px;margin-top:24px;padding:8px 10px;border:1px solid var(--color-border,#ddd);background:var(--color-card,#fff)}
+.chat-input input{min-width:0;flex:1;border:0;outline:0;background:transparent;padding:10px 8px;font-size:.875rem}
+.bubble{display:inline-block;max-width:min(80%,680px);padding:11px 14px;border:1px solid var(--color-border,#ddd);border-radius:14px;font-size:.875rem;line-height:1.5}
+.bubble.user{background:var(--color-foreground,#111);color:var(--color-background,#fff);border-color:transparent}
+.chat-label{font-family:var(--font-mono,ui-monospace,monospace);font-size:.625rem;letter-spacing:.12em;text-transform:uppercase;color:var(--color-muted-foreground,#777);margin:0 0 6px}
+.serif-chat{font-family:var(--font-display,Georgia,serif);font-size:1.15rem;line-height:1.45}
+@media(max-width:900px){.assistant-grid{grid-template-columns:1fr}.conversation{min-height:520px}}
