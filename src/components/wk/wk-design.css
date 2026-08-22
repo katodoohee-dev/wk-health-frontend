@@ -1,0 +1,22 @@
+/* Shared monochrome styles for the live WK Health design pages. */
+.wk-design-page {
+  background: #fff;
+  color: #000;
+}
+.dark .wk-design-page {
+  background: #000;
+  color: #fff;
+}
+
+.numeric {
+  font-variant-numeric: tabular-nums;
+  letter-spacing: -0.04em;
+}
+
+.display {
+  font-family: var(--font-display);
+}
+
+.grain {
+  background-color: var(--color-card);
+}
