@@ -1,0 +1,47 @@
+/* WK Health visual contract stylesheet. Kept as a shared stylesheet for the original editorial screens. */
+:root{
+  --wk-ink:var(--foreground,#151515);
+  --wk-paper:var(--background,#fbfaf7);
+  --wk-muted:var(--muted-foreground,#666);
+  --wk-line:var(--border,#ddd);
+}
+
+.wk-page{min-height:100%;}
+.wk-card{background:var(--card,var(--wk-paper));border:1px solid var(--wk-line);border-radius:var(--radius-lg,.75rem);box-shadow:var(--shadow-lift,0 8px 24px rgb(0 0 0 / 5%));}
+.eyebrow{font-family:var(--font-mono,ui-monospace,monospace);font-size:.6875rem;letter-spacing:.16em;text-transform:uppercase;color:var(--wk-muted);}
+.serif-chat{font-family:var(--font-display,Georgia,serif);font-size:1.08rem;line-height:1.65;letter-spacing:-.01em;}
+
+.assistant-page{width:100%;}
+.assistant-grid{display:grid;grid-template-columns:minmax(0,1fr) 320px;gap:1.5rem;}
+.assistant-side{display:flex;flex-direction:column;gap:1.25rem;}
+.conversation{padding:1.25rem;}
+.chat-pills{display:flex;align-items:center;gap:.65rem;padding-bottom:1rem;border-bottom:1px solid var(--wk-line);font-family:var(--font-mono,ui-monospace,monospace);font-size:.62rem;letter-spacing:.08em;text-transform:uppercase;}
+.chat-pills b{font-weight:600;}
+.chat-pills span{color:var(--wk-muted);}
+.chat-label{font-family:var(--font-mono,ui-monospace,monospace);font-size:.62rem;letter-spacing:.14em;text-transform:uppercase;color:var(--wk-muted);margin-bottom:.35rem;}
+.bubble.user{display:inline-block;max-width:min(80%,38rem);padding:.7rem .9rem;border-radius:.8rem;background:var(--wk-ink);color:var(--primary-foreground,#fff);font-size:.82rem;line-height:1.55;}
+.chat-input{display:flex;align-items:center;gap:.55rem;margin-top:1rem;padding:.45rem;border:1px solid var(--wk-line);background:var(--background,var(--wk-paper));}
+.chat-input input{min-width:0;flex:1;border:0;background:transparent;outline:0;padding:.65rem .4rem;font-size:.82rem;}
+.chat-input button{border:0;background:transparent;display:grid;place-items:center;flex:none;}
+.listening{padding:1rem;}
+.listening label,.starter label{display:block;font-family:var(--font-mono,ui-monospace,monospace);font-size:.62rem;letter-spacing:.14em;text-transform:uppercase;color:var(--wk-muted);}
+.listen-row{display:flex;gap:1rem;align-items:center;margin-top:1rem;}
+.listen-row>button{width:3rem;height:3rem;border-radius:999px;border:1px solid var(--wk-line);display:grid;place-items:center;background:var(--background,var(--wk-paper));}
+.listen-row h2{font-family:var(--font-display,Georgia,serif);font-size:1.35rem;font-weight:400;line-height:1.1;}
+.listen-row p{margin-top:.25rem;color:var(--wk-muted);font-size:.75rem;line-height:1.5;}
+.wave{margin-top:.55rem;font-family:var(--font-mono,ui-monospace,monospace);font-size:.72rem;letter-spacing:.12em;color:var(--wk-muted);white-space:nowrap;overflow:hidden;}
+.starter{padding:.25rem 0;}
+.starter h2{font-family:var(--font-display,Georgia,serif);font-size:1.55rem;font-weight:400;margin-top:.4rem;}
+.starter button{width:100%;display:flex;justify-content:space-between;gap:1rem;padding:.78rem 0;border-bottom:1px solid var(--wk-line);background:transparent;border-top:0;border-left:0;border-right:0;text-align:left;font-size:.78rem;}
+.starter button span{color:var(--wk-muted);}
+
+.signin,.signup{min-height:100vh;display:grid;place-items:center;padding:2rem;background:var(--wk-paper);}
+.signin-black{background:var(--wk-ink);color:var(--primary-foreground,#fff);}
+.signin-form{width:min(100%,28rem);}
+.form-box{display:grid;gap:1rem;}
+.form-box input,.signin input,.signup input{width:100%;border:1px solid var(--wk-line);background:transparent;padding:.8rem .9rem;font-size:.85rem;outline:none;}
+.form-box button,.signin button,.signup button{border:1px solid var(--wk-ink);background:var(--wk-ink);color:var(--primary-foreground,#fff);padding:.8rem 1rem;cursor:pointer;}
+.signin-black .form-box button{background:var(--primary-foreground,#fff);color:var(--wk-ink);border-color:var(--primary-foreground,#fff);}
+
+@media (max-width:900px){.assistant-grid{grid-template-columns:1fr;}.assistant-side{display:grid;grid-template-columns:1fr 1fr;align-items:start;}}
+@media (max-width:640px){.assistant-side{display:flex;}.conversation{padding:.9rem;}.bubble.user{max-width:92%;}.signin,.signup{padding:1rem;}}
