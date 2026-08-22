@@ -4,7 +4,6 @@ import { AppShell } from '@/components/wk/app-shell';
 import { Chip, Eyebrow, Metric, Panel, ProgressRing, SectionHeader, StackedBar } from '@/components/wk/primitives';
 import { activityWeek as fallbackWeek, insights, rings as fallbackRings, sleep, vitals as fallbackVitals } from '@/lib/wk-data';
 import { apiFetch } from '@/lib/api';
-import './wk-design.css';
 
 type AnyRecord = Record<string, any>;
 const n = (value: any, fallback = 0) => Number.isFinite(Number(value)) ? Number(value) : fallback;
