@@ -10,8 +10,7 @@ export function ThemeToggle() {
 
   useEffect(() => {
     const stored = window.localStorage.getItem("wk-theme");
-    const prefers = window.matchMedia("(prefers-color-scheme: dark)").matches;
-    const next = stored ? stored === "dark" : prefers;
+    const next = stored === "dark";
     setDark(next);
     applyTheme(next);
   }, []);
@@ -24,11 +23,14 @@ export function ThemeToggle() {
   };
 
   return (
-    <button type="button" onClick={toggle} aria-label={dark ? "สลับเป็นโหมดสว่าง" : "สลับเป็นโหมดมืด"} className="press glass grid size-11 place-items-center rounded-2xl text-foreground shadow-soft">
-      <span className="relative block size-5">
-        <Sun className={`absolute inset-0 size-5 transition-all duration-300 ${dark ? "scale-50 rotate-90 opacity-0" : "scale-100 rotate-0 opacity-100"}`} />
-        <Moon className={`absolute inset-0 size-5 transition-all duration-300 ${dark ? "scale-100 rotate-0 opacity-100" : "scale-50 -rotate-90 opacity-0"}`} />
-      </span>
+    <button
+      type="button"
+      onClick={toggle}
+      aria-label={dark ? "เปลี่ยนเป็นพื้นหลังสีขาว" : "เปลี่ยนเป็นพื้นหลังสีดำ"}
+      title={dark ? "White" : "Black"}
+      className="press grid size-11 place-items-center rounded-2xl border border-foreground bg-background text-foreground shadow-none"
+    >
+      {dark ? <Sun className="size-5" aria-hidden="true" /> : <Moon className="size-5" aria-hidden="true" />}
     </button>
   );
 }
