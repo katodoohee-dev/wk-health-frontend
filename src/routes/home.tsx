@@ -1,4 +1,4 @@
 import { createFileRoute } from '@tanstack/react-router';
-import { LiveHealthOverview } from '@/components/wk/live-design-pages';
+import { VisionOverview } from '@/components/wk/vision-overview';
 
-export const Route = createFileRoute('/home')({ component: LiveHealthOverview });
+export const Route = createFileRoute('/home')({ component: VisionOverview });
