@@ -17,8 +17,8 @@ export const featureFlags = Object.freeze({
   musicAutomation: envBool("VITE_WK_MUSIC_AUTOMATION", true),
   centralController: envBool("VITE_WK_CENTRAL_CONTROLLER", true),
   /**
-   * Friend location sharing is deliberately OFF until the backend realtime endpoints exist.
-   * This prevents the UI from implying that location data is being transmitted when it is not.
+   * Location sharing is available in the app; the user consent itself remains OFF by default.
+   * Set VITE_WK_FRIEND_LOCATION_SHARING=false as an emergency kill switch.
    */
-  locationSharing: envBool("VITE_WK_FRIEND_LOCATION_SHARING", false),
+  locationSharing: envBool("VITE_WK_FRIEND_LOCATION_SHARING", true),
 });

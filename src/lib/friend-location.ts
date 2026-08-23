@@ -11,9 +11,18 @@ type LocationState = {
   lastError: string | null;
 };
 
+type LatestLocation = {
+  latitude: number;
+  longitude: number;
+  accuracy: number;
+  heading: number | null;
+  speed: number | null;
+  timestamp: number;
+};
+
 let watchId: number | null = null;
 let publishTimer: number | null = null;
-let latest: Omit<GeolocationCoordinates, "toJSON"> & { timestamp: number } | null = null;
+let latest: LatestLocation | null = null;
 
 const state: LocationState = { enabled: false, watching: false, lastError: null };
 
@@ -75,7 +84,14 @@ export async function startFriendLocationSharing() {
   clearWatch();
   watchId = navigator.geolocation.watchPosition(
     (position) => {
-      latest = { ...position.coords, timestamp: position.timestamp } as typeof latest;
+      latest = {
+        latitude: position.coords.latitude,
+        longitude: position.coords.longitude,
+        accuracy: position.coords.accuracy,
+        heading: position.coords.heading,
+        speed: position.coords.speed,
+        timestamp: position.timestamp,
+      };
       state.lastError = null;
       emitState();
       void publishNow();
