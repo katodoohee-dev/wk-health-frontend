@@ -1,229 +1,78 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
-import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import {
-  Brain, Droplets, Flame, Footprints, LogOut, MessageSquareHeart, Sparkle, Wallet,
-  Dumbbell, Music2, UserRound, ChevronRight, Plus, CheckCircle2, Snowflake, Image as ImageIcon,
-} from "lucide-react";
-import { ThemeToggle } from "@/components/app/theme-toggle";
-import { Bar, GlassCard, Ring, SectionTitle } from "@/components/app/ui-bits";
-import { ErrorState, Skeleton } from "@/components/app/states";
+import { useQuery } from "@tanstack/react-query";
+import { ArrowUpRight, Footprints, Flame, Sparkles } from "lucide-react";
+import { AppShell } from "@/components/wk/app-shell";
+import { BarSeries, Chip, Eyebrow, Metric, Panel, ProgressRing, SectionHeader } from "@/components/wk/primitives";
 import { useAuth } from "@/lib/auth";
-import { apiCheckin, apiCheckinToday, apiDiary, apiPedometerToday, apiStatsToday, todayISO } from "@/lib/api";
+import { apiDiary, apiPedometerToday, apiStatsToday, apiStatsWeekly, todayISO } from "@/lib/api";
 
 export const Route = createFileRoute("/")({
-  head: () => ({
-    meta: [
-      { title: "WK Health App — ตรวจแคลอรีจากรูปอาหาร" },
-      { name: "description", content: "แอปสุขภาพครบวงจร สแกนแคลอรีจากรูปอาหาร บันทึกไดอารี ดูสถิติ ผู้ช่วย AI เมนูตามอารมณ์ วางแผนงบ และนับก้าวเดิน" },
-      { property: "og:title", content: "WK Health App — ตรวจแคลอรีจากรูปอาหาร" },
-      { property: "og:description", content: "สแกนอาหาร รู้แคลอรีทันที พร้อมไดอารี สถิติ และผู้ช่วย AI ด้านโภชนาการ" },
-    ],
-  }),
-  component: Home,
+  head: () => ({ meta: [{ title: "WK Health — Health OS" }, { name: "description", content: "ศูนย์กลางสุขภาพรายวันของ WK Health" }] }),
+  component: HealthOverview,
 });
 
-const tools = [
-  { to: "/nlp", icon: Brain, title: "NLP Analyze", desc: "พิมพ์บรรยายอาหาร", tint: "bg-sky-soft text-sky" },
-  { to: "/mood", icon: MessageSquareHeart, title: "Mood Menu", desc: "เมนูตามอารมณ์", tint: "bg-peach-soft text-peach" },
-  { to: "/budget", icon: Wallet, title: "Budget Planner", desc: "วางแผนตามงบ", tint: "bg-mint-soft text-mint" },
-  { to: "/pedometer", icon: Footprints, title: "Pedometer", desc: "นับก้าว + GPS", tint: "bg-secondary text-secondary-foreground" },
-  { to: "/workout", icon: Dumbbell, title: "Workout", desc: "ตารางฝึก AI", tint: "bg-mint-soft text-mint" },
-  { to: "/music", icon: Music2, title: "Music", desc: "เพลย์ลิสต์คลอ", tint: "bg-sky-soft text-sky" },
-  { to: "/profile", icon: UserRound, title: "Profile & BMI", desc: "ข้อมูล + คำนวณ BMI", tint: "bg-peach-soft text-peach" },
-  { to: "/gallery", icon: ImageIcon, title: "แกลเลอรี", desc: "ย้อนดูรูปอาหาร", tint: "bg-mint-soft text-mint" },
-] as const;
-
-function Home() {
-  const { user, logout, isAuthenticated } = useAuth();
-  const qc = useQueryClient();
-  const date = todayISO();
-
+function HealthOverview() {
+  const { isAuthenticated, user } = useAuth();
   const stats = useQuery({ queryKey: ["stats", "today"], queryFn: apiStatsToday, enabled: isAuthenticated });
   const ped = useQuery({ queryKey: ["pedometer", "today"], queryFn: apiPedometerToday, enabled: isAuthenticated });
-  const diary = useQuery({ queryKey: ["diary", date], queryFn: () => apiDiary(date), enabled: isAuthenticated });
-  const checkin = useQuery({ queryKey: ["checkin", "today"], queryFn: apiCheckinToday, enabled: isAuthenticated });
-
-  const doCheckin = useMutation({
-    mutationFn: apiCheckin,
-    onSuccess: () => void qc.invalidateQueries({ queryKey: ["checkin"] }),
-  });
-
+  const diary = useQuery({ queryKey: ["diary", todayISO()], queryFn: () => apiDiary(todayISO()), enabled: isAuthenticated });
+  const weekly = useQuery({ queryKey: ["stats", "weekly"], queryFn: apiStatsWeekly, enabled: isAuthenticated });
   const s = stats.data;
-  const remaining = s ? s.goal - s.eaten + s.burned : 0;
-  const waterGoal = s?.waterGoal ?? 8;
-  const water = s?.water ?? 0;
+  const remaining = s ? Math.max(0, s.goal - s.eaten + s.burned) : 0;
+  const weekBars = (weekly.data ?? []).map((d) => ({ day: d.day, value: d.steps }));
+  const stepPct = ped.data ? Math.min(100, Math.round((ped.data.steps / Math.max(1, ped.data.goal)) * 100)) : 0;
 
   return (
-    <div className="rise-in">
-      <header className="grid grid-cols-[minmax(0,1fr)_auto] items-center gap-3 py-5">
-        <div className="min-w-0">
-          <p className="text-xs text-muted-foreground">สวัสดี 🌿</p>
-          <h1 className="truncate font-display text-2xl font-bold">คุณ{user?.name ?? user?.email ?? "ผู้ใช้"}</h1>
-        </div>
-        <div className="flex shrink-0 items-center gap-2">
-          {s?.streak ? <span className="glass rounded-2xl px-3 py-2.5 text-sm font-semibold">🔥 {s.streak} วัน</span> : null}
-          <Link to="/profile" aria-label="โปรไฟล์" className="press glass grid size-11 place-items-center rounded-2xl shadow-soft">
-            <UserRound className="size-5" />
-          </Link>
-          <ThemeToggle />
-          <button onClick={() => void logout()} aria-label="ออกจากระบบ" className="press glass grid size-11 place-items-center rounded-2xl shadow-soft">
-            <LogOut className="size-5" />
-          </button>
-        </div>
-      </header>
-
-      {checkin.data && (
-        <button
-          onClick={() => !checkin.data!.alreadyCheckedInToday && doCheckin.mutate()}
-          disabled={checkin.data.alreadyCheckedInToday || doCheckin.isPending}
-          className="press glass-strong mb-4 flex w-full items-center gap-3 rounded-3xl p-4 text-left shadow-soft disabled:cursor-default"
-        >
-          <span className={`grid size-11 shrink-0 place-items-center rounded-2xl ${checkin.data.alreadyCheckedInToday ? "bg-mint-soft text-mint" : "bg-peach-soft text-peach"}`}>
-            {checkin.data.alreadyCheckedInToday ? <CheckCircle2 className="size-5" /> : <span className="text-lg">🔥</span>}
-          </span>
-          <span className="min-w-0 flex-1">
-            <span className="flex items-center gap-2">
-              <span className="font-display font-semibold">Streak {checkin.data.streak} วัน</span>
-              {checkin.data.freezeAvailable > 0 && (
-                <span className="flex items-center gap-0.5 text-xs text-sky">
-                  <Snowflake className="size-3" />×{checkin.data.freezeAvailable}
-                </span>
-              )}
-            </span>
-            <span className="block truncate text-xs text-muted-foreground">{checkin.data.greeting}</span>
-          </span>
-          {!checkin.data.alreadyCheckedInToday && (
-            <span className="press bg-mint-gradient shrink-0 rounded-2xl px-3 py-2 text-xs font-medium text-primary-foreground shadow-glow">
-              {doCheckin.isPending ? "กำลังเช็คอิน…" : "เช็คอิน"}
-            </span>
-          )}
-        </button>
-      )}
-
-      {stats.isLoading ? (
-        <Skeleton className="h-64 w-full rounded-3xl" />
-      ) : stats.isError ? (
-        <ErrorState error={stats.error} onRetry={() => void stats.refetch()} />
-      ) : (
-        <GlassCard className="p-5">
-          <div className="flex flex-col items-center gap-5 sm:flex-row sm:items-center sm:gap-7">
-            <Ring value={s!.eaten} max={s!.goal} color="var(--mint)">
-              <div>
-                <p className="font-display text-3xl font-bold tabular-nums">{remaining}</p>
-                <p className="text-xs text-muted-foreground">kcal เหลือได้</p>
-              </div>
-            </Ring>
-            <div className="w-full min-w-0 space-y-3">
-              <div className="grid grid-cols-3 gap-2 text-center">
-                <MiniStat label="กินแล้ว" value={s!.eaten} icon="🍽️" />
-                <MiniStat label="เผาผลาญ" value={s!.burned} icon="🔥" />
-                <MiniStat label="เป้าหมาย" value={s!.goal} icon="🎯" />
-              </div>
-              <Bar label="โปรตีน" value={s!.protein} max={s!.proteinGoal} color="var(--mint)" />
-              <Bar label="คาร์บ" value={s!.carb} max={s!.carbGoal} color="var(--sky)" />
-              <Bar label="ไขมัน" value={s!.fat} max={s!.fatGoal} color="var(--peach)" />
+    <AppShell eyebrow="WK Health · Personal OS" title="Health overview">
+      <div className="rise-in space-y-14">
+        <section className="grid gap-6 lg:grid-cols-[minmax(0,1.35fr)_minmax(0,1fr)]">
+          <Panel className="grain flex flex-col justify-between gap-10 lg:p-8">
+            <div className="flex flex-wrap items-center gap-2"><Chip tone="signal">Synced with your account</Chip><Chip>{user?.name ?? user?.email ?? "Personal health OS"}</Chip></div>
+            <div>
+              <Eyebrow>Today's balance</Eyebrow>
+              <div className="mt-3 flex items-end gap-4"><span className="numeric text-[5.5rem] leading-[0.85] font-medium sm:text-[7.5rem]">{Math.round(remaining)}</span><span className="pb-3 text-sm text-muted-foreground">kcal remaining</span></div>
+              <p className="mt-6 max-w-lg text-[0.9375rem] leading-relaxed text-muted-foreground">ข้อมูลนี้มาจากสถิติ อาหาร และการเคลื่อนไหวของบัญชีคุณโดยตรง ไม่ใช้ข้อมูล mock</p>
             </div>
+            <Link to="/assistant" className="inline-flex w-fit items-center gap-2 rounded-full bg-foreground px-5 py-3 text-sm font-medium text-background transition-transform hover:scale-[1.02]">Ask WK about today <ArrowUpRight className="size-4" /></Link>
+          </Panel>
+          <div className="grid grid-cols-2 gap-6">
+            <Panel><Metric label="Calories eaten" value={s ? Math.round(s.eaten) : "—"} unit="kcal" /></Panel>
+            <Panel><Metric label="Burned" value={s ? Math.round(s.burned) : "—"} unit="kcal" /></Panel>
+            <Panel><Metric label="Protein" value={s ? Math.round(s.protein) : "—"} unit="g" /></Panel>
+            <Panel><Metric label="Hydration" value={s ? Math.round(s.water ?? 0) : "—"} unit={`/ ${s?.waterGoal ?? 8} glasses`} /></Panel>
           </div>
-        </GlassCard>
-      )}
+        </section>
 
-      <div className="mt-4 grid grid-cols-2 gap-3">
-        <Link to="/scan" className="press bg-mint-gradient flex items-center gap-3 rounded-3xl p-4 text-primary-foreground shadow-glow">
-          <span className="grid size-11 shrink-0 place-items-center rounded-2xl bg-background/25"><Sparkle className="size-5" /></span>
-          <span className="min-w-0">
-            <span className="block truncate font-display font-semibold">สแกนอาหาร</span>
-            <span className="block truncate text-xs opacity-80">ถ่ายรูป รู้แคลทันที</span>
-          </span>
-        </Link>
-        <Link to="/diary" className="press glass-strong flex items-center gap-3 rounded-3xl p-4 shadow-soft">
-          <span className="grid size-11 shrink-0 place-items-center rounded-2xl bg-peach-soft text-peach"><Plus className="size-5" /></span>
-          <span className="min-w-0">
-            <span className="block truncate font-display font-semibold">บันทึกมื้อ</span>
-            <span className="block truncate text-xs text-muted-foreground">เพิ่มลงไดอารี</span>
-          </span>
-        </Link>
+        <section>
+          <SectionHeader eyebrow="Movement" title="Today, then the week" action={<Link to="/pedometer" className="text-xs underline underline-offset-4">Open movement ↗</Link>} />
+          <div className="mt-8 grid gap-6 lg:grid-cols-[minmax(0,.8fr)_minmax(0,1.2fr)]">
+            <Panel className="flex flex-col justify-between gap-8">
+              <div><Eyebrow>Steps today</Eyebrow><p className="numeric mt-2 text-5xl">{ped.data ? ped.data.steps.toLocaleString() : "—"}</p><p className="mt-2 text-sm text-muted-foreground">{ped.data ? `${stepPct}% of your ${ped.data.goal.toLocaleString()} step goal` : "Connect movement data to populate this view."}</p></div>
+              <div className="h-2 w-full rounded-full bg-surface-2"><div className="h-full rounded-full bg-foreground transition-all" style={{ width: `${stepPct}%` }} /></div>
+              <div className="grid grid-cols-2 gap-4 border-t border-border pt-5"><Metric label="Distance" value={ped.data ? ped.data.distanceKm.toFixed(1) : "—"} unit="km" /><Metric label="Active" value={ped.data ? ped.data.activeMinutes : "—"} unit="min" /></div>
+            </Panel>
+            <Panel>
+              <div className="mb-5 flex items-end justify-between"><div><Eyebrow>Activity · this week</Eyebrow><h2 className="display mt-1 text-2xl">Your movement rhythm</h2></div><span className="text-xs text-muted-foreground">7 days</span></div>
+              {weekly.isError ? <p className="text-sm text-muted-foreground">Weekly activity is temporarily unavailable.</p> : weekly.data?.length ? <BarSeries items={weekBars} /> : <p className="py-12 text-center text-sm text-muted-foreground">No weekly movement data yet.</p>}
+            </Panel>
+          </div>
+        </section>
+
+        <section>
+          <SectionHeader eyebrow="Food diary" title="What you have actually logged" action={<Link to="/diary" className="text-xs underline underline-offset-4">Open diary ↗</Link>} />
+          <div className="mt-8 grid gap-6 lg:grid-cols-[minmax(0,1.4fr)_minmax(0,.6fr)]">
+            <Panel>
+              {diary.isLoading ? <p className="text-sm text-muted-foreground">Reading today's diary…</p> : diary.data?.length ? <div className="divide-y divide-border">{diary.data.slice(0, 6).map((item) => <div key={item.id} className="grid grid-cols-[72px_minmax(0,1fr)_auto] items-center gap-4 py-4"><span className="numeric text-[10px] text-muted-foreground">{item.time || "—"}</span><div className="min-w-0"><p className="truncate text-sm font-medium">{item.name}</p><p className="text-xs text-muted-foreground">{item.slot} · {item.source}</p></div><span className="numeric text-sm">{Math.round(item.kcal)} kcal</span></div>)}</div> : <p className="py-12 text-center text-sm text-muted-foreground">ยังไม่มีรายการอาหารวันนี้</p>}
+            </Panel>
+            <Panel className="grain"><Eyebrow>Quick capture</Eyebrow><div className="mt-5 grid grid-cols-2"><Link to="/scan" className="border-b border-r border-border p-5 text-sm transition-colors hover:bg-surface-2">Scan meal</Link><Link to="/pedometer" className="border-b border-border p-5 text-sm transition-colors hover:bg-surface-2">Movement</Link><Link to="/mood" className="border-r border-border p-5 text-sm transition-colors hover:bg-surface-2">Mood check</Link><Link to="/music" className="p-5 text-sm transition-colors hover:bg-surface-2">Sound</Link></div></Panel>
+          </div>
+        </section>
+
+        <section className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_minmax(0,1fr)]">
+          <Panel className="grain"><div className="flex items-center gap-2"><Chip tone="solid"><Flame className="size-3" /> Today</Chip><Chip>Live account</Chip></div><Eyebrow className="mt-7">Your nutrition targets</Eyebrow><div className="mt-6 grid grid-cols-3 gap-4"><ProgressRing value={Math.round(s?.protein ?? 0)} goal={Math.max(1, Math.round(s?.proteinGoal ?? 120))} label="Protein" unit="g" size={112}/><ProgressRing value={Math.round(s?.carb ?? 0)} goal={Math.max(1, Math.round(s?.carbGoal ?? 240))} label="Carb" unit="g" size={112}/><ProgressRing value={Math.round(s?.fat ?? 0)} goal={Math.max(1, Math.round(s?.fatGoal ?? 65))} label="Fat" unit="g" size={112}/></div></Panel>
+          <Panel><div className="flex items-start justify-between gap-6"><div><Eyebrow>WK Assistant</Eyebrow><h2 className="display mt-2 text-3xl">Make sense of the day, not just the numbers.</h2><p className="mt-4 max-w-md text-sm leading-relaxed text-muted-foreground">ถามเรื่องอาหาร การนอน การออกกำลังกาย หรือให้ WK สรุปข้อมูลจากบัญชีคุณ</p></div><Sparkles className="size-5 shrink-0" /></div><Link to="/assistant" className="mt-7 inline-flex items-center gap-2 text-sm underline underline-offset-4">Open WK Assistant <ArrowUpRight className="size-4" /></Link></Panel>
+        </section>
       </div>
-
-      <section className="mt-6">
-        <SectionTitle title="เครื่องมือของคุณ" />
-        <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
-          {tools.map((t) => (
-            <Link key={t.to} to={t.to} className="press glass-strong group rounded-3xl p-4 shadow-soft">
-              <span className={`grid size-11 place-items-center rounded-2xl ${t.tint}`}><t.icon className="size-5" /></span>
-              <p className="mt-3 truncate font-display font-semibold">{t.title}</p>
-              <p className="truncate text-xs text-muted-foreground">{t.desc}</p>
-            </Link>
-          ))}
-        </div>
-      </section>
-
-      <section className="mt-6 grid gap-3 sm:grid-cols-2">
-        {ped.isLoading ? (
-          <Skeleton className="h-32 w-full rounded-3xl" />
-        ) : ped.isError ? (
-          <ErrorState error={ped.error} onRetry={() => void ped.refetch()} />
-        ) : (
-          <Link to="/pedometer" className="press glass-strong rounded-3xl p-4 shadow-soft">
-            <div className="flex items-center gap-4">
-              <Ring value={ped.data!.steps} max={ped.data!.goal} size={92} stroke={10} color="var(--sky)">
-                <Footprints className="size-6 text-sky" />
-              </Ring>
-              <div className="min-w-0">
-                <p className="text-xs text-muted-foreground">ก้าววันนี้</p>
-                <p className="font-display text-2xl font-bold tabular-nums">{ped.data!.steps.toLocaleString()}</p>
-                <p className="truncate text-xs text-muted-foreground">{ped.data!.distanceKm} กม. · {ped.data!.kcal} kcal</p>
-              </div>
-              <ChevronRight className="ml-auto size-5 shrink-0 text-muted-foreground" />
-            </div>
-          </Link>
-        )}
-
-        <div className="glass-strong rounded-3xl p-4 shadow-soft">
-          <div className="flex items-center justify-between">
-            <p className="font-display font-semibold"><Droplets className="mr-1 inline size-4 text-sky" /> ดื่มน้ำ</p>
-            <p className="text-xs text-muted-foreground">{water}/{waterGoal} แก้ว</p>
-          </div>
-          <div className="mt-4 flex flex-wrap gap-2">
-            {Array.from({ length: waterGoal }).map((_, i) => (
-              <span key={i} className={`press grid size-9 place-items-center rounded-xl text-base ${i < water ? "bg-sky-soft" : "bg-muted opacity-60"}`}>💧</span>
-            ))}
-          </div>
-        </div>
-      </section>
-
-      <section className="mt-6">
-        <SectionTitle title="มื้อล่าสุด" action={<Link to="/diary" className="text-xs font-medium text-primary">ดูทั้งหมด</Link>} />
-        {diary.isLoading ? (
-          <div className="space-y-2"><Skeleton className="h-16 w-full rounded-2xl" /><Skeleton className="h-16 w-full rounded-2xl" /></div>
-        ) : diary.isError ? (
-          <ErrorState error={diary.error} onRetry={() => void diary.refetch()} />
-        ) : diary.data!.length === 0 ? (
-          <p className="glass-strong rounded-3xl p-6 text-center text-sm text-muted-foreground">ยังไม่มีมื้ออาหารวันนี้ — เริ่มจากการสแกนอาหารได้เลย</p>
-        ) : (
-          <div className="space-y-2">
-            {diary.data!.slice(-3).reverse().map((m) => (
-              <div key={m.id} className="glass-strong flex items-center gap-3 rounded-2xl p-3 shadow-soft">
-                <span className="grid size-11 shrink-0 place-items-center rounded-2xl bg-muted text-xl">{m.emoji}</span>
-                <div className="min-w-0 flex-1">
-                  <p className="truncate font-medium">{m.name}</p>
-                  <p className="truncate text-xs text-muted-foreground">{m.slot} · {m.time}</p>
-                </div>
-                <span className="shrink-0 text-sm font-semibold tabular-nums text-primary"><Flame className="mr-1 inline size-3.5" />{m.kcal}</span>
-              </div>
-            ))}
-          </div>
-        )}
-      </section>
-    </div>
-  );
-}
-
-function MiniStat({ label, value, icon }: { label: string; value: number; icon: string }) {
-  return (
-    <div className="rounded-2xl bg-muted/60 px-2 py-2">
-      <p className="text-base">{icon}</p>
-      <p className="font-display text-sm font-bold tabular-nums">{value}</p>
-      <p className="truncate text-[10px] text-muted-foreground">{label}</p>
-    </div>
+    </AppShell>
   );
 }
