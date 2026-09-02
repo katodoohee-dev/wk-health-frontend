@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { Mic, Volume2, VolumeX, Loader2, Check, X } from "lucide-react";
 import { useNavigate } from "@tanstack/react-router";
+import { apiFetch, ApiError } from "@/lib/api";
 import "./voice-control.css";
 
 type Status = "idle" | "listening" | "processing" | "success" | "error";
@@ -82,46 +83,32 @@ function localActions(text: string): VoiceAction[] {
 }
 
 async function askIntent(text: string): Promise<VoiceAction[]> {
-  const system = `คุณคือผู้เชี่ยวชาญภาษาไทยและเป็น intent router ของ WK Health
-ผู้ใช้สามารถพูดภาษาไทยได้ทุกสำนวน ทุกระดับความสุภาพ พูดอ้อม พูดสั้น พูดยาว มีคำฟุ่มเฟือย พูดผิดเล็กน้อย หรือใช้คำใกล้เคียงกันได้ ให้ตีความ "ความหมาย" ไม่ใช่ค้นหาคำตรง ๆ
-
-กฎสำคัญ:
-- วิเคราะห์เป็นภาษาไทยก่อนเสมอ
-- ผลลัพธ์ต้องเป็น JSON array เท่านั้น ห้ามมี markdown ห้ามมีคำอธิบาย
-- ถ้ามีหลายเจตนา ให้คืนหลาย action ตามลำดับที่ควรทำ
-- ใช้เฉพาะ action ที่อยู่ในรายการ Allowed actions
-- ถ้าไม่เกี่ยวกับการควบคุมแอป ให้คืน NONE
-- ถ้าเป็นกิจกรรมออกกำลังกาย ให้คืน EXERCISE พร้อม activity, duration_min และ mets ที่สมเหตุสมผล
-
-Allowed actions:
-START_WALK,START_RUN,START_CYCLE,START_GPS,STOP_WALK,STOP_RUN,STOP_CYCLE,STOP_GPS,
-PLAY_MUSIC,PAUSE_MUSIC,STOP_MUSIC,NEXT_MUSIC,PREVIOUS_MUSIC,
-OPEN_MUSIC,OPEN_DIARY,OPEN_STATS,OPEN_SCAN,OPEN_BARCODE,OPEN_PEDOMETER,OPEN_ASSISTANT,OPEN_PROFILE,
-EXERCISE,SHOW_CALORIES,SHOW_STEPS,SAVE_MEAL,NONE.`;
-  const r = await fetch(DEEPSEEK_ENDPOINT, {
-    method: "POST", headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ messages: [{ role: "system", content: system }, { role: "user", content: text }] }),
-  });
-  if (!r.ok) throw new Error("intent unavailable");
-  const d = await r.json();
-  const raw = String(d?.content ?? d?.choices?.[0]?.message?.content ?? "").replace(/```json|```/g, "").trim();
-  const parsed = JSON.parse(raw); const list = Array.isArray(parsed) ? parsed : [parsed];
-  return list.filter((x: any) => x && typeof x.action === "string") as VoiceAction[];
+  // เดิมเรียก DeepSeek Worker ตรงจาก browser ซึ่งมักโดน CORS บล็อกใน production
+  // เปลี่ยนมาเรียกผ่าน backend (/api/voice/interpret) แทน เพื่อความเสถียรจริง
+  try {
+    const data = await apiFetch<{ success: boolean; actions?: unknown[]; error?: string }>(
+      "/api/voice/interpret",
+      { method: "POST", body: { text } }
+    );
+    const list = Array.isArray(data.actions) ? data.actions : [];
+    return list.filter((x: any) => x && typeof x.action === "string") as VoiceAction[];
+  } catch (err) {
+    throw new Error(err instanceof ApiError ? err.message : "intent unavailable");
+  }
 }
 
 async function askThaiAssistant(text: string) {
-  const system = `คุณคือผู้ช่วย WK Health ที่สื่อสารภาษาไทยอย่างเป็นธรรมชาติเท่านั้น
-ตอบเป็นภาษาไทยทุกครั้ง ห้ามตอบภาษาอังกฤษ แม้คำถามจะมีภาษาอังกฤษปน
-ใช้ภาษาพูดสุภาพ เป็นกันเอง กระชับ และเข้าใจง่าย
-ถ้าจำเป็นต้องใช้ศัพท์เทคนิค ให้เขียนคำอธิบายภาษาไทยกำกับ
-อย่าอ้างว่าคุณทำสิ่งใดสำเร็จ ถ้ายังไม่ได้ทำจริงผ่าน action ของระบบ`;
-  const r = await fetch(DEEPSEEK_ENDPOINT, {
-    method: "POST", headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ messages: [{ role: "system", content: system }, { role: "user", content: text }] }),
-  });
-  if (!r.ok) throw new Error("assistant unavailable");
-  const d = await r.json();
-  return String(d?.content ?? d?.choices?.[0]?.message?.content ?? "รับทราบครับ").trim();
+  // เดิมเรียก DeepSeek Worker ตรงจาก browser (เจอ CORS บล็อกใน production)
+  // เปลี่ยนมาใช้ /api/assistant/chat ของ backend ที่มีอยู่แล้ว (ผ่าน auth + logging ให้ด้วย)
+  try {
+    const data = await apiFetch<{ success: boolean; reply?: string }>("/api/assistant/chat", {
+      method: "POST",
+      body: { message: text },
+    });
+    return String(data.reply ?? "รับทราบครับ").trim();
+  } catch (err) {
+    throw new Error(err instanceof ApiError ? err.message : "assistant unavailable");
+  }
 }
 
 function emit(action: VoiceAction) { window.dispatchEvent(new CustomEvent("wk:voice-action", { detail: action })); }

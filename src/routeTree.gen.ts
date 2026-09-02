@@ -12,12 +12,14 @@ import { Route as rootRouteImport } from './routes/__root'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as AssistantRouteImport } from './routes/assistant'
 import { Route as AuthRouteImport } from './routes/auth'
+import { Route as BarcodeRouteImport } from './routes/barcode'
 import { Route as BudgetRouteImport } from './routes/budget'
 import { Route as DeviceConnectRouteImport } from './routes/device-connect'
 import { Route as DiaryRouteImport } from './routes/diary'
 import { Route as ExportRouteImport } from './routes/export'
 import { Route as FriendsRouteImport } from './routes/friends'
 import { Route as GalleryRouteImport } from './routes/gallery'
+import { Route as InsightRouteImport } from './routes/insight'
 import { Route as MoodRouteImport } from './routes/mood'
 import { Route as MusicRouteImport } from './routes/music'
 import { Route as NlpRouteImport } from './routes/nlp'
@@ -27,6 +29,10 @@ import { Route as ProfileRouteImport } from './routes/profile'
 import { Route as ScanRouteImport } from './routes/scan'
 import { Route as StatsRouteImport } from './routes/stats'
 import { Route as WorkoutRouteImport } from './routes/workout'
+import { Route as ApiFriendsLocationLiveRouteImport } from './routes/api/friends/location/live'
+import { Route as ApiFriendsLocationPublishRouteImport } from './routes/api/friends/location/publish'
+import { Route as ApiFriendsLocationShareRouteImport } from './routes/api/friends/location/share'
+import { Route as ApiFriendsLocationStatusRouteImport } from './routes/api/friends/location/status'
 
 const IndexRoute = IndexRouteImport.update({
   id: '/',
@@ -41,6 +47,11 @@ const AssistantRoute = AssistantRouteImport.update({
 const AuthRoute = AuthRouteImport.update({
   id: '/auth',
   path: '/auth',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const BarcodeRoute = BarcodeRouteImport.update({
+  id: '/barcode',
+  path: '/barcode',
   getParentRoute: () => rootRouteImport,
 } as any)
 const BudgetRoute = BudgetRouteImport.update({
@@ -71,6 +82,11 @@ const FriendsRoute = FriendsRouteImport.update({
 const GalleryRoute = GalleryRouteImport.update({
   id: '/gallery',
   path: '/gallery',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const InsightRoute = InsightRouteImport.update({
+  id: '/insight',
+  path: '/insight',
   getParentRoute: () => rootRouteImport,
 } as any)
 const MoodRoute = MoodRouteImport.update({
@@ -118,17 +134,41 @@ const WorkoutRoute = WorkoutRouteImport.update({
   path: '/workout',
   getParentRoute: () => rootRouteImport,
 } as any)
+const ApiFriendsLocationLiveRoute = ApiFriendsLocationLiveRouteImport.update({
+  id: '/api/friends/location/live',
+  path: '/api/friends/location/live',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ApiFriendsLocationPublishRoute =
+  ApiFriendsLocationPublishRouteImport.update({
+    id: '/api/friends/location/publish',
+    path: '/api/friends/location/publish',
+    getParentRoute: () => rootRouteImport,
+  } as any)
+const ApiFriendsLocationShareRoute = ApiFriendsLocationShareRouteImport.update({
+  id: '/api/friends/location/share',
+  path: '/api/friends/location/share',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ApiFriendsLocationStatusRoute =
+  ApiFriendsLocationStatusRouteImport.update({
+    id: '/api/friends/location/status',
+    path: '/api/friends/location/status',
+    getParentRoute: () => rootRouteImport,
+  } as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/assistant': typeof AssistantRoute
   '/auth': typeof AuthRoute
+  '/barcode': typeof BarcodeRoute
   '/budget': typeof BudgetRoute
   '/device-connect': typeof DeviceConnectRoute
   '/diary': typeof DiaryRoute
   '/export': typeof ExportRoute
   '/friends': typeof FriendsRoute
   '/gallery': typeof GalleryRoute
+  '/insight': typeof InsightRoute
   '/mood': typeof MoodRoute
   '/music': typeof MusicRoute
   '/nlp': typeof NlpRoute
@@ -138,17 +178,23 @@ export interface FileRoutesByFullPath {
   '/scan': typeof ScanRoute
   '/stats': typeof StatsRoute
   '/workout': typeof WorkoutRoute
+  '/api/friends/location/live': typeof ApiFriendsLocationLiveRoute
+  '/api/friends/location/publish': typeof ApiFriendsLocationPublishRoute
+  '/api/friends/location/share': typeof ApiFriendsLocationShareRoute
+  '/api/friends/location/status': typeof ApiFriendsLocationStatusRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/assistant': typeof AssistantRoute
   '/auth': typeof AuthRoute
+  '/barcode': typeof BarcodeRoute
   '/budget': typeof BudgetRoute
   '/device-connect': typeof DeviceConnectRoute
   '/diary': typeof DiaryRoute
   '/export': typeof ExportRoute
   '/friends': typeof FriendsRoute
   '/gallery': typeof GalleryRoute
+  '/insight': typeof InsightRoute
   '/mood': typeof MoodRoute
   '/music': typeof MusicRoute
   '/nlp': typeof NlpRoute
@@ -158,18 +204,24 @@ export interface FileRoutesByTo {
   '/scan': typeof ScanRoute
   '/stats': typeof StatsRoute
   '/workout': typeof WorkoutRoute
+  '/api/friends/location/live': typeof ApiFriendsLocationLiveRoute
+  '/api/friends/location/publish': typeof ApiFriendsLocationPublishRoute
+  '/api/friends/location/share': typeof ApiFriendsLocationShareRoute
+  '/api/friends/location/status': typeof ApiFriendsLocationStatusRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
   '/assistant': typeof AssistantRoute
   '/auth': typeof AuthRoute
+  '/barcode': typeof BarcodeRoute
   '/budget': typeof BudgetRoute
   '/device-connect': typeof DeviceConnectRoute
   '/diary': typeof DiaryRoute
   '/export': typeof ExportRoute
   '/friends': typeof FriendsRoute
   '/gallery': typeof GalleryRoute
+  '/insight': typeof InsightRoute
   '/mood': typeof MoodRoute
   '/music': typeof MusicRoute
   '/nlp': typeof NlpRoute
@@ -179,6 +231,10 @@ export interface FileRoutesById {
   '/scan': typeof ScanRoute
   '/stats': typeof StatsRoute
   '/workout': typeof WorkoutRoute
+  '/api/friends/location/live': typeof ApiFriendsLocationLiveRoute
+  '/api/friends/location/publish': typeof ApiFriendsLocationPublishRoute
+  '/api/friends/location/share': typeof ApiFriendsLocationShareRoute
+  '/api/friends/location/status': typeof ApiFriendsLocationStatusRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
@@ -186,12 +242,14 @@ export interface FileRouteTypes {
     | '/'
     | '/assistant'
     | '/auth'
+    | '/barcode'
     | '/budget'
     | '/device-connect'
     | '/diary'
     | '/export'
     | '/friends'
     | '/gallery'
+    | '/insight'
     | '/mood'
     | '/music'
     | '/nlp'
@@ -201,17 +259,23 @@ export interface FileRouteTypes {
     | '/scan'
     | '/stats'
     | '/workout'
+    | '/api/friends/location/live'
+    | '/api/friends/location/publish'
+    | '/api/friends/location/share'
+    | '/api/friends/location/status'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
     | '/assistant'
     | '/auth'
+    | '/barcode'
     | '/budget'
     | '/device-connect'
     | '/diary'
     | '/export'
     | '/friends'
     | '/gallery'
+    | '/insight'
     | '/mood'
     | '/music'
     | '/nlp'
@@ -221,17 +285,23 @@ export interface FileRouteTypes {
     | '/scan'
     | '/stats'
     | '/workout'
+    | '/api/friends/location/live'
+    | '/api/friends/location/publish'
+    | '/api/friends/location/share'
+    | '/api/friends/location/status'
   id:
     | '__root__'
     | '/'
     | '/assistant'
     | '/auth'
+    | '/barcode'
     | '/budget'
     | '/device-connect'
     | '/diary'
     | '/export'
     | '/friends'
     | '/gallery'
+    | '/insight'
     | '/mood'
     | '/music'
     | '/nlp'
@@ -241,18 +311,24 @@ export interface FileRouteTypes {
     | '/scan'
     | '/stats'
     | '/workout'
+    | '/api/friends/location/live'
+    | '/api/friends/location/publish'
+    | '/api/friends/location/share'
+    | '/api/friends/location/status'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
   AssistantRoute: typeof AssistantRoute
   AuthRoute: typeof AuthRoute
+  BarcodeRoute: typeof BarcodeRoute
   BudgetRoute: typeof BudgetRoute
   DeviceConnectRoute: typeof DeviceConnectRoute
   DiaryRoute: typeof DiaryRoute
   ExportRoute: typeof ExportRoute
   FriendsRoute: typeof FriendsRoute
   GalleryRoute: typeof GalleryRoute
+  InsightRoute: typeof InsightRoute
   MoodRoute: typeof MoodRoute
   MusicRoute: typeof MusicRoute
   NlpRoute: typeof NlpRoute
@@ -262,6 +338,10 @@ export interface RootRouteChildren {
   ScanRoute: typeof ScanRoute
   StatsRoute: typeof StatsRoute
   WorkoutRoute: typeof WorkoutRoute
+  ApiFriendsLocationLiveRoute: typeof ApiFriendsLocationLiveRoute
+  ApiFriendsLocationPublishRoute: typeof ApiFriendsLocationPublishRoute
+  ApiFriendsLocationShareRoute: typeof ApiFriendsLocationShareRoute
+  ApiFriendsLocationStatusRoute: typeof ApiFriendsLocationStatusRoute
 }
 
 declare module '@tanstack/react-router' {
@@ -285,6 +365,13 @@ declare module '@tanstack/react-router' {
       path: '/auth'
       fullPath: '/auth'
       preLoaderRoute: typeof AuthRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/barcode': {
+      id: '/barcode'
+      path: '/barcode'
+      fullPath: '/barcode'
+      preLoaderRoute: typeof BarcodeRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/budget': {
@@ -327,6 +414,13 @@ declare module '@tanstack/react-router' {
       path: '/gallery'
       fullPath: '/gallery'
       preLoaderRoute: typeof GalleryRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/insight': {
+      id: '/insight'
+      path: '/insight'
+      fullPath: '/insight'
+      preLoaderRoute: typeof InsightRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/mood': {
@@ -392,6 +486,34 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof WorkoutRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/api/friends/location/live': {
+      id: '/api/friends/location/live'
+      path: '/api/friends/location/live'
+      fullPath: '/api/friends/location/live'
+      preLoaderRoute: typeof ApiFriendsLocationLiveRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/friends/location/publish': {
+      id: '/api/friends/location/publish'
+      path: '/api/friends/location/publish'
+      fullPath: '/api/friends/location/publish'
+      preLoaderRoute: typeof ApiFriendsLocationPublishRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/friends/location/share': {
+      id: '/api/friends/location/share'
+      path: '/api/friends/location/share'
+      fullPath: '/api/friends/location/share'
+      preLoaderRoute: typeof ApiFriendsLocationShareRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/friends/location/status': {
+      id: '/api/friends/location/status'
+      path: '/api/friends/location/status'
+      fullPath: '/api/friends/location/status'
+      preLoaderRoute: typeof ApiFriendsLocationStatusRouteImport
+      parentRoute: typeof rootRouteImport
+    }
   }
 }
 
@@ -399,12 +521,14 @@ const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
   AssistantRoute: AssistantRoute,
   AuthRoute: AuthRoute,
+  BarcodeRoute: BarcodeRoute,
   BudgetRoute: BudgetRoute,
   DeviceConnectRoute: DeviceConnectRoute,
   DiaryRoute: DiaryRoute,
   ExportRoute: ExportRoute,
   FriendsRoute: FriendsRoute,
   GalleryRoute: GalleryRoute,
+  InsightRoute: InsightRoute,
   MoodRoute: MoodRoute,
   MusicRoute: MusicRoute,
   NlpRoute: NlpRoute,
@@ -414,6 +538,10 @@ const rootRouteChildren: RootRouteChildren = {
   ScanRoute: ScanRoute,
   StatsRoute: StatsRoute,
   WorkoutRoute: WorkoutRoute,
+  ApiFriendsLocationLiveRoute: ApiFriendsLocationLiveRoute,
+  ApiFriendsLocationPublishRoute: ApiFriendsLocationPublishRoute,
+  ApiFriendsLocationShareRoute: ApiFriendsLocationShareRoute,
+  ApiFriendsLocationStatusRoute: ApiFriendsLocationStatusRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
