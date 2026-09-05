@@ -6,6 +6,7 @@ import { Dumbbell, Flame, Footprints, Loader2, MapPin, Mountain, Play, Plus, Rou
 import { PageHeader, GlassCard, Ring, SectionTitle } from "@/components/app/ui-bits";
 import { ErrorState, LoadingState } from "@/components/app/states";
 import { useAuth } from "@/lib/auth";
+import { gpsBridge } from "@/lib/gps-bridge";
 import { Link } from "@tanstack/react-router";
 import {
   apiPedometerLog,
@@ -388,7 +389,7 @@ function GpsTracker() {
     };
   }, []);
 
-  const start = async () => {
+  const start = useCallback(async () => {
     setError(null);
     if (typeof navigator === "undefined" || !navigator.geolocation) {
       setError("อุปกรณ์นี้ไม่รองรับการระบุตำแหน่ง (GPS)");
@@ -411,9 +412,9 @@ function GpsTracker() {
     } finally {
       setBusy(false);
     }
-  };
+  }, []);
 
-  const stop = async () => {
+  const stop = useCallback(async () => {
     if (!routeId) return;
     if (watchRef.current !== null) {
       navigator.geolocation.clearWatch(watchRef.current);
@@ -431,7 +432,14 @@ function GpsTracker() {
       setBusy(false);
       setRouteId(null);
     }
-  };
+  }, [routeId, points, seconds, qc]);
+
+  // ลงทะเบียนกับ gpsBridge เพื่อให้สั่งเริ่ม/หยุด GPS ด้วยเสียงได้จริง
+  // (เดิมไม่มีบรรทัดนี้ ทำให้สั่งด้วยเสียงไม่มีผลอะไรเลย แม้แชทจะตอบว่าทำสำเร็จ)
+  useEffect(() => {
+    gpsBridge.register({ start, stop });
+    return () => gpsBridge.unregister();
+  }, [start, stop]);
 
   return (
     <>
