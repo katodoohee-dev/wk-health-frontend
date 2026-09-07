@@ -18,13 +18,10 @@ if (typeof window !== "undefined" && typeof window.Image === "function") {
   window.Image.prototype = __NativeImage.prototype;
 }
 
-
 import appCss from "../styles.css?url";
 import { reportLovableError } from "../lib/lovable-error-reporting";
 import { AppShell } from "@/components/app/app-shell";
 import { AuthProvider } from "@/lib/auth";
-
-
 
 function NotFoundComponent() {
   return (
@@ -74,7 +71,7 @@ function ErrorComponent({ error, reset }: { error: Error; reset: () => void }) {
           >
             Try again
           </button>
-          <a
+          
             href="/"
             className="inline-flex items-center justify-center rounded-md border border-input bg-background px-4 py-2 text-sm font-medium text-foreground transition-colors hover:bg-accent"
           >
@@ -94,16 +91,16 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
         name: "viewport",
         content: "width=device-width, initial-scale=1, viewport-fit=cover",
       },
-      { title: "WK Health App â€” à¸•à¸£à¸§à¸ˆà¹à¸„à¸¥à¸­à¸£à¸µà¸ˆà¸²à¸à¸£à¸¹à¸›à¸­à¸²à¸«à¸²à¸£" },
+      { title: "WK Health App — ตรวจแคลอรีจากรูปอาหาร" },
       {
         name: "description",
-        content: "à¹à¸­à¸›à¸ªà¸¸à¸‚à¸ à¸²à¸ž à¸ªà¹à¸à¸™à¹à¸„à¸¥à¸­à¸£à¸µà¸ˆà¸²à¸à¸£à¸¹à¸›à¸­à¸²à¸«à¸²à¸£ à¸žà¸£à¹‰à¸­à¸¡à¹„à¸”à¸­à¸²à¸£à¸µ à¸ªà¸–à¸´à¸•à¸´ à¸œà¸¹à¹‰à¸Šà¹ˆà¸§à¸¢ AI à¹à¸¥à¸°à¸™à¸±à¸šà¸à¹‰à¸²à¸§à¹€à¸”à¸´à¸™",
+        content: "แอปสุขภาพ สแกนแคลอรีจากรูปอาหาร พร้อมไดอารี สถิติ ผู้ช่วย AI และนับก้าวเดิน",
       },
       { name: "theme-color", content: "#eafaf3" },
-      { property: "og:title", content: "WK Health App â€” à¸•à¸£à¸§à¸ˆà¹à¸„à¸¥à¸­à¸£à¸µà¸ˆà¸²à¸à¸£à¸¹à¸›à¸­à¸²à¸«à¸²à¸£" },
+      { property: "og:title", content: "WK Health App — ตรวจแคลอรีจากรูปอาหาร" },
       {
         property: "og:description",
-        content: "à¸ªà¹à¸à¸™à¸­à¸²à¸«à¸²à¸£ à¸£à¸¹à¹‰à¹à¸„à¸¥à¸­à¸£à¸µà¸—à¸±à¸™à¸—à¸µ à¸žà¸£à¹‰à¸­à¸¡à¹„à¸”à¸­à¸²à¸£à¸µ à¸ªà¸–à¸´à¸•à¸´ à¹à¸¥à¸°à¸œà¸¹à¹‰à¸Šà¹ˆà¸§à¸¢ AI",
+        content: "สแกนอาหาร รู้แคลอรีทันที พร้อมไดอารี สถิติ และผู้ช่วย AI",
       },
       { property: "og:type", content: "website" },
       { name: "twitter:card", content: "summary_large_image" },
@@ -157,4 +154,3 @@ function RootComponent() {
     </QueryClientProvider>
   );
 }
-
