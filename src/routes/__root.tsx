@@ -1,4 +1,4 @@
-import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
+﻿import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import {
   Outlet,
   Link,
@@ -8,6 +8,16 @@ import {
   Scripts,
 } from "@tanstack/react-router";
 import { useEffect, type ReactNode } from "react";
+
+if (typeof window !== "undefined" && typeof window.Image === "function") {
+  const __NativeImage = window.Image;
+  // @ts-ignore - guard against libraries calling Image() without "new"
+  window.Image = function (...args: any[]) {
+    return new (__NativeImage as any)(...args);
+  } as any;
+  window.Image.prototype = __NativeImage.prototype;
+}
+
 
 import appCss from "../styles.css?url";
 import { reportLovableError } from "../lib/lovable-error-reporting";
@@ -84,16 +94,16 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
         name: "viewport",
         content: "width=device-width, initial-scale=1, viewport-fit=cover",
       },
-      { title: "WK Health App — ตรวจแคลอรีจากรูปอาหาร" },
+      { title: "WK Health App â€” à¸•à¸£à¸§à¸ˆà¹à¸„à¸¥à¸­à¸£à¸µà¸ˆà¸²à¸à¸£à¸¹à¸›à¸­à¸²à¸«à¸²à¸£" },
       {
         name: "description",
-        content: "แอปสุขภาพ สแกนแคลอรีจากรูปอาหาร พร้อมไดอารี สถิติ ผู้ช่วย AI และนับก้าวเดิน",
+        content: "à¹à¸­à¸›à¸ªà¸¸à¸‚à¸ à¸²à¸ž à¸ªà¹à¸à¸™à¹à¸„à¸¥à¸­à¸£à¸µà¸ˆà¸²à¸à¸£à¸¹à¸›à¸­à¸²à¸«à¸²à¸£ à¸žà¸£à¹‰à¸­à¸¡à¹„à¸”à¸­à¸²à¸£à¸µ à¸ªà¸–à¸´à¸•à¸´ à¸œà¸¹à¹‰à¸Šà¹ˆà¸§à¸¢ AI à¹à¸¥à¸°à¸™à¸±à¸šà¸à¹‰à¸²à¸§à¹€à¸”à¸´à¸™",
       },
       { name: "theme-color", content: "#eafaf3" },
-      { property: "og:title", content: "WK Health App — ตรวจแคลอรีจากรูปอาหาร" },
+      { property: "og:title", content: "WK Health App â€” à¸•à¸£à¸§à¸ˆà¹à¸„à¸¥à¸­à¸£à¸µà¸ˆà¸²à¸à¸£à¸¹à¸›à¸­à¸²à¸«à¸²à¸£" },
       {
         property: "og:description",
-        content: "สแกนอาหาร รู้แคลอรีทันที พร้อมไดอารี สถิติ และผู้ช่วย AI",
+        content: "à¸ªà¹à¸à¸™à¸­à¸²à¸«à¸²à¸£ à¸£à¸¹à¹‰à¹à¸„à¸¥à¸­à¸£à¸µà¸—à¸±à¸™à¸—à¸µ à¸žà¸£à¹‰à¸­à¸¡à¹„à¸”à¸­à¸²à¸£à¸µ à¸ªà¸–à¸´à¸•à¸´ à¹à¸¥à¸°à¸œà¸¹à¹‰à¸Šà¹ˆà¸§à¸¢ AI",
       },
       { property: "og:type", content: "website" },
       { name: "twitter:card", content: "summary_large_image" },
@@ -147,3 +157,4 @@ function RootComponent() {
     </QueryClientProvider>
   );
 }
+
