@@ -2,6 +2,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { Mic, Volume2, VolumeX, Loader2, Check, X } from "lucide-react";
 import { useNavigate } from "@tanstack/react-router";
 import { apiFetch, ApiError } from "@/lib/api";
+import { apiAssistantChatWithContext } from "@/lib/website-ai-context";
 import "./voice-control.css";
 
 type Status = "idle" | "listening" | "processing" | "success" | "error";
@@ -95,13 +96,13 @@ async function askIntent(text: string): Promise<VoiceAction[]> {
   }
 }
 
+// FIX: เดิมเรียก /api/assistant/chat ตรงๆ ด้วยข้อความล้วน ไม่มีบริบทอะไรเลย
+// เปลี่ยนมาใช้ apiAssistantChatWithContext ตัวเดียวกับหน้าแชท — แนบข้อมูลจริงจากทั้งเว็บ
+// (ไดอารี, สถิติ, ก้าวเดิน, ประวัติออกกำลังกาย, เพลง, ประวัติแชทเดิม ฯลฯ) ไปทุกครั้งที่ถามด้วยเสียง
 async function askThaiAssistant(text: string) {
   try {
-    const data = await apiFetch<{ success: boolean; reply?: string }>("/api/assistant/chat", {
-      method: "POST",
-      body: { message: text },
-    });
-    return String(data.reply ?? "รับทราบครับ").trim();
+    const reply = await apiAssistantChatWithContext(text);
+    return String(reply.text || "รับทราบครับ").trim();
   } catch (err) {
     throw new Error(err instanceof ApiError ? err.message : "assistant unavailable");
   }
