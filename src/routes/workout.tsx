@@ -42,6 +42,10 @@ function WorkoutPage() {
   const [daysPerWeek, setDaysPerWeek] = useState(3);
   const [loggedKeys, setLoggedKeys] = useState<Set<string>>(new Set());
   const [pendingKey, setPendingKey] = useState<string | null>(null);
+  // FIX: ตารางออกกำลังกายเดิมแสดงชื่อวัน (d.day) เป็นข้อความล้วน แก้ไม่ได้เลย
+  // ผู้ใช้ปรับ/เปลี่ยนชื่อวัน (เช่น "วันที่ 1" -> "จันทร์") ไม่ได้ — เพิ่ม state เก็บชื่อวันที่ผู้ใช้แก้เอง
+  // แยกตาม index ของแต่ละวันในแผน แล้วให้แก้ผ่าน input ตรงๆ ในตาราง
+  const [dayOverrides, setDayOverrides] = useState<Record<number, string>>({});
 
   const burn = useQuery({
     queryKey: ["workout", "burn"],
@@ -56,6 +60,7 @@ function WorkoutPage() {
 
   const plan = useMutation({
     mutationFn: () => apiWorkoutPlan({ goal, level, equipment, daysPerWeek }),
+    onSuccess: () => setDayOverrides({}),
   });
 
   const log = useMutation({
@@ -154,11 +159,16 @@ function WorkoutPage() {
           {plan.data.days.map((d, i) => (
             <GlassCard key={`${d.day}-${i}`} className="p-4">
               <div className="mb-2 flex items-center gap-2">
-                <span className="grid size-9 place-items-center rounded-2xl bg-mint-soft text-mint">
+                <span className="grid size-9 shrink-0 place-items-center rounded-2xl bg-mint-soft text-mint">
                   <Dumbbell className="size-4" />
                 </span>
-                <div className="min-w-0">
-                  <p className="truncate font-display font-semibold">{d.day}</p>
+                <div className="min-w-0 flex-1">
+                  <input
+                    value={dayOverrides[i] ?? d.day}
+                    onChange={(e) => setDayOverrides((prev) => ({ ...prev, [i]: e.target.value }))}
+                    aria-label={`แก้ชื่อวันที่ ${i + 1}`}
+                    className="w-full truncate rounded-lg bg-transparent font-display font-semibold outline-none focus:bg-muted/60 focus:px-1"
+                  />
                   {d.focus ? <p className="truncate text-xs text-muted-foreground">{d.focus}</p> : null}
                 </div>
               </div>
