@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { createFileRoute } from "@tanstack/react-router";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Link2, Loader2, Music2, Pause, Play, Plus, Trash2, History } from "lucide-react";
@@ -20,6 +20,11 @@ export const Route = createFileRoute("/music")({
   component: MusicPage,
 });
 
+/** ปก YouTube แบบสี่เหลี่ยมจัตุรัส — hqdefault เป็น 4:3 ต้อง crop กลางด้วย CSS (object-cover) ให้เป็นจัตุรัส */
+function ytThumb(ytId: string) {
+  return `https://img.youtube.com/vi/${ytId}/hqdefault.jpg`;
+}
+
 function MusicPage() {
   const { isAuthenticated } = useAuth();
   const qc = useQueryClient();
@@ -27,15 +32,34 @@ function MusicPage() {
   const [url, setUrl] = useState("");
   const [title, setTitle] = useState("");
 
+  // FIX: ก่อนหน้านี้ผู้ใช้ต้องพิมพ์ชื่อเพลงเองทุกครั้ง แม้เป็นลิงก์ YouTube ที่มีชื่อ/ปกอยู่แล้ว
+  // ตอนนี้พอวางลิงก์ YouTube ปุ๊บ ระบบดึงปก (สี่เหลี่ยมจัตุรัส) + ชื่อเพลงจาก YouTube oEmbed มาให้ทันที
+  // (oEmbed เป็น public endpoint ไม่ต้อง API key) ผู้ใช้ยังแก้ชื่อเองได้ถ้าต้องการ
+  const [autoTitle, setAutoTitle] = useState<string | null>(null);
+  const ytId = parseYouTubeId(url);
+
+  useEffect(() => {
+    if (!ytId) { setAutoTitle(null); return; }
+    let cancelled = false;
+    const timer = setTimeout(() => {
+      fetch(`https://www.youtube.com/oembed?url=${encodeURIComponent(url.trim())}&format=json`)
+        .then((r) => (r.ok ? r.json() : null))
+        .then((data) => { if (!cancelled && data?.title) setAutoTitle(String(data.title)); })
+        .catch(() => { if (!cancelled) setAutoTitle(null); });
+    }, 400); // debounce กันยิง request รัวๆ ตอนพิมพ์
+    return () => { cancelled = true; clearTimeout(timer); };
+  }, [url, ytId]);
+
   const lib = useQuery({ queryKey: ["music", "library"], queryFn: apiMusicLibrary, enabled: isAuthenticated });
   const history = useQuery({ queryKey: ["music", "history"], queryFn: apiMusicHistory, enabled: isAuthenticated });
 
   const add = useMutation({
     mutationFn: () => {
-      const ytId = parseYouTubeId(url);
-      return apiMusicAdd({ url: url.trim(), title: title.trim() || url.trim(), type: ytId ? "youtube" : "audio", ...(ytId ? { ytId } : {}) });
+      const id = parseYouTubeId(url);
+      const finalTitle = title.trim() || autoTitle || url.trim();
+      return apiMusicAdd({ url: url.trim(), title: finalTitle, type: id ? "youtube" : "audio", ...(id ? { ytId: id } : {}) });
     },
-    onSuccess: () => { setUrl(""); setTitle(""); void qc.invalidateQueries({ queryKey: ["music"] }); },
+    onSuccess: () => { setUrl(""); setTitle(""); setAutoTitle(null); void qc.invalidateQueries({ queryKey: ["music"] }); },
   });
 
   const del = useMutation({
@@ -56,15 +80,27 @@ function MusicPage() {
             <Link2 className="size-4 shrink-0 text-muted-foreground" />
             <input value={url} onChange={(e) => setUrl(e.target.value)} placeholder="ลิงก์ YouTube หรือไฟล์เสียง (.mp3/.wav)" className="min-w-0 flex-1 bg-transparent py-3 text-sm outline-none" />
           </span>
+
+          {ytId && (
+            <div className="flex items-center gap-3 rounded-2xl bg-muted/60 p-2">
+              <div className="size-14 shrink-0 overflow-hidden rounded-xl bg-muted">
+                <img src={ytThumb(ytId)} alt="" className="size-full object-cover" />
+              </div>
+              <p className="min-w-0 flex-1 truncate text-sm text-muted-foreground">
+                {autoTitle ?? "กำลังดึงชื่อเพลง…"}
+              </p>
+            </div>
+          )}
+
           <div className="flex gap-2">
-            <input value={title} onChange={(e) => setTitle(e.target.value)} placeholder="ชื่อเพลง (ไม่บังคับ)" className="glass min-w-0 flex-1 rounded-2xl px-4 py-3 text-sm outline-none" />
+            <input value={title} onChange={(e) => setTitle(e.target.value)} placeholder={autoTitle ? `ชื่อเพลง (ดึงมาให้แล้ว แก้ได้ถ้าต้องการ)` : "ชื่อเพลง (ไม่บังคับ)"} className="glass min-w-0 flex-1 rounded-2xl px-4 py-3 text-sm outline-none" />
             <button onClick={() => url.trim() && add.mutate()} disabled={add.isPending || !url.trim()}
               className="press bg-mint-gradient flex shrink-0 items-center gap-2 rounded-2xl px-4 py-3 text-sm font-medium text-primary-foreground shadow-glow disabled:opacity-60">
               {add.isPending ? <Loader2 className="size-4 animate-spin" /> : <Plus className="size-4" />} เพิ่ม
             </button>
           </div>
           {add.isError && <p className="rounded-2xl bg-destructive/10 px-3 py-2.5 text-sm text-destructive">{add.error instanceof Error ? add.error.message : "เพิ่มเพลงไม่สำเร็จ"}</p>}
-          <p className="text-xs text-muted-foreground">ระบบตรวจอัตโนมัติว่าเป็น YouTube หรือไฟล์เสียง และเล่นต่อเนื่องแม้สลับหน้า</p>
+          <p className="text-xs text-muted-foreground">วางลิงก์ YouTube แล้วระบบดึงปกและชื่อเพลงให้อัตโนมัติ หรือใส่ไฟล์เสียงตรงก็ได้</p>
         </div>
       </GlassCard>
 
@@ -82,6 +118,13 @@ function MusicPage() {
               const active = current?.id === t.id;
               return (
                 <div key={t.id} className={`glass-strong flex items-center gap-3 rounded-3xl p-3 shadow-soft ${active ? "ring-2 ring-primary/40" : ""}`}>
+                  <div className="relative size-11 shrink-0 overflow-hidden rounded-2xl bg-muted">
+                    {t.type === "youtube" && t.ytId ? (
+                      <img src={ytThumb(t.ytId)} alt="" className="size-full object-cover" />
+                    ) : (
+                      <div className="grid size-full place-items-center bg-mint-soft"><Music2 className="size-5 text-mint" /></div>
+                    )}
+                  </div>
                   <button onClick={() => (active ? toggle() : play(t, tracks))} aria-label={active && isPlaying ? "หยุดชั่วคราว" : `เล่น ${t.title}`}
                     className="press bg-mint-gradient grid size-11 shrink-0 place-items-center rounded-2xl text-primary-foreground shadow-glow">
                     {active && isPlaying ? <Pause className="size-5" /> : <Play className="size-5" />}
