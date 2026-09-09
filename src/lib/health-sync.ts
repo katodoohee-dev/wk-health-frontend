@@ -71,14 +71,14 @@ export async function connectHealthProvider(
       connected: result?.connected ?? true,
       lastSyncAt: result?.lastSyncAt ?? new Date().toISOString(),
       records: result?.records ?? 0,
-      message: result?.message,
+      ...(result?.message !== undefined ? { message: result.message } : {}),
     };
     dispatch(provider, normalized.connected, normalized.records, normalized.message);
     return normalized;
   }
 
   // OAuth providers can be wired to backend-generated authorization URLs.
-  const oauthUrl = provider === "fitbit" ? import.meta.env.VITE_FITBIT_OAUTH_URL : provider === "garmin" ? import.meta.env.VITE_GARMIN_OAUTH_URL : undefined;
+  const oauthUrl = provider === "fitbit" ? import.meta.env["VITE_FITBIT_OAUTH_URL"] : provider === "garmin" ? import.meta.env["VITE_GARMIN_OAUTH_URL"] : undefined;
   if (oauthUrl) {
     window.location.assign(oauthUrl);
     return { connected: false, lastSyncAt: null, records: 0, message: "กำลังเปิดหน้าล็อกอินของผู้ให้บริการ…" };
@@ -103,7 +103,7 @@ export async function syncHealthProvider(provider: HealthProvider): Promise<Conn
     connected: result?.connected ?? true,
     lastSyncAt: result?.lastSyncAt ?? new Date().toISOString(),
     records: result?.records ?? 0,
-    message: result?.message,
+    ...(result?.message !== undefined ? { message: result.message } : {}),
   };
   dispatch(provider, normalized.connected, normalized.records, normalized.message);
   return normalized;

@@ -49,8 +49,8 @@ async function publishNow() {
       lat: latest.latitude,
       lng: latest.longitude,
       accuracy: latest.accuracy,
-      heading: latest.heading ?? undefined,
-      speedMps: latest.speed ?? undefined,
+      ...(latest.heading != null ? { heading: latest.heading } : {}),
+      ...(latest.speed != null ? { speedMps: latest.speed } : {}),
     });
     state.lastError = null;
   } catch (error) {

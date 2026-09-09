@@ -141,8 +141,8 @@ function DeviceConnectPage() {
         action: connected ? "connected" : "disconnected",
         timestamp: nowLabel(),
         records: Number(custom.detail?.records ?? 0),
-        message: custom.detail?.message,
-      }, ...prev].slice(0, 20));
+        ...(custom.detail?.message !== undefined ? { message: custom.detail.message } : {}),
+      } satisfies SyncLog, ...prev].slice(0, 20));
     };
     window.addEventListener("wk:health-sync", onHealthEvent);
     return () => window.removeEventListener("wk:health-sync", onHealthEvent);
@@ -173,8 +173,8 @@ function DeviceConnectPage() {
         action: "connected",
         timestamp: nowLabel(),
         records: result.records ?? 0,
-        message: result.message,
-      }, ...prev].slice(0, 20));
+        ...(result.message !== undefined ? { message: result.message } : {}),
+      } satisfies SyncLog, ...prev].slice(0, 20));
       setPendingId(null);
     } catch (error) {
       setLogs((prev) => [{
@@ -184,7 +184,7 @@ function DeviceConnectPage() {
         timestamp: nowLabel(),
         records: 0,
         message: error instanceof Error ? error.message : "เชื่อมต่อไม่สำเร็จ",
-      }, ...prev].slice(0, 20));
+      } satisfies SyncLog, ...prev].slice(0, 20));
     } finally {
       setBusyId(null);
     }
@@ -205,7 +205,7 @@ function DeviceConnectPage() {
         action: "disconnected",
         timestamp: nowLabel(),
         records: 0,
-      }, ...prev].slice(0, 20));
+      } satisfies SyncLog, ...prev].slice(0, 20));
     } finally {
       setBusyId(null);
     }
@@ -224,9 +224,23 @@ function DeviceConnectPage() {
           records: result.records ?? 0,
         },
       }));
-      setLogs((prev) => [{ id: `${Date.now()}`, deviceName: device.name, action: "synced", timestamp: nowLabel(), records: result.records ?? 0, message: result.message }, ...prev].slice(0, 20));
+      setLogs((prev) => [{
+        id: `${Date.now()}`,
+        deviceName: device.name,
+        action: "synced",
+        timestamp: nowLabel(),
+        records: result.records ?? 0,
+        ...(result.message !== undefined ? { message: result.message } : {}),
+      } satisfies SyncLog, ...prev].slice(0, 20));
     } catch (error) {
-      setLogs((prev) => [{ id: `${Date.now()}`, deviceName: device.name, action: "error", timestamp: nowLabel(), records: 0, message: error instanceof Error ? error.message : "ซิงค์ไม่สำเร็จ" }, ...prev].slice(0, 20));
+      setLogs((prev) => [{
+        id: `${Date.now()}`,
+        deviceName: device.name,
+        action: "error",
+        timestamp: nowLabel(),
+        records: 0,
+        message: error instanceof Error ? error.message : "ซิงค์ไม่สำเร็จ",
+      } satisfies SyncLog, ...prev].slice(0, 20));
     } finally {
       setBusyId(null);
     }

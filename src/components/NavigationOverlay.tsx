@@ -9,8 +9,8 @@ type RouteStep = { distance: number; duration: number; name?: string; maneuver?:
 type RoutePlan = { geometry: [number, number][]; distance: number; duration: number; steps: RouteStep[]; destination: LatLng; label: string };
 type NavRequest = { destination: string; milestoneKm?: number | null; announceTurns?: boolean };
 
-const ROUTER = import.meta.env.VITE_ROUTING_API_URL || "https://router.project-osrm.org";
-const GEOCODER = import.meta.env.VITE_GEOCODER_URL || "https://geocode.arcgis.com/arcgis/rest/services/World/GeocodeServer/findAddressCandidates";
+const ROUTER = import.meta.env["VITE_ROUTING_API_URL"] || "https://router.project-osrm.org";
+const GEOCODER = import.meta.env["VITE_GEOCODER_URL"] || "https://geocode.arcgis.com/arcgis/rest/services/World/GeocodeServer/findAddressCandidates";
 const DEFAULT_CENTER: LatLng = { lat: 13.7563, lng: 100.5018 };
 const MAX_ACCURACY_M = 50;
 const MAX_SPEED_MPS = 12;
@@ -43,7 +43,7 @@ function projectPoint(p: LatLng, a: LatLng, b: LatLng) {
 function closestRoutePoint(route: [number, number][], point: LatLng) {
   let best = { distance: Number.POSITIVE_INFINITY, index: 0, t: 0 };
   for (let i = 0; i < route.length - 1; i += 1) {
-    const a = { lat: route[i][0], lng: route[i][1] }, b = { lat: route[i + 1][0], lng: route[i + 1][1] };
+    const a = { lat: route[i]![0], lng: route[i]![1] }, b = { lat: route[i + 1]![0], lng: route[i + 1]![1] };
     const projected = projectPoint(point, a, b);
     const d = distanceM(point, projected.point);
     if (d < best.distance) best = { distance: d, index: i, t: projected.t };
@@ -54,12 +54,12 @@ function closestRoutePoint(route: [number, number][], point: LatLng) {
 function remainingRouteM(route: [number, number][], point: LatLng) {
   if (route.length < 2) return 0;
   const nearest = closestRoutePoint(route, point);
-  const a = { lat: route[nearest.index][0], lng: route[nearest.index][1] };
-  const b = { lat: route[nearest.index + 1][0], lng: route[nearest.index + 1][1] };
+  const a = { lat: route[nearest.index]![0], lng: route[nearest.index]![1] };
+  const b = { lat: route[nearest.index + 1]![0], lng: route[nearest.index + 1]![1] };
   const projected = projectPoint(point, a, b).point;
   let remaining = distanceM(projected, b);
   for (let i = nearest.index + 1; i < route.length - 1; i += 1) {
-    remaining += distanceM({ lat: route[i][0], lng: route[i][1] }, { lat: route[i + 1][0], lng: route[i + 1][1] });
+    remaining += distanceM({ lat: route[i]![0], lng: route[i]![1] }, { lat: route[i + 1]![0], lng: route[i + 1]![1] });
   }
   return remaining;
 }
@@ -216,7 +216,7 @@ export function NavigationOverlay() {
     let nearest = nextStepIndex, best = Number.POSITIVE_INFINITY;
     for (let i = nextStepIndex; i < plan.steps.length; i += 1) {
       const coords = plan.steps[i]?.geometry?.coordinates; if (!coords?.length) continue;
-      const c = coords[0]; const d = distanceM(position, { lat: c[1], lng: c[0] });
+      const c = coords[0]!; const d = distanceM(position, { lat: c[1], lng: c[0] });
       if (d < best) { best = d; nearest = i; }
       if (d > best && i > nextStepIndex + 2) break;
     }

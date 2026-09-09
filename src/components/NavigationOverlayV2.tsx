@@ -10,8 +10,8 @@ type Step = { distance?: number; name?: string; maneuver?: { modifier?: string }
 type Plan = { geometry: [number, number][]; distance: number; duration: number; steps: Step[]; destination: Point; label: string };
 type Request = { destination: string; milestoneKm?: number; announceTurns?: boolean };
 
-const ROUTER = import.meta.env.VITE_ROUTING_API_URL || "https://router.project-osrm.org";
-const GEOCODER = import.meta.env.VITE_GEOCODER_URL || "https://geocode.arcgis.com/arcgis/rest/services/World/GeocodeServer/findAddressCandidates";
+const ROUTER = import.meta.env["VITE_ROUTING_API_URL"] || "https://router.project-osrm.org";
+const GEOCODER = import.meta.env["VITE_GEOCODER_URL"] || "https://geocode.arcgis.com/arcgis/rest/services/World/GeocodeServer/findAddressCandidates";
 const MAX_ACCURACY = 60;
 const MAX_SPEED = 15;
 const OFF_ROUTE = 75;
@@ -39,7 +39,7 @@ function project(p: Point, a: Point, b: Point) {
 function nearest(route: [number, number][], p: Point) {
   let best = { distance: Number.POSITIVE_INFINITY, index: 0, point: p };
   for (let i = 0; i < route.length - 1; i += 1) {
-    const a = { lat: route[i][0], lng: route[i][1] }, b = { lat: route[i + 1][0], lng: route[i + 1][1] };
+    const a = { lat: route[i]![0], lng: route[i]![1] }, b = { lat: route[i + 1]![0], lng: route[i + 1]![1] };
     const q = project(p, a, b).point, d = dist(p, q);
     if (d < best.distance) best = { distance: d, index: i, point: q };
   }
@@ -49,8 +49,8 @@ function nearest(route: [number, number][], p: Point) {
 function remaining(route: [number, number][], p: Point) {
   if (route.length < 2) return 0;
   const n = nearest(route, p);
-  let total = dist(n.point, { lat: route[n.index + 1][0], lng: route[n.index + 1][1] });
-  for (let i = n.index + 1; i < route.length - 1; i += 1) total += dist({ lat: route[i][0], lng: route[i][1] }, { lat: route[i + 1][0], lng: route[i + 1][1] });
+  let total = dist(n.point, { lat: route[n.index + 1]![0], lng: route[n.index + 1]![1] });
+  for (let i = n.index + 1; i < route.length - 1; i += 1) total += dist({ lat: route[i]![0], lng: route[i]![1] }, { lat: route[i + 1]![0], lng: route[i + 1]![1] });
   return total;
 }
 

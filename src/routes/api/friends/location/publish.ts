@@ -20,7 +20,13 @@ export const Route = createFileRoute("/api/friends/location/publish")({
           const heading = body?.heading == null ? undefined : finiteNumber(body.heading, 0, 360) ?? undefined;
           const speedMps = body?.speedMps == null ? undefined : finiteNumber(body.speedMps, 0, 100) ?? undefined;
           if (lat == null || lng == null || accuracy == null) return json({ success: false, error: "ข้อมูล GPS ไม่ถูกต้อง" }, 400);
-          const location = publishLocation(user.id, { lat, lng, accuracy, heading, speedMps });
+          const location = publishLocation(user.id, {
+            lat,
+            lng,
+            accuracy,
+            ...(heading !== undefined ? { heading } : {}),
+            ...(speedMps !== undefined ? { speedMps } : {}),
+          });
           return json({ success: true, updatedAt: location.updatedAt });
         } catch (error) {
           if (error instanceof Error && error.message === "LOCATION_SHARING_DISABLED") {

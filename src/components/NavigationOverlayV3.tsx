@@ -10,8 +10,8 @@ type Step = { name?: string; maneuver?: { modifier?: string }; geometry?: { coor
 type Plan = { geometry: [number, number][]; distance: number; duration: number; steps: Step[]; destination: Point; label: string };
 type Request = { destination: string; milestoneKm?: number; announceTurns?: boolean };
 
-const ROUTER = import.meta.env.VITE_ROUTING_API_URL || "https://router.project-osrm.org";
-const GEOCODER = import.meta.env.VITE_GEOCODER_URL || "https://geocode.arcgis.com/arcgis/rest/services/World/GeocodeServer/findAddressCandidates";
+const ROUTER = import.meta.env["VITE_ROUTING_API_URL"] || "https://router.project-osrm.org";
+const GEOCODER = import.meta.env["VITE_GEOCODER_URL"] || "https://geocode.arcgis.com/arcgis/rest/services/World/GeocodeServer/findAddressCandidates";
 const MAX_ACCURACY = 100;
 const MAX_SPEED = 25;
 const OFF_ROUTE = 80;
@@ -49,7 +49,7 @@ function nearest(route: [number, number][], p: Point) {
   const latScale = 111320;
   const lngScale = Math.max(1, 111320 * Math.cos(p.lat * Math.PI / 180));
   for (let i = 0; i < route.length - 1; i += 1) {
-    const a = route[i], b = route[i + 1];
+    const a = route[i]!, b = route[i + 1]!;
     const ax = (a[1] - p.lng) * lngScale, ay = (a[0] - p.lat) * latScale;
     const bx = (b[1] - p.lng) * lngScale, by = (b[0] - p.lat) * latScale;
     const dx = bx - ax, dy = by - ay;
@@ -64,8 +64,8 @@ function nearest(route: [number, number][], p: Point) {
 function remaining(route: [number, number][], p: Point) {
   if (route.length < 2) return 0;
   const n = nearest(route, p);
-  let total = distance(p, { lat: route[n.index + 1][0], lng: route[n.index + 1][1] });
-  for (let i = n.index + 1; i < route.length - 1; i += 1) total += distance({ lat: route[i][0], lng: route[i][1] }, { lat: route[i + 1][0], lng: route[i + 1][1] });
+  let total = distance(p, { lat: route[n.index + 1]![0], lng: route[n.index + 1]![1] });
+  for (let i = n.index + 1; i < route.length - 1; i += 1) total += distance({ lat: route[i]![0], lng: route[i]![1] }, { lat: route[i + 1]![0], lng: route[i + 1]![1] });
   return total;
 }
 
@@ -216,7 +216,7 @@ export default function NavigationOverlayV3() {
         <div className="relative h-80 w-full overflow-hidden">
           <MapContainer center={[center.lat, center.lng]} zoom={15} scrollWheelZoom className="h-full w-full">
             <TileLayer attribution='&copy; OpenStreetMap contributors' url="https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png" />
-            <Fit position={position} target={target} geometry={plan?.geometry} />
+            <Fit position={position} target={target} {...(plan?.geometry ? { geometry: plan.geometry } : {})} />
             {plan?.geometry?.length ? <Polyline positions={plan.geometry} pathOptions={{ color: "#071923", weight: 10, opacity: 0.95 }} /> : null}
             {plan?.geometry?.length ? <Polyline positions={plan.geometry} pathOptions={{ color: "#22d3ee", weight: 6, opacity: 1 }} /> : null}
             {target ? <Marker position={[target.lat, target.lng]} icon={targetIcon} /> : null}

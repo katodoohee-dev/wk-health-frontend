@@ -123,7 +123,7 @@ export function apiNotificationTest() {
 }
 
 export async function apiInsightWeekly(input?: unknown) {
-  const baseUrl = import.meta.env.VITE_API_URL || import.meta.env.VITE_BACKEND_URL || "";
+  const baseUrl = import.meta.env["VITE_API_URL"] || import.meta.env["VITE_BACKEND_URL"] || "";
   const url = baseUrl ? `${baseUrl.replace(/\/$/, "")}/api/insight/weekly` : "/api/insight/weekly";
   const response = await fetch(url, {
     method: "POST",

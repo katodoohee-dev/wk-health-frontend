@@ -27,7 +27,10 @@ export async function collectWebsiteAIContext() {
     apiAssistantHistory(),
     apiGallery(),
   ]);
-  const value = <T,>(i: number, fallback: T): T => results[i].status === "fulfilled" ? results[i].value as T : fallback;
+  const value = <T,>(i: number, fallback: T): T => {
+    const r = results[i];
+    return r && r.status === "fulfilled" ? (r.value as T) : fallback;
+  };
   return {
     user: value(0, null),
     diaryToday: value(1, []),

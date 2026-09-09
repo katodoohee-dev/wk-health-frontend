@@ -1,7 +1,7 @@
 const DEFAULT_BACKEND = "https://https-sites-google-com-sbp-ac-th.onrender.com";
 
 export function backendUrl() {
-  const envUrl = import.meta.env.VITE_API_BASE_URL as string | undefined;
+  const envUrl = import.meta.env["VITE_API_BASE_URL"] as string | undefined;
   return (envUrl || DEFAULT_BACKEND).replace(/\/$/, "");
 }
 
@@ -31,7 +31,7 @@ export async function authenticateRequest(request: Request) {
 export async function getConfirmedFriendIds(token: string) {
   const raw = await backendFetch<FriendRecord[] | { friends?: FriendRecord[]; data?: FriendRecord[] }>("/friends", token);
   const list = Array.isArray(raw) ? raw : (raw as any)?.friends || (raw as any)?.data || [];
-  return Array.from(new Set(list.map((friend) => String(friend.id)).filter(Boolean)));
+  return Array.from(new Set(list.map((friend: FriendRecord) => String(friend.id)).filter(Boolean)));
 }
 
 export function json(data: unknown, status = 200) {

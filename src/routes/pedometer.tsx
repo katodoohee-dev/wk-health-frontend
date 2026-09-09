@@ -265,8 +265,8 @@ function FollowPosition({ position, heading }: { position: GpsPoint; heading: nu
 
 function RouteMap({ points }: { points: GpsPoint[] }) {
   if (!points.length) return <div className="grid h-72 place-items-center rounded-3xl bg-[#07151b] text-sm text-slate-400">กำลังรอสัญญาณ GPS…</div>;
-  const last = points[points.length - 1];
-  const first = points[0];
+  const last = points[points.length - 1]!;
+  const first = points[0]!;
   const positions = points.map((p) => [p.lat, p.lng] as [number, number]);
   return <div className="overflow-hidden rounded-3xl border border-white/10 bg-[#07151b] shadow-[0_20px_60px_rgba(0,0,0,.45)]" style={{ height: 380 }}>
     <MapContainer center={[last.lat, last.lng]} zoom={17} scrollWheelZoom className="h-full w-full" zoomControl>
@@ -375,7 +375,7 @@ function GpsTracker() {
   useEffect(() => { if (!routeId) return; const id = window.setInterval(() => setSeconds((s) => s + 1), 1000); return () => window.clearInterval(id); }, [routeId]);
   useEffect(() => () => { if (watchRef.current !== null) navigator.geolocation.clearWatch(watchRef.current); }, []);
 
-  const distanceKm = useMemo(() => points.slice(1).reduce((sum, p, i) => sum + distanceM(points[i], p) / 1000, 0), [points]);
+  const distanceKm = useMemo(() => points.slice(1).reduce((sum, p, i) => sum + distanceM(points[i]!, p) / 1000, 0), [points]);
   const last = points[points.length - 1];
 
   return <>

@@ -57,7 +57,14 @@ export function startAppCommandBridge() {
     }],
     ["wk:navigate-to", (event) => {
       const d = (event as CustomEvent<{ destination?: string; milestoneKm?: number; announceTurns?: boolean }>).detail;
-      if (d?.destination) dispatch({ type: "NAVIGATE_TO", destination: d.destination, milestoneKm: d.milestoneKm, announceTurns: d.announceTurns });
+      if (d?.destination) {
+        dispatch({
+          type: "NAVIGATE_TO",
+          destination: d.destination,
+          ...(d.milestoneKm !== undefined ? { milestoneKm: d.milestoneKm } : {}),
+          ...(d.announceTurns !== undefined ? { announceTurns: d.announceTurns } : {}),
+        });
+      }
     }],
     ["wk:navigation-milestone", (event) => {
       const milestoneKm = Number((event as CustomEvent<{ milestoneKm?: number }>).detail?.milestoneKm);
@@ -70,7 +77,7 @@ export function startAppCommandBridge() {
       else if (action === "SHARE_FRIEND_LOCATION") dispatch({ type: "SHARE_FRIEND_LOCATION" });
       else if (action === "STOP_FRIEND_LOCATION") dispatch({ type: "STOP_FRIEND_LOCATION" });
       else if (action === "SHOW_FRIEND_LOCATION") dispatch({ type: "SHOW_FRIEND_LOCATION" });
-      else if (routes[action || ""]) dispatch({ type: "OPEN_ROUTE", route: routes[action!] });
+      else if (routes[action || ""]) dispatch({ type: "OPEN_ROUTE", route: routes[action || ""] as string });
       else if (action === "SHOW_STEPS" || action === "SHOW_CALORIES" || action === "SAVE_MEAL") dispatch({ type: action });
     }],
   ];

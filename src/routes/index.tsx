@@ -30,7 +30,7 @@ const tools = [
   { to: "/workout", icon: Dumbbell, title: "Workout", desc: "ตารางฝึก AI", tint: "bg-mint-soft text-mint" },
   { to: "/music", icon: Music2, title: "Music", desc: "เพลย์ลิสต์คลอ", tint: "bg-sky-soft text-sky" },
   { to: "/profile", icon: UserRound, title: "Profile & BMI", desc: "ข้อมูล + คำนวณ BMI", tint: "bg-peach-soft text-peach" },
-  { to: "/gallery", icon: Image as ImageIcon, title: "แกลเลอรี", desc: "ย้อนดูรูปอาหาร", tint: "bg-mint-soft text-mint" },
+  { to: "/gallery", icon: ImageIcon, title: "แกลเลอรี", desc: "ย้อนดูรูปอาหาร", tint: "bg-mint-soft text-mint" },
   { to: "/friends", icon: Users, title: "เพื่อนและ Streak", desc: "เชียร์กัน ไม่แข่งตัวเลข", tint: "bg-peach-soft text-peach" },
   { to: "/export", icon: Download, title: "ส่งออกข้อมูล", desc: "PDF/CSV + สำรองข้อมูล", tint: "bg-sky-soft text-sky" },
   { to: "/notifications", icon: BellRing, title: "การแจ้งเตือน", desc: "ตั้งเวลาแจ้งเตือนอัจฉริยะ", tint: "bg-mint-soft text-mint" },

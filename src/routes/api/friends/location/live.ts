@@ -8,7 +8,7 @@ export const Route = createFileRoute("/api/friends/location/live")({
       GET: async ({ request }) => {
         try {
           const { token } = await authenticateRequest(request);
-          const friendIds = await getConfirmedFriendIds(token);
+          const friendIds = (await getConfirmedFriendIds(token)) as string[];
           return json(getFreshLocations(friendIds));
         } catch (error) {
           return mapError(error);

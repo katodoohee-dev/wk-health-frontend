@@ -84,7 +84,7 @@ function InsightPage() {
               <p className="font-display font-semibold">คำแนะนำสำหรับสัปดาห์หน้า</p>
             </div>
             <ul className="mt-3 space-y-2">
-              {q.data.tips.map((tip, i) => (
+              {(q.data.tips as string[]).map((tip: string, i: number) => (
                 <li key={i} className="flex gap-2 text-sm text-muted-foreground">
                   <span className="text-primary">•</span>
                   <span>{tip}</span>

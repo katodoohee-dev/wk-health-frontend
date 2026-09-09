@@ -89,7 +89,7 @@ function useLiveGps() {
     return () => { if (watchIdRef.current != null) navigator.geolocation.clearWatch(watchIdRef.current); };
   }, []);
 
-  const distanceKm = useMemo(() => { let d = 0; for (let i = 1; i < track.length; i++) d += haversineKm(track[i - 1], track[i]); return d; }, [track]);
+  const distanceKm = useMemo(() => { let d = 0; for (let i = 1; i < track.length; i++) d += haversineKm(track[i - 1]!, track[i]!); return d; }, [track]);
   const avgSpeedKmh = useMemo(() => { const durationHr = (Date.now() - startedAt) / 1000 / 3600; return durationHr > 0 ? distanceKm / durationHr : 0; }, [distanceKm, startedAt]);
 
   return { track, currentPos: track.length ? track[track.length - 1] : null, heading, speed, distanceKm, avgSpeedKmh, startedAt, error };
@@ -176,7 +176,7 @@ export function LiveTrackMap({ steps, onSessionEnd }: LiveTrackMapProps) {
   useEffect(() => { const id = setTimeout(() => setReady(true), 60); return () => clearTimeout(id); }, []);
   useEffect(() => { const id = setInterval(() => setDurationSec(Math.floor((Date.now() - startedAt) / 1000)), 1000); return () => clearInterval(id); }, [startedAt]);
 
-  const segments = useMemo(() => track.slice(0, -1).map((p, i) => ({ positions: [[p.lat, p.lng], [track[i + 1].lat, track[i + 1].lng]] as [number, number][], color: speedColor((p.speed + track[i + 1].speed) / 2) })), [track]);
+  const segments = useMemo(() => track.slice(0, -1).map((p, i) => { const next = track[i + 1]!; return { positions: [[p.lat, p.lng], [next.lat, next.lng]] as [number, number][], color: speedColor((p.speed + next.speed) / 2) }; }), [track]);
   const speedValues = useMemo(() => track.map((p) => p.speed), [track]);
   const progress = 1;
 
@@ -214,7 +214,7 @@ export function LiveTrackMap({ steps, onSessionEnd }: LiveTrackMapProps) {
           <IntroZoom center={center} />
           {track.length > 1 && (<Polyline positions={track.map((p) => [p.lat, p.lng]) as [number, number][]} pathOptions={{ color: "oklch(0.86 0.14 168)", weight: 14, opacity: 0.12, lineCap: "round" }} />)}
           {segments.map((s, i) => (<Polyline key={i} positions={s.positions} pathOptions={{ color: s.color, weight: 5, opacity: 0.95, lineCap: "round" }} />))}
-          {track.length > 0 && (<CircleMarker center={[track[0].lat, track[0].lng]} radius={6} pathOptions={{ color: "oklch(0.78 0.13 200)", fillColor: "oklch(0.24 0.06 200)", fillOpacity: 1, weight: 2.5 }} />)}
+          {track.length > 0 && (<CircleMarker center={[track[0]!.lat, track[0]!.lng]} radius={6} pathOptions={{ color: "oklch(0.78 0.13 200)", fillColor: "oklch(0.24 0.06 200)", fillOpacity: 1, weight: 2.5 }} />)}
           <LiveMarker pos={currentPos} heading={heading} follow={follow} recenterKey={recenterKey} />
         </MapContainer>
       </div>

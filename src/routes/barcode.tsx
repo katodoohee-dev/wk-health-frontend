@@ -56,7 +56,7 @@ async function lookupBarcode(barcode: string): Promise<Product> {
   return {
     barcode: clean,
     name: String(p.product_name || "สินค้าไม่ระบุชื่อ").trim(),
-    brand: String(p.brands || "").split(",")[0].trim(),
+    brand: String(p.brands || "").split(",")[0]?.trim() ?? "",
     image: p.image_front_small_url,
     kcal: n(q["energy-kcal_100g"] ?? q["energy-kcal"]),
     protein: n(q.proteins_100g),
