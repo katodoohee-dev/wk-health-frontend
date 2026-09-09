@@ -5,7 +5,8 @@ import { Loader2, Send, Sparkles } from "lucide-react";
 import { PageHeader } from "@/components/app/ui-bits";
 import { ErrorState } from "@/components/app/states";
 import { useAuth } from "@/lib/auth";
-import { apiAssistantChat, apiAssistantHistory, type ChatMessage } from "@/lib/api";
+import { apiAssistantHistory, type ChatMessage } from "@/lib/api";
+import { apiAssistantChatWithContext } from "@/lib/website-ai-context";
 
 const assistantSuggestions = ["สรุปการกินวันนี้ให้หน่อย", "เมนูโปรตีนสูง งบ 60 บาท", "วิ่ง 30 นาที เผาผลาญเท่าไร"];
 
@@ -31,8 +32,12 @@ function AssistantPage() {
 
   const history = useQuery({ queryKey: ["assistant", "history"], queryFn: apiAssistantHistory, enabled: isAuthenticated });
 
+  // FIX: เดิมส่งแค่ข้อความล้วนให้ AI ไม่รู้บริบทอะไรเกี่ยวกับผู้ใช้/แอปเลยนอกจากข้อความนั้นประโยคเดียว
+  // เปลี่ยนมาใช้ apiAssistantChatWithContext ที่แนบข้อมูลจริงจากทั้งเว็บ (ไดอารี, สถิติ, ก้าวเดิน,
+  // ประวัติออกกำลังกาย, เพลง, ประวัติแชทเดิม ฯลฯ) ไปด้วยทุกครั้ง — ผู้ใช้ยังเห็นแค่ข้อความที่ตัวเองพิมพ์
+  // ในหน้าจอเหมือนเดิม (บริบทแนบไปฝั่ง request เท่านั้น ไม่โชว์ใน UI)
   const chat = useMutation({
-    mutationFn: (message: string) => apiAssistantChat(message),
+    mutationFn: (message: string) => apiAssistantChatWithContext(message),
     onSuccess: (reply) => {
       setPending((p) => [...p, reply]);
       void qc.invalidateQueries({ queryKey: ["stats"] });
