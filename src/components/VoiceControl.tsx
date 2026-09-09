@@ -83,8 +83,6 @@ function localActions(text: string): VoiceAction[] {
 }
 
 async function askIntent(text: string): Promise<VoiceAction[]> {
-  // เดิมเรียก DeepSeek Worker ตรงจาก browser ซึ่งมักโดน CORS บล็อกใน production
-  // เปลี่ยนมาเรียกผ่าน backend (/api/voice/interpret) แทน เพื่อความเสถียรจริง
   try {
     const data = await apiFetch<{ success: boolean; actions?: unknown[]; error?: string }>(
       "/api/voice/interpret",
@@ -98,8 +96,6 @@ async function askIntent(text: string): Promise<VoiceAction[]> {
 }
 
 async function askThaiAssistant(text: string) {
-  // เดิมเรียก DeepSeek Worker ตรงจาก browser (เจอ CORS บล็อกใน production)
-  // เปลี่ยนมาใช้ /api/assistant/chat ของ backend ที่มีอยู่แล้ว (ผ่าน auth + logging ให้ด้วย)
   try {
     const data = await apiFetch<{ success: boolean; reply?: string }>("/api/assistant/chat", {
       method: "POST",
@@ -328,52 +324,22 @@ export function VoiceControl({ profileName, bodyWeightKg, onExercise, onStartGps
     if ("speechSynthesis" in window) window.speechSynthesis.cancel();
   }, [stopRecognition]);
 
-  const expanded = voiceMode || status !== "idle";
-
+  // UI ถูกลดเหลือแค่ปุ่มเปิด/ปิดปุ่มเดียวตามที่ขอ — ตัด status text / waveform / transcript /
+  // result card / error box / ปุ่ม toggle เสียง AI ออกทั้งหมด แต่ logic เดิม (speech recognition,
+  // intent parsing ผ่าน backend, TTS, การสั่งงานทุก action) ยังทำงานอยู่ครบ 100% ไม่ได้ถูกแตะ
   return (
     <div className="vc-fixed-wrap">
-      <div className="vc-bar glass" style={{ height: expanded ? 172 : 60 }}>
-        <div className="vc-row">
-          <button
-            type="button"
-            className={`vc-mic-btn ${voiceMode && status === "listening" ? "vc-breathe" : ""}`}
-            onClick={() => (voiceMode ? stopVoiceMode() : startVoiceMode())}
-            aria-label={voiceMode ? "ปิดระบบเสียง" : "เปิดระบบเสียงภาษาไทย"}
-          >
-            {status === "processing" ? <Loader2 className="vc-icon vc-spin" /> : voiceMode ? <X className="vc-icon" /> : <Mic className="vc-icon" />}
-            {voiceMode && status === "listening" && <span className="vc-ripple" />}
-          </button>
-
-          <div className="vc-status-text">
-            <p>{status === "listening" ? "กำลังฟังภาษาไทย…" : status === "processing" ? "กำลังวิเคราะห์ความหมาย…" : status === "error" ? (reply || "เกิดข้อผิดพลาด") : reply || "กดไมค์เพื่อเริ่มคุยภาษาไทย"}</p>
-            <p className="vc-subtext">{voiceMode ? "โหมดสนทนาเรียลไทม์ • พูดต่อได้หลัง AI ตอบ" : profileName ? `WK • ${profileName}` : "WK HEALTH • VOICE"}</p>
-          </div>
-
-          <button onClick={toggleTts} className="press grid size-9 place-items-center rounded-xl" aria-label={tts ? "ปิดเสียง AI" : "เปิดเสียง AI"}>
-            {tts ? <Volume2 className="size-4" /> : <VolumeX className="size-4" />}
-          </button>
-        </div>
-
-        {expanded && (
-          <div className="vc-body vc-rise-in">
-            {status === "listening" && (
-              <div>
-                <div className="vc-waveform">
-                  <span className="vc-waveform-bar" style={{ height: "55%" }} />
-                  <span className="vc-waveform-bar" style={{ height: "90%" }} />
-                  <span className="vc-waveform-bar" style={{ height: "45%" }} />
-                  <span className="vc-waveform-bar" style={{ height: "75%" }} />
-                  <span className="vc-waveform-bar" style={{ height: "60%" }} />
-                </div>
-                <div className="vc-transcript-box"><p>{text || "พูดได้ตามธรรมชาติ เช่น ‘เริ่มเดินแล้วเปิดเพลงให้ด้วย’"}<span className="vc-caret" /></p></div>
-              </div>
-            )}
-            {status === "processing" && <div className="vc-processing"><Loader2 className="vc-icon-lg vc-spin vc-mint" /><p>กำลังเข้าใจภาษาไทยและทำตามคำสั่ง…</p></div>}
-            {status === "success" && <div className="vc-result-card"><div className="vc-result-head"><div className="vc-result-icon"><Check className="vc-icon" /></div><div><p className="vc-result-label">พร้อมคุยต่อ</p><p className="vc-result-title">{reply || "ดำเนินการเรียบร้อยแล้ว"}</p></div></div></div>}
-            {status === "error" && <div className="vc-error-box"><p>{reply || "ลองพูดใหม่อีกครั้งครับ"}</p></div>}
-          </div>
-        )}
-      </div>
+      <button
+        type="button"
+        className={`vc-mic-btn vc-toggle-only ${voiceMode && status === "listening" ? "vc-breathe" : ""}`}
+        onClick={() => (voiceMode ? stopVoiceMode() : startVoiceMode())}
+        aria-label={voiceMode ? "ปิดระบบควบคุมเสียง" : "เปิดระบบควบคุมเสียง"}
+        aria-pressed={voiceMode}
+        title={voiceMode ? "ปิดระบบควบคุมเสียง" : "เปิดระบบควบคุมเสียง"}
+      >
+        {status === "processing" ? <Loader2 className="vc-icon vc-spin" /> : voiceMode ? <X className="vc-icon" /> : <Mic className="vc-icon" />}
+        {voiceMode && status === "listening" && <span className="vc-ripple" />}
+      </button>
     </div>
   );
 }
