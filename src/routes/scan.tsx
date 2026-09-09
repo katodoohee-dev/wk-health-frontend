@@ -3,7 +3,8 @@ import { createFileRoute } from "@tanstack/react-router";
 import { useQueryClient } from "@tanstack/react-query";
 import { Barcode, Camera, Check, Loader2, Search, Sparkles } from "lucide-react";
 import { PageHeader, GlassCard, Chip } from "@/components/app/ui-bits";
-import { apiBarcode, apiCalc, apiGalleryUpload, apiScanSave, apiVision, type NutritionResult } from "@/lib/api";
+import { apiBarcode, apiCalc, apiGalleryUpload, apiVision, type NutritionResult } from "@/lib/api";
+import { apiSaveMeal } from "@/lib/meal-save";
 
 export const Route = createFileRoute("/scan")({
   head: () => ({
@@ -81,6 +82,8 @@ function ScanPage() {
   const [error, setError] = useState<string | null>(null);
   const [saved, setSaved] = useState(false);
   const [slot, setSlot] = useState(() => detectSlotByTime());
+  // แหล่งที่มาของผลลัพธ์ (ใช้ตอนบันทึกลงไดอารีให้ backend รู้ว่ามาจากช่องทางไหน)
+  const [resultSource, setResultSource] = useState<"vision" | "barcode">("vision");
 
   // สถานะอัปโหลดรูป: แยกจาก busy หลัก เพราะอัปโหลดรูปทำงานคู่ขนานกับการวิเคราะห์ AI
   const [photoUrl, setPhotoUrl] = useState<string | null>(null);
@@ -118,6 +121,7 @@ function ScanPage() {
   const onPick = async (file: File) => {
     setError(null); setResult(null); setSaved(false);
     setPhotoUrl(null); setPhotoStatus("idle"); pendingIdRef.current = null;
+    setResultSource("vision");
     const base64 = await new Promise<string>((resolve, reject) => {
       const r = new FileReader();
       r.onload = () => resolve(String(r.result));
@@ -148,6 +152,7 @@ function ScanPage() {
     const c = code.trim();
     if (!c) return;
     setError(null); setResult(null); setSaved(false);
+    setResultSource("barcode");
     try {
       setBusy("barcode");
       const r = await apiBarcode(c);
@@ -182,7 +187,23 @@ function ScanPage() {
         return;
       }
 
-      await apiScanSave({ ...result, description, slot, meal: slot, photoUrl: finalPhotoUrl });
+      // FIX: บั๊กใหญ่ 🔴 — เดิมเรียก apiScanSave() ที่ส่ง payload ดิบตรงๆ (name, kcal, carb, ...)
+      // ไม่ตรงกับ backend zod schema ที่ต้องการ foodName/calories/carbs เป็นต้น ทำให้ backend
+      // ตอบ 400 "Required" ทุกครั้งที่กดบันทึกจากหน้าสแกน/บาร์โค้ด (หน้า NLP ใช้ apiSaveMeal
+      // ซึ่ง map field ถูกต้องอยู่แล้วเลยไม่เจอปัญหานี้) — เปลี่ยนมาใช้ apiSaveMeal ตัวเดียวกัน
+      // ให้สอดคล้องกันทั้งแอป
+      await apiSaveMeal({
+        foodName: result.name,
+        calories: result.kcal,
+        protein: result.protein,
+        carbs: result.carb,
+        fat: result.fat,
+        description,
+        slot,
+        meal: slot,
+        photoUrl: finalPhotoUrl ?? null,
+        source: resultSource === "barcode" ? "barcode" : "vision",
+      });
       setSaved(true);
       void qc.invalidateQueries({ queryKey: ["diary"] });
       void qc.invalidateQueries({ queryKey: ["stats"] });
