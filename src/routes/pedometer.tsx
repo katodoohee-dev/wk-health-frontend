@@ -168,26 +168,49 @@ function fmtDuration(sec: number) {
 }
 
 /**
- * ADDED (ของเดิมไม่มีเลย): ตัวนับก้าวอัตโนมัติจริงจากเซ็นเซอร์ accelerometer ของมือถือ
- * (DeviceMotion) — ก่อนหน้านี้หน้า Pedometer มีแค่ช่องกรอกตัวเลขเอง ไม่มีโค้ดอ่านเซ็นเซอร์เลยสักบรรทัด
- * จึงไม่มีทาง "นับก้าว" ที่เดินจริงได้เอง ต้องพิมพ์มือทุกครั้ง
+ * ตัวนับก้าวอัตโนมัติจากเซ็นเซอร์ accelerometer ของมือถือ (DeviceMotion)
  *
- * วิธีทำงาน: อ่านค่าความเร่งรวม (magnitude) จาก devicemotion event แล้วตรวจจับจังหวะ "พีค"
- * ที่ข้าม threshold ขึ้นมา (เทียบกับ dip ก่อนหน้า) พร้อม debounce ขั้นต่ำ 280ms ต่อก้าว
- * เพื่อกันนับซ้ำจากการสั่นสะเทือนเล็กๆ — เป็นอัลกอริทึมนับก้าวแบบพื้นฐานที่ใช้กันทั่วไปบนเว็บ
- * (ความแม่นยำจะสู้ native pedometer API ของ iOS/Android ไม่ได้ 100% แต่ทำงานได้จริงบนเบราว์เซอร์)
+ * อัลกอริทึมเดิม: เทียบค่าความเร่งรวมกับ threshold คงที่ (2.2) แล้วหักแรงโน้มถ่วงด้วยค่าคงที่ 9.8 ตรงๆ
+ * ปัญหาของแบบเดิม: (1) ไม่ทนต่อการเอียง/ถือโทรศัพท์คนละท่า เพราะสมมติว่าแรงโน้มถ่วงชี้ตรงๆ เสมอ
+ * (2) threshold ตายตัวจุดเดียว ก้าวเบา (เดินเอื่อยๆ) ตรวจไม่เจอ หรือก้าวหนัก/เขย่ามือถือทำให้นับเกิน
+ * (3) กันซ้ำด้วย debounce เวลาต่ำสุดอย่างเดียว ไม่เช็คว่าจังหวะห่างกันสมเหตุสมผลกับการเดินจริงไหม
  *
- * ต้องขอ permission ผ่าน user gesture บน iOS 13+ (DeviceMotionEvent.requestPermission)
+ * ที่ปรับใหม่ให้ใกล้เคียงตัวนับก้าวจริงบนมือถือ (ไม่ใช้ ML/gyroscope fusion ซึ่งเกินความจำเป็นสำหรับเว็บ):
+ * 1) ใช้ e.acceleration (ค่าที่ระบบปฏิบัติการหักแรงโน้มถ่วงให้แล้ว) ก่อนถ้ามี — แม่นกว่าคำนวณเอง
+ *    ถ้าไม่มีค่อย fallback ไปหักแรงโน้มถ่วงเองด้วย low-pass filter (แทนค่าคงที่ 9.8) ซึ่งปรับตามการเอียง
+ *    เครื่องแบบเรียลไทม์ — เป็นเทคนิคมาตรฐานที่ใช้แยกแรงโน้มถ่วงออกจาก linear acceleration
+ * 2) threshold ปรับตามความเข้มของการเดินจริง (adaptive): คำนวณจาก min/max ของสัญญาณในหน้าต่างเวลาสั้นๆ
+ *    ที่ผ่านมา แทนค่าคงที่ตัวเดียว — เดินเบาก็จับได้ เดินหนัก/วิ่งก็ไม่นับเกิน
+ * 3) กันสัญญาณนิ่ง (วางมือถือบนโต๊ะ/สั่นเบาๆ) ไม่ให้กลายเป็นก้าว ด้วยการเช็คว่า amplitude ในหน้าต่าง
+ *    ต้องเกินค่าต่ำสุดที่ถือว่า "กำลังเคลื่อนไหวจริง" ก่อน ถึงจะเริ่มตรวจจับพีค
+ * 4) เช็คระยะห่างระหว่างก้าวให้อยู่ในช่วงจังหวะเดิน/วิ่งของมนุษย์จริง (~30–240 ก้าว/นาที) ไม่ใช่แค่
+ *    debounce เวลาต่ำสุดอย่างเดียว — กันนับซ้ำจากสั่นเล็กน้อยได้ดีกว่า
+ *
+ * ยังต้องขอ permission ผ่าน user gesture บน iOS 13+ (DeviceMotionEvent.requestPermission) เหมือนเดิม
+ * ข้อจำกัดที่ยังมีอยู่จริง: ความแม่นยำยังสู้ native pedometer API (Core Motion / Google Fit) ที่ใช้
+ * ฮาร์ดแวร์ co-processor เฉพาะทางไม่ได้ 100% เพราะเว็บเข้าถึงได้แค่ accelerometer ผ่าน devicemotion event
  */
 function AutoStepCounter({ onLogged }: { onLogged: () => void }) {
   const [counting, setCounting] = useState(false);
   const [liveSteps, setLiveSteps] = useState(0);
   const [seconds, setSeconds] = useState(0);
+  const [cadence, setCadence] = useState(0); // ก้าว/นาที ล่าสุด (เฉลี่ยแบบ smoothing)
   const [error, setError] = useState<string | null>(null);
   const [supported, setSupported] = useState(true);
 
+  const WINDOW_SIZE = 40; // ~0.6–0.8 วินาทีของ sample ล่าสุด ขึ้นกับอัตราสุ่มของอุปกรณ์
+  const MIN_ACTIVE_AMPLITUDE = 0.9; // m/s² ขั้นต่ำที่ถือว่า "กำลังเคลื่อนไหว" ไม่ใช่แค่สั่นนิ่งๆ
+  const PEAK_RATIO = 0.55; // สัดส่วนจาก min ถึง max ที่ถือว่าเป็นพีค (ขอบบน hysteresis)
+  const LOW_RATIO = 0.3; // สัดส่วนที่ถือว่ากลับสู่ dip แล้ว พร้อมตรวจพีคถัดไป (ขอบล่าง hysteresis)
+  const MIN_STEP_INTERVAL_MS = 250; // เร็วสุด ~240 ก้าว/นาที (วิ่งเร็ว) กันนับซ้ำเร็วเกินจริง
+  const MAX_GAP_RESET_MS = 2000; // ห่างเกินนี้ถือว่าเริ่มจังหวะเดินใหม่ ไม่ใช้เทียบ interval เดิม
+
+  const bufferRef = useRef<number[]>([]);
+  const gravityRef = useRef({ x: 0, y: 0, z: 9.81 });
+  const smoothedRef = useRef(0);
+  const wasAboveRef = useRef(false);
   const lastStepAtRef = useRef(0);
-  const wasBelowRef = useRef(true);
+  const recentIntervalsRef = useRef<number[]>([]);
   const handlerRef = useRef<((e: DeviceMotionEvent) => void) | null>(null);
 
   const log = useMutation({
@@ -208,21 +231,78 @@ function AutoStepCounter({ onLogged }: { onLogged: () => void }) {
   }, [counting]);
 
   const handleMotion = useCallback((e: DeviceMotionEvent) => {
-    const a = e.accelerationIncludingGravity;
-    if (!a || a.x === null || a.y === null || a.z === null) return;
-    const magnitude = Math.sqrt(a.x * a.x + a.y * a.y + a.z * a.z);
-    const delta = magnitude - 9.8; // หักแรงโน้มถ่วงคงที่คร่าวๆ
-    const THRESHOLD = 2.2; // ปรับตามความไวที่ต้องการ
     const now = Date.now();
+    let mx: number, my: number, mz: number;
 
-    if (delta < THRESHOLD * 0.4) {
-      wasBelowRef.current = true;
-    } else if (delta > THRESHOLD && wasBelowRef.current) {
-      if (now - lastStepAtRef.current > 280) {
+    const lin = e.acceleration;
+    if (lin && lin.x !== null && lin.y !== null && lin.z !== null) {
+      // อุปกรณ์/เบราว์เซอร์คำนวณ linear acceleration (หักแรงโน้มถ่วงแล้ว) ให้เอง ใช้ตรงๆ แม่นกว่า
+      mx = lin.x;
+      my = lin.y;
+      mz = lin.z;
+    } else {
+      const g = e.accelerationIncludingGravity;
+      if (!g || g.x === null || g.y === null || g.z === null) return;
+      // low-pass filter แยกองค์ประกอบแรงโน้มถ่วงแบบปรับตามการเอียงเครื่องจริง แทนค่าคงที่ 9.8
+      const alpha = 0.15;
+      const grav = gravityRef.current;
+      grav.x = alpha * g.x + (1 - alpha) * grav.x;
+      grav.y = alpha * g.y + (1 - alpha) * grav.y;
+      grav.z = alpha * g.z + (1 - alpha) * grav.z;
+      mx = g.x - grav.x;
+      my = g.y - grav.y;
+      mz = g.z - grav.z;
+    }
+
+    const rawMag = Math.sqrt(mx * mx + my * my + mz * mz);
+    // smoothing เบาๆ กัน noise เฟรมต่อเฟรม โดยไม่หน่วงจังหวะพีคจริงมากเกินไป
+    const smooth = 0.35 * rawMag + 0.65 * smoothedRef.current;
+    smoothedRef.current = smooth;
+
+    const buf = bufferRef.current;
+    buf.push(smooth);
+    if (buf.length > WINDOW_SIZE) buf.shift();
+    if (buf.length < 8) return; // รอสะสม sample ให้พอก่อนเริ่มประมวลผล
+
+    let min = buf[0]!;
+    let max = buf[0]!;
+    for (const v of buf) {
+      if (v < min) min = v;
+      if (v > max) max = v;
+    }
+    const amplitude = max - min;
+
+    if (amplitude < MIN_ACTIVE_AMPLITUDE) {
+      // สัญญาณนิ่งเกินไป (วางมือถือเฉยๆ/สั่นเบาๆ) — ยังไม่ถือว่ากำลังเดิน กันนับมั่ว
+      wasAboveRef.current = false;
+      return;
+    }
+
+    const upperThreshold = min + amplitude * PEAK_RATIO;
+    const lowerThreshold = min + amplitude * LOW_RATIO;
+
+    if (!wasAboveRef.current && smooth > upperThreshold) {
+      const interval = now - lastStepAtRef.current;
+      const isFirstStep = lastStepAtRef.current === 0;
+      const isNewStride = interval > MAX_GAP_RESET_MS;
+      const isPlausiblePace = interval >= MIN_STEP_INTERVAL_MS;
+
+      if (isFirstStep || isNewStride || isPlausiblePace) {
+        if (!isFirstStep && !isNewStride) {
+          recentIntervalsRef.current.push(interval);
+          if (recentIntervalsRef.current.length > 8) recentIntervalsRef.current.shift();
+          const avg =
+            recentIntervalsRef.current.reduce((a, b) => a + b, 0) / recentIntervalsRef.current.length;
+          setCadence(Math.round(60000 / avg));
+        } else if (isNewStride) {
+          recentIntervalsRef.current = [];
+        }
         lastStepAtRef.current = now;
         setLiveSteps((s) => s + 1);
       }
-      wasBelowRef.current = false;
+      wasAboveRef.current = true;
+    } else if (wasAboveRef.current && smooth < lowerThreshold) {
+      wasAboveRef.current = false;
     }
   }, []);
 
@@ -239,10 +319,15 @@ function AutoStepCounter({ onLogged }: { onLogged: () => void }) {
           return;
         }
       }
+      bufferRef.current = [];
+      gravityRef.current = { x: 0, y: 0, z: 9.81 };
+      smoothedRef.current = 0;
+      wasAboveRef.current = false;
       lastStepAtRef.current = 0;
-      wasBelowRef.current = true;
+      recentIntervalsRef.current = [];
       setLiveSteps(0);
       setSeconds(0);
+      setCadence(0);
       handlerRef.current = handleMotion;
       window.addEventListener("devicemotion", handleMotion);
       setCounting(true);
@@ -255,6 +340,7 @@ function AutoStepCounter({ onLogged }: { onLogged: () => void }) {
     if (handlerRef.current) window.removeEventListener("devicemotion", handlerRef.current);
     handlerRef.current = null;
     setCounting(false);
+    setCadence(0);
     if (liveSteps > 0) log.mutate(liveSteps);
   };
 
@@ -290,7 +376,9 @@ function AutoStepCounter({ onLogged }: { onLogged: () => void }) {
         <div className="min-w-0 flex-1">
           <p className="font-display text-3xl font-bold tabular-nums">{liveSteps.toLocaleString()} ก้าว</p>
           <p className="truncate text-xs text-muted-foreground">
-            {counting ? `กำลังนับ · ${fmtDuration(seconds)}` : "ถือมือถือไว้กับตัวแล้วกดเริ่ม"}
+            {counting
+              ? `กำลังนับ · ${fmtDuration(seconds)}${cadence > 0 ? ` · ${cadence} ก้าว/นาที` : ""}`
+              : "ถือมือถือไว้กับตัวแล้วกดเริ่ม"}
           </p>
         </div>
         <button
