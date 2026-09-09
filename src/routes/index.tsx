@@ -26,6 +26,7 @@ const tools = [
   { to: "/mood", icon: MessageSquareHeart, title: "Mood Menu", desc: "เมนูตามอารมณ์", tone: "lilac" },
   { to: "/budget", icon: Wallet, title: "Budget Planner", desc: "วางแผนตามงบ", tone: "peach" },
   { to: "/workout", icon: Dumbbell, title: "Workout", desc: "ตารางฝึก AI", tone: "mint" },
+  { to: "/music", icon: Music2, title: "เพลง", desc: "เพลย์ลิสต์คลอระหว่างออกกำลังกาย", tone: "lilac" },
   { to: "/device-connect", icon: Watch, title: "เชื่อมอุปกรณ์", desc: "HealthKit / Fit", tone: "sky" },
   { to: "/gallery", icon: ImageIcon, title: "แกลเลอรี", desc: "รูปอาหารของคุณ", tone: "lilac" },
   { to: "/friends", icon: Users, title: "เพื่อน & Streak", desc: "เชียร์กัน", tone: "peach" },
