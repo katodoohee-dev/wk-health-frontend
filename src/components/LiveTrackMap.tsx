@@ -28,8 +28,8 @@ const SPEED_MIN = 0.5;
 const SPEED_MAX = 15;
 function speedColor(speedKmh: number) {
   const t = Math.min(1, Math.max(0, (speedKmh - SPEED_MIN) / (SPEED_MAX - SPEED_MIN)));
-  const hue = 25 + t * 140;
-  return `oklch(0.78 0.16 ${hue.toFixed(1)})`;
+  const lightness = 0.35 + t * 0.45;
+  return `oklch(${lightness.toFixed(3)} 0 0)`;
 }
 function paceLabel(kmh: number) {
   if (!kmh || kmh < 0.3) return "--'--\"";
@@ -156,12 +156,12 @@ function Sparkline({ values, live }: { values: number[]; live: number }) {
   return (
     <svg viewBox={`0 0 ${w} ${h}`} className="h-10 w-full" preserveAspectRatio="none" aria-hidden="true">
       <defs>
-        <linearGradient id="spark" x1="0" y1="0" x2="1" y2="0"><stop offset="0%" stopColor="oklch(0.78 0.13 200)" /><stop offset="100%" stopColor="oklch(0.86 0.14 168)" /></linearGradient>
-        <linearGradient id="sparkFill" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stopColor="oklch(0.86 0.14 168)" stopOpacity="0.35" /><stop offset="100%" stopColor="oklch(0.86 0.14 168)" stopOpacity="0" /></linearGradient>
+        <linearGradient id="spark" x1="0" y1="0" x2="1" y2="0"><stop offset="0%" stopColor="oklch(0.78 0 0)" /><stop offset="100%" stopColor="oklch(0.86 0 0)" /></linearGradient>
+        <linearGradient id="sparkFill" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stopColor="oklch(0.86 0 0)" stopOpacity="0.35" /><stop offset="100%" stopColor="oklch(0.86 0 0)" stopOpacity="0" /></linearGradient>
       </defs>
       <path d={`${d} L${w},${h} L0,${h} Z`} fill="url(#sparkFill)" />
       <path d={d} fill="none" stroke="url(#spark)" strokeWidth="1.6" strokeLinejoin="round" />
-      <line x1={cursorX} y1="0" x2={cursorX} y2={h} stroke="oklch(0.86 0.14 168)" strokeWidth="1" strokeDasharray="2 3" opacity="0.7" />
+      <line x1={cursorX} y1="0" x2={cursorX} y2={h} stroke="oklch(0.86 0 0)" strokeWidth="1" strokeDasharray="2 3" opacity="0.7" />
     </svg>
   );
 }
@@ -212,9 +212,9 @@ export function LiveTrackMap({ steps, onSessionEnd }: LiveTrackMapProps) {
         <MapContainer center={center} zoom={15} zoomControl={false} attributionControl={false} className="h-full w-full">
           <TileLayer url="https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png" />
           <IntroZoom center={center} />
-          {track.length > 1 && (<Polyline positions={track.map((p) => [p.lat, p.lng]) as [number, number][]} pathOptions={{ color: "oklch(0.86 0.14 168)", weight: 14, opacity: 0.12, lineCap: "round" }} />)}
+          {track.length > 1 && (<Polyline positions={track.map((p) => [p.lat, p.lng]) as [number, number][]} pathOptions={{ color: "oklch(0.86 0 0)", weight: 14, opacity: 0.12, lineCap: "round" }} />)}
           {segments.map((s, i) => (<Polyline key={i} positions={s.positions} pathOptions={{ color: s.color, weight: 5, opacity: 0.95, lineCap: "round" }} />))}
-          {track.length > 0 && (<CircleMarker center={[track[0]!.lat, track[0]!.lng]} radius={6} pathOptions={{ color: "oklch(0.78 0.13 200)", fillColor: "oklch(0.24 0.06 200)", fillOpacity: 1, weight: 2.5 }} />)}
+          {track.length > 0 && (<CircleMarker center={[track[0]!.lat, track[0]!.lng]} radius={6} pathOptions={{ color: "oklch(0.78 0 0)", fillColor: "oklch(0.24 0 0)", fillOpacity: 1, weight: 2.5 }} />)}
           <LiveMarker pos={currentPos} heading={heading} follow={follow} recenterKey={recenterKey} />
         </MapContainer>
       </div>

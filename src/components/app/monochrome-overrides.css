@@ -111,7 +111,7 @@ nav > div > div {
   border-radius: 1.5rem;
   overflow: hidden;
 }
-.leaflet-tile { filter: brightness(.46) contrast(1.22) saturate(.58) grayscale(.18); }
+.leaflet-tile { filter: brightness(.5) contrast(1.15) grayscale(1); }
 .leaflet-control-zoom a {
   background: rgba(8, 11, 13, .94) !important;
   color: #f5f7f7 !important;

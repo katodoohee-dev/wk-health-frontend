@@ -7,6 +7,7 @@ import { PageHeader, GlassCard, Ring, SectionTitle } from "@/components/app/ui-b
 import { ErrorState, LoadingState } from "@/components/app/states";
 import { useAuth } from "@/lib/auth";
 import { gpsBridge } from "@/lib/gps-bridge";
+import { LiveTrackMap } from "@/components/LiveTrackMap";
 import { Link } from "@tanstack/react-router";
 import {
   apiPedometerLog,
@@ -488,7 +489,15 @@ function GpsTracker() {
         {error && (
           <p className="mt-3 rounded-2xl bg-destructive/10 px-3 py-2.5 text-sm text-destructive">{error}</p>
         )}
-        {(routeId || points.length > 0) && (
+        {routeId && (
+          <div className="mt-4">
+            {/* LiveTrackMap ทำ geolocation.watchPosition ของตัวเอง ไม่ส่ง onSessionEnd
+                เพราะปุ่ม "หยุด" ด้านบน (stop() → apiRouteStop()) บันทึกจริงอยู่แล้ว —
+                ถ้าส่ง onSessionEnd ด้วยจะเสี่ยงบันทึกซ้ำ 2 ครั้ง ในนี้ทำหน้าที่แค่โชว์แผนที่จริงระหว่างวิ่ง */}
+            <LiveTrackMap steps={points.length} />
+          </div>
+        )}
+        {!routeId && points.length > 0 && (
           <div className="mt-4">
             <RouteMap points={points} />
           </div>
