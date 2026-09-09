@@ -41,6 +41,10 @@
   backdrop-filter: blur(18px) saturate(140%);
   box-shadow: var(--vc-shadow-glow);
   transition: height 650ms cubic-bezier(0.22, 1.4, 0.36, 1);
+  /* FIX: กำหนดสีตัวอักษรพื้นฐานของ widget เองตรงนี้ ไม่พึ่งการ inherit currentColor จาก parent
+     เดิมไม่มีบรรทัดนี้ ทำให้ถ้า parent เปลี่ยนธีม (เช่นมี shell/wrapper คนละระบบมาครอบ)
+     ตัวหนังสือจะกลืนกับพื้นหลังจนอ่านไม่ออก */
+  color: var(--vc-deep);
 }
 
 .vc-row {

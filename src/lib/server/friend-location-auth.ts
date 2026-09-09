@@ -1,5 +1,4 @@
 const DEFAULT_BACKEND = "https://https-sites-google-com-sbp-ac-th.onrender.com";
-
 export function backendUrl() {
   const envUrl = import.meta.env["VITE_API_BASE_URL"] as string | undefined;
   return (envUrl || DEFAULT_BACKEND).replace(/\/$/, "");

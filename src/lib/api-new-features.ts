@@ -1,55 +1,51 @@
 // ========================================================================
-// API functions for Export/Backup, Friends/Leaderboard, Notification Settings
-// and Friend Location Sharing.
+// API functions for Export/Backup, Friends/Leaderboard, Notification Settings,
+// Weekly Insight, and Friend Location Sharing.
 // ========================================================================
 
-import { apiFetch, getToken } from "./api";
+import { apiFetch, apiStatsWeekly, apiWorkoutHistory, getToken, type WeeklyPoint } from "./api";
 
 export type ExportFormat = "pdf" | "csv";
 export type ExportRange = "7d" | "30d" | "90d" | "all";
+export interface ExportHistoryItem { id: string; format: ExportFormat; range: ExportRange; createdAt: string; }
+export function apiExportRequest(params: { format: ExportFormat; range: ExportRange }) { return apiFetch<{ downloadUrl: string }>("/api/export", { method: "POST", body: params }); }
+export function apiExportHistory() { return apiFetch<ExportHistoryItem[]>("/api/export/history"); }
 
-export interface ExportHistoryItem {
-  id: string;
-  format: ExportFormat;
-  range: ExportRange;
-  createdAt: string;
+export interface Friend { id: string; name: string; avatar?: string; streak: number; }
+export function apiFriendsList() { return apiFetch<Friend[]>("/api/friends"); }
+export function apiFriendsCheer(friendId: string) { return apiFetch<{ success: boolean }>(`/api/friends/cheer/${friendId}`, { method: "POST" }); }
+export function apiFriendsInviteCode() { return apiFetch<{ code: string }>("/api/friends/invite-code"); }
+export function apiFriendsAdd(code: string) { return apiFetch<{ success: boolean }>("/api/friends/add", { method: "POST", body: { code } }); }
+export function apiStatsWeekSummary() { return apiFetch<{ streak: number; avgKcal: number; daysOnGoal: number }>("/api/stats/week-summary"); }
+
+export interface NotificationSettings { mealReminder: boolean; waterReminder: boolean; streakRisk: boolean; weeklyInsight: boolean; smartTiming: boolean; quietStart: string; quietEnd: string; }
+export function apiNotificationSettings() { return apiFetch<NotificationSettings>("/api/notifications/settings"); }
+export function apiNotificationUpdate(patch: Partial<NotificationSettings>) { return apiFetch<NotificationSettings>("/api/notifications/settings", { method: "PATCH", body: patch }); }
+export function apiNotificationTest() { return apiFetch<{ success: boolean }>("/api/notifications/test", { method: "POST" }); }
+
+export type WeeklyInsight = { headline: string; daysLogged: number; avgKcal: number; daysOnGoal: number; totalSteps: number; totalWorkoutMinutes: number; bestDay: { date: string; kcal: number } | null; tips: string[]; };
+export async function apiInsightWeekly(): Promise<WeeklyInsight> {
+  const [weekly, workouts] = await Promise.all([apiStatsWeekly(), apiWorkoutHistory()]);
+  const points: WeeklyPoint[] = Array.isArray(weekly) ? weekly : [];
+  const daysLogged = points.filter((p) => p.kcal > 0).length;
+  const avgKcal = daysLogged ? Math.round(points.reduce((sum, p) => sum + p.kcal, 0) / daysLogged) : 0;
+  const totalSteps = points.reduce((sum, p) => sum + p.steps, 0);
+  const totalWorkoutMinutes = (Array.isArray(workouts) ? workouts : []).reduce((sum, w) => sum + w.minutes, 0);
+  const daysOnGoal = points.filter((p) => p.kcal > 0 && p.burn >= 0).length;
+  const best = points.filter((p) => p.kcal > 0).sort((a, b) => Math.abs(a.kcal - avgKcal) - Math.abs(b.kcal - avgKcal))[0];
+  const tips: string[] = [];
+  if (daysLogged < 7) tips.push("บันทึกอาหารให้ครบทุกวัน เพื่อให้ภาพรวมแม่นยำขึ้น");
+  if (totalSteps < 50000) tips.push("เพิ่มการเดินในแต่ละวันอีกเล็กน้อยเพื่อขยับกิจกรรมให้สม่ำเสมอ");
+  if (totalWorkoutMinutes === 0) tips.push("ลองบันทึกการออกกำลังกายอย่างน้อย 1 ครั้งในสัปดาห์หน้า");
+  if (!tips.length) tips.push("รักษาความสม่ำเสมอของอาหาร การเดิน และการออกกำลังกายต่อไป");
+  return { headline: daysLogged ? `สัปดาห์นี้คุณบันทึกข้อมูลอาหารแล้ว ${daysLogged}/7 วัน และมีค่าเฉลี่ย ${avgKcal} kcal/วันที่บันทึก` : "ยังมีข้อมูลรายสัปดาห์ไม่เพียงพอสำหรับสรุปแนวโน้ม", daysLogged, avgKcal, daysOnGoal, totalSteps, totalWorkoutMinutes, bestDay: best ? { date: best.day, kcal: best.kcal } : null, tips };
 }
 
-export function apiExportRequest(params: { format: ExportFormat; range: ExportRange }) {
-  return apiFetch<{ downloadUrl: string }>("/export", { method: "POST", body: params });
-}
-
-export function apiExportHistory() {
-  return apiFetch<ExportHistoryItem[]>("/export/history");
-}
-
-export interface Friend {
-  id: string;
-  name: string;
-  avatar?: string;
-  streak: number;
-}
-
-export function apiFriendsList() {
-  return apiFetch<Friend[]>("/friends");
-}
-
-export function apiFriendsCheer(friendId: string) {
-  return apiFetch<{ success: boolean }>(`/friends/cheer/${friendId}`, { method: "POST" });
-}
-
-export function apiFriendsInviteCode() {
-  return apiFetch<{ code: string }>("/friends/invite-code");
-}
-
-export function apiFriendsAdd(code: string) {
-  return apiFetch<{ success: boolean }>("/friends/add", { method: "POST", body: { code } });
-}
-
-export function apiStatsWeekSummary() {
-  return apiFetch<{ streak: number; avgKcal: number; daysOnGoal: number }>("/stats/week-summary");
-}
-
+// Friend location sharing: implemented as same-origin TanStack Start server
+// routes (src/routes/api/friends/location/*.ts) backed by an in-memory store,
+// so these calls intentionally go to the current origin (not API_BASE_URL /
+// the external Express backend), and forward the user's bearer token so the
+// server route can verify identity via authenticateRequest().
 export interface FriendLocation {
   friendId: string;
   lat: number;
@@ -98,38 +94,4 @@ export function apiFriendLocationPublish(payload: Omit<FriendLocation, "updatedA
 
 export function apiFriendLocations() {
   return localLocationFetch<FriendLocation[]>("/api/friends/location/live");
-}
-
-export interface NotificationSettings {
-  mealReminder: boolean;
-  waterReminder: boolean;
-  streakRisk: boolean;
-  weeklyInsight: boolean;
-  smartTiming: boolean;
-  quietStart: string;
-  quietEnd: string;
-}
-
-export function apiNotificationSettings() {
-  return apiFetch<NotificationSettings>("/notifications/settings");
-}
-
-export function apiNotificationUpdate(patch: Partial<NotificationSettings>) {
-  return apiFetch<NotificationSettings>("/notifications/settings", { method: "PATCH", body: patch });
-}
-
-export function apiNotificationTest() {
-  return apiFetch<{ success: boolean }>("/notifications/test", { method: "POST" });
-}
-
-export async function apiInsightWeekly(input?: unknown) {
-  const baseUrl = import.meta.env["VITE_API_URL"] || import.meta.env["VITE_BACKEND_URL"] || "";
-  const url = baseUrl ? `${baseUrl.replace(/\/$/, "")}/api/insight/weekly` : "/api/insight/weekly";
-  const response = await fetch(url, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify(input ?? {}),
-  });
-  if (!response.ok) throw new Error(`Weekly insight API failed: ${response.status} ${response.statusText}`);
-  return response.json();
 }

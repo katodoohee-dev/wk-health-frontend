@@ -1,6 +1,5 @@
 export type HealthProvider = "healthkit" | "health-connect" | "fitbit" | "garmin";
 export type HealthPermission = "steps" | "heartRate" | "sleep" | "weight";
-
 export type HealthConnectionState = {
   connected: boolean;
   permissions: Record<HealthPermission, boolean>;

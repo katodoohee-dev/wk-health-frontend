@@ -1,0 +1,127 @@
+/* WK Health — Monochrome Health OS skin
+   This file is intentionally independent from Lovable. It only skins existing UI tokens/classes;
+   application logic, routes and API calls remain untouched. */
+:root {
+  --background: oklch(0.975 0.004 250);
+  --foreground: oklch(0.12 0.012 250);
+  --card: oklch(0.995 0.002 250);
+  --card-foreground: oklch(0.12 0.012 250);
+  --popover: oklch(0.995 0.002 250);
+  --popover-foreground: oklch(0.12 0.012 250);
+  --primary: oklch(0.72 0.16 164);
+  --primary-foreground: oklch(0.08 0.012 250);
+  --secondary: oklch(0.91 0.008 250);
+  --secondary-foreground: oklch(0.18 0.012 250);
+  --muted: oklch(0.93 0.006 250);
+  --muted-foreground: oklch(0.43 0.012 250);
+  --accent: oklch(0.92 0.008 250);
+  --accent-foreground: oklch(0.12 0.012 250);
+  --border: oklch(0.84 0.008 250);
+  --input: oklch(0.86 0.008 250);
+  --ring: oklch(0.72 0.16 164);
+  --mint: oklch(0.72 0.16 164);
+  --mint-soft: oklch(0.92 0.05 164);
+  --sky: oklch(0.55 0.025 250);
+  --sky-soft: oklch(0.91 0.008 250);
+  --peach: oklch(0.58 0.035 70);
+  --peach-soft: oklch(0.92 0.012 70);
+  --lilac: oklch(0.56 0.025 300);
+  --glass: oklch(1 0 0 / 72%);
+  --glass-border: oklch(0.12 0.012 250 / 10%);
+  --shadow-soft: 0 18px 50px -28px oklch(0.08 0.01 250 / 45%);
+  --shadow-glow: 0 18px 55px -18px oklch(0.72 0.16 164 / 48%);
+  --gradient-hero: linear-gradient(135deg, oklch(0.99 0 0), oklch(0.94 0.008 250));
+  --gradient-mint: linear-gradient(135deg, oklch(0.78 0.17 164), oklch(0.64 0.15 164));
+  --gradient-peach: linear-gradient(135deg, oklch(0.91 0.015 250), oklch(0.84 0.01 250));
+}
+
+.dark {
+  --background: oklch(0.075 0.008 250);
+  --foreground: oklch(0.95 0.006 250);
+  --card: oklch(0.105 0.009 250);
+  --card-foreground: oklch(0.95 0.006 250);
+  --popover: oklch(0.105 0.009 250);
+  --popover-foreground: oklch(0.95 0.006 250);
+  --primary: oklch(0.78 0.17 164);
+  --primary-foreground: oklch(0.075 0.008 250);
+  --secondary: oklch(0.16 0.01 250);
+  --secondary-foreground: oklch(0.92 0.006 250);
+  --muted: oklch(0.14 0.009 250);
+  --muted-foreground: oklch(0.66 0.008 250);
+  --accent: oklch(0.16 0.01 250);
+  --accent-foreground: oklch(0.95 0.006 250);
+  --border: oklch(1 0 0 / 9%);
+  --input: oklch(1 0 0 / 11%);
+  --ring: oklch(0.78 0.17 164);
+  --mint: oklch(0.78 0.17 164);
+  --mint-soft: oklch(0.22 0.035 164);
+  --sky: oklch(0.72 0.018 250);
+  --sky-soft: oklch(0.17 0.01 250);
+  --peach: oklch(0.72 0.025 70);
+  --peach-soft: oklch(0.17 0.012 70);
+  --lilac: oklch(0.72 0.018 300);
+  --glass: oklch(0.11 0.009 250 / 78%);
+  --glass-border: oklch(1 0 0 / 9%);
+  --shadow-soft: 0 22px 65px -30px oklch(0 0 0 / 75%);
+  --shadow-glow: 0 18px 60px -20px oklch(0.78 0.17 164 / 42%);
+  --gradient-hero: linear-gradient(135deg, oklch(0.12 0.01 250), oklch(0.08 0.008 250));
+  --gradient-mint: linear-gradient(135deg, oklch(0.82 0.18 164), oklch(0.66 0.16 164));
+  --gradient-peach: linear-gradient(135deg, oklch(0.19 0.012 250), oklch(0.13 0.009 250));
+}
+
+html { background: var(--background); }
+body {
+  background:
+    radial-gradient(circle at 15% 0%, color-mix(in oklab, var(--primary) 9%, transparent), transparent 32rem),
+    radial-gradient(circle at 100% 30%, color-mix(in oklab, var(--foreground) 4%, transparent), transparent 28rem),
+    var(--background);
+}
+
+/* Reduce the old pastel Aurora to a restrained monochrome ambient glow. */
+.bg-mint\/35, .bg-sky\/30, .bg-peach\/30 { opacity: 0.18 !important; filter: blur(80px) grayscale(0.7); }
+
+.glass, .glass-strong {
+  border-radius: 1.35rem;
+  box-shadow: var(--shadow-soft);
+}
+.glass-strong {
+  background: color-mix(in oklab, var(--card) 86%, transparent);
+  border-color: var(--glass-border);
+}
+
+/* Make interactive surfaces feel like one design system. */
+button, a { -webkit-tap-highlight-color: transparent; }
+.press { transition: transform .18s cubic-bezier(.22,1,.36,1), filter .18s ease, box-shadow .18s ease; }
+.press:hover { filter: brightness(1.025); }
+.press:active { transform: scale(.965); }
+
+/* Stronger visual hierarchy for headings and numbers. */
+.font-display { letter-spacing: -0.035em; }
+.tabular-nums { font-variant-numeric: tabular-nums; letter-spacing: -0.025em; }
+
+/* Bottom navigation: floating hardware-like dock. */
+nav > div > div {
+  border: 1px solid var(--glass-border);
+  box-shadow: 0 22px 70px -28px oklch(0 0 0 / 65%);
+}
+
+/* Map remains dark regardless of global theme, matching the Live Track experience. */
+.leaflet-container {
+  background: #070a0c !important;
+  border-radius: 1.5rem;
+  overflow: hidden;
+}
+.leaflet-tile { filter: brightness(.46) contrast(1.22) saturate(.58) grayscale(.18); }
+.leaflet-control-zoom a {
+  background: rgba(8, 11, 13, .94) !important;
+  color: #f5f7f7 !important;
+  border-color: rgba(255,255,255,.08) !important;
+}
+.leaflet-control-attribution {
+  background: rgba(8,11,13,.76) !important;
+  color: rgba(255,255,255,.62) !important;
+}
+
+@media (min-width: 1024px) {
+  body { background-attachment: fixed; }
+}

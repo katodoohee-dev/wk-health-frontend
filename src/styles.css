@@ -195,25 +195,40 @@
 }
 @utility float-slow { animation: float-slow 9s ease-in-out infinite; }
 
-/* WK Health map theme: dark, high-contrast, and consistent with the original black map UI. */
-.leaflet-container {
-  background: #090e12;
-  color-scheme: dark;
+/* ---- Monochrome Home OS redesign: additive tokens (existing tokens above are untouched) ---- */
+:root {
+  --hairline: oklch(0 0 0 / 8%);
+  --surface-2: oklch(0.93 0.015 175);
+  --live: oklch(0.62 0.15 165);
+  --signal: oklch(0.62 0.13 220);
+  --font-mono: "IBM Plex Mono", ui-monospace, monospace;
 }
-.leaflet-tile {
-  filter: brightness(0.48) contrast(1.18) saturate(0.72);
+.dark {
+  --hairline: oklch(1 0 0 / 9%);
+  --surface-2: oklch(0.3 0.03 210);
+  --live: oklch(0.78 0.17 145);
+  --signal: oklch(0.8 0.13 220);
 }
-.leaflet-control-zoom,
-.leaflet-control-attribution {
-  background: rgba(10, 15, 18, 0.86) !important;
-  color: rgba(255, 255, 255, 0.82) !important;
-  border: 1px solid rgba(255, 255, 255, 0.1) !important;
-  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.35) !important;
-  backdrop-filter: blur(10px);
+@utility label-editorial {
+  font-family: var(--font-mono);
+  font-size: 0.625rem;
+  letter-spacing: 0.22em;
+  text-transform: uppercase;
+  color: var(--muted-foreground);
 }
-.leaflet-control-zoom a {
-  background: rgba(15, 22, 26, 0.96) !important;
-  color: #e8f4f1 !important;
-  border-color: rgba(255, 255, 255, 0.08) !important;
+@utility numeral {
+  font-family: var(--font-display);
+  font-variant-numeric: tabular-nums;
+  letter-spacing: -0.03em;
+  line-height: 0.9;
 }
-.leaflet-control-attribution a { color: #9ee9d3 !important; }
+@utility hairline-t { border-top: 1px solid var(--hairline); }
+@utility hairline-b { border-bottom: 1px solid var(--hairline); }
+@utility anim-rise { animation: rise-in 0.5s cubic-bezier(0.22, 1, 0.36, 1) both; }
+@utility bg-hairline { background-color: var(--hairline); }
+@utility bg-surface-2 { background-color: var(--surface-2); }
+@utility bg-live { background-color: var(--live); }
+@utility bg-signal { background-color: var(--signal); }
+@utility text-live { color: var(--live); }
+@utility text-signal { color: var(--signal); }
+@utility border-hairline { border-color: var(--hairline); }
