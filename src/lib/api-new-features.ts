@@ -18,7 +18,7 @@ export function apiFriendsInviteCode() { return apiFetch<{ code: string }>("/api
 export function apiFriendsAdd(code: string) { return apiFetch<{ success: boolean }>("/api/friends/add", { method: "POST", body: { code } }); }
 export function apiStatsWeekSummary() { return apiFetch<{ streak: number; avgKcal: number; daysOnGoal: number }>("/api/stats/week-summary"); }
 
-export interface NotificationSettings { mealReminder: boolean; waterReminder: boolean; streakRisk: boolean; weeklyInsight: boolean; smartTiming: boolean; quietStart: string; quietEnd: string; }
+export interface NotificationSettings { mealReminder: boolean; streakRisk: boolean; weeklyInsight: boolean; smartTiming: boolean; quietStart: string; quietEnd: string; }
 export function apiNotificationSettings() { return apiFetch<NotificationSettings>("/api/notifications/settings"); }
 export function apiNotificationUpdate(patch: Partial<NotificationSettings>) { return apiFetch<NotificationSettings>("/api/notifications/settings", { method: "PATCH", body: patch }); }
 export function apiNotificationTest() { return apiFetch<{ success: boolean }>("/api/notifications/test", { method: "POST" }); }

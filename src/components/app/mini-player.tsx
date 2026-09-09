@@ -3,7 +3,7 @@ import { Link } from "@tanstack/react-router";
 import { Pause, Play, SkipBack, SkipForward, X, Music2, Volume2, Volume1, VolumeX } from "lucide-react";
 import { useMusic } from "@/lib/music";
 
-function VolumeControl() {
+export function VolumeControl({ variant = "inline" }: { variant?: "inline" | "fab" }) {
   const { volume, muted, setVolume, toggleMute } = useMusic();
   const [open, setOpen] = useState(false);
   const wrapRef = useRef<HTMLDivElement | null>(null);
@@ -19,20 +19,23 @@ function VolumeControl() {
 
   const effective = muted ? 0 : volume;
   const Icon = effective === 0 ? VolumeX : effective < 0.5 ? Volume1 : Volume2;
+  const isFab = variant === "fab";
 
   return (
     <div ref={wrapRef} className="relative">
       <button
         onClick={() => setOpen((v) => !v)}
         onDoubleClick={toggleMute}
-        aria-label={muted ? "ปิดเสียงอยู่ กดเพื่อเปิดเสียง" : "ระดับเสียง"}
+        aria-label={muted ? "ปิดเสียงอยู่ กดเพื่อเปิดเสียง" : "ระดับเสียงระบบ"}
         aria-pressed={muted}
-        className="press grid size-9 shrink-0 place-items-center rounded-xl text-muted-foreground"
+        className={isFab ? "wk-floating-fab" : "press grid size-9 shrink-0 place-items-center rounded-xl text-muted-foreground"}
       >
-        <Icon className="size-4" />
+        <Icon className={isFab ? "size-5" : "size-4"} aria-hidden="true" />
       </button>
       {open && (
-        <div className="glass-strong absolute bottom-full right-0 mb-2 flex flex-col items-center gap-2 rounded-2xl p-3 shadow-soft">
+        <div
+          className={`glass-strong absolute ${isFab ? "bottom-full right-0" : "bottom-full right-0"} mb-2 flex flex-col items-center gap-2 rounded-2xl p-3 shadow-soft`}
+        >
           <input
             type="range"
             min={0}

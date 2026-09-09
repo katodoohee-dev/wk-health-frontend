@@ -6,7 +6,7 @@ import { useAuth } from "@/lib/auth";
 import { apiMe } from "@/lib/api";
 import { gpsBridge } from "@/lib/gps-bridge";
 import { useMusic } from "@/lib/music";
-import { MiniPlayer } from "@/components/app/mini-player";
+import { MiniPlayer, VolumeControl } from "@/components/app/mini-player";
 import VoiceControl from "@/components/VoiceControl";
 import "@/components/voice-control.css";
 
@@ -58,6 +58,13 @@ export function FloatingControls() {
             />
           </div>
         )}
+      </div>
+
+      {/* ปุ่มควบคุมระดับเสียงกลางของทั้งระบบ (เพลง/YouTube) — แสดงตลอดเวลาไม่ว่าจะกำลังเล่นเพลงอยู่หรือไม่
+          ก่อนหน้านี้ VolumeControl อยู่ใน MiniPlayer เท่านั้น ซึ่งซ่อนทั้งหมดเมื่อไม่มีเพลงเล่นอยู่ (current === null)
+          ทำให้กดปรับเสียงไม่ได้เลยถ้ายังไม่เริ่มเล่นเพลง จึงย้ายมาไว้เป็นปุ่มลอยแยกที่เห็น/ใช้ได้เสมอ */}
+      <div className="wk-floating-volume" aria-label="ระดับเสียงระบบ">
+        <VolumeControl variant="fab" />
       </div>
 
       {current && (

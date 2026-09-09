@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { createFileRoute } from "@tanstack/react-router";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { Bell, Utensils, Droplets, Flame, Sparkles, Moon, Send } from "lucide-react";
+import { Bell, Utensils, Flame, Sparkles, Moon, Send } from "lucide-react";
 import { PageHeader, GlassCard } from "@/components/app/ui-bits";
 import { ErrorState, Skeleton } from "@/components/app/states";
 import { useAuth } from "@/lib/auth";
@@ -11,7 +11,7 @@ export const Route = createFileRoute("/notifications")({
   head: () => ({
     meta: [
       { title: "การแจ้งเตือน — WK Health App" },
-      { name: "description", content: "ตั้งค่าการแจ้งเตือนมื้ออาหาร น้ำดื่ม และ streak ให้เหมาะกับพฤติกรรมของคุณ" },
+      { name: "description", content: "ตั้งค่าการแจ้งเตือนมื้ออาหารและ streak ให้เหมาะกับพฤติกรรมของคุณ" },
     ],
   }),
   component: NotificationsPage,
@@ -19,7 +19,6 @@ export const Route = createFileRoute("/notifications")({
 
 const TOGGLES = [
   { key: "mealReminder" as const, icon: Utensils, label: "เตือนมื้ออาหาร", desc: "แจ้งเมื่อใกล้เวลาที่คุณมักกินมื้อหลัก", tint: "bg-peach-soft text-peach" },
-  { key: "waterReminder" as const, icon: Droplets, label: "เตือนดื่มน้ำ", desc: "แจ้งเป็นระยะเมื่อคุณดื่มน้ำน้อยกว่าเป้า", tint: "bg-sky-soft text-sky" },
   { key: "streakRisk" as const, icon: Flame, label: "เตือน streak จะขาด", desc: "แจ้งก่อนเที่ยงคืนถ้าวันนี้ยังไม่เช็คอิน", tint: "bg-mint-soft text-mint" },
   { key: "weeklyInsight" as const, icon: Sparkles, label: "Insight รายสัปดาห์พร้อมดู", desc: "แจ้งเมื่อ Coach AI วิเคราะห์สัปดาห์เสร็จ", tint: "bg-secondary text-secondary-foreground" },
 ];

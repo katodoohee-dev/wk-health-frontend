@@ -232,3 +232,83 @@
 @utility text-live { color: var(--live); }
 @utility text-signal { color: var(--signal); }
 @utility border-hairline { border-color: var(--hairline); }
+
+/* ---- Floating controls (mic / เสียง ระบบ / music) — เดิมไม่มี CSS ของคลาสพวกนี้เลยสักบรรทัด
+   ทำให้ปุ่มลอยพวกนี้ไม่มีตำแหน่ง/รูปร่างที่ตั้งใจไว้ ใช้งานจริงบนหน้าเว็บไม่ได้ ---- */
+.wk-floating-voice,
+.wk-floating-volume,
+.wk-floating-music {
+  position: fixed;
+  z-index: 45;
+  bottom: calc(84px + env(safe-area-inset-bottom));
+}
+.wk-floating-voice { right: 16px; }
+.wk-floating-volume { right: 16px; bottom: calc(148px + env(safe-area-inset-bottom)); }
+.wk-floating-music { left: 16px; max-width: calc(100vw - 32px); }
+
+.wk-floating-fab {
+  display: flex;
+  width: 52px;
+  height: 52px;
+  align-items: center;
+  justify-content: center;
+  border-radius: 999px;
+  border: 1px solid var(--glass-border);
+  background: var(--gradient-mint);
+  color: var(--primary-foreground);
+  box-shadow: var(--shadow-glow);
+  cursor: pointer;
+  transition: transform 0.18s cubic-bezier(0.22, 1, 0.36, 1);
+}
+.wk-floating-fab:active { transform: scale(0.94); }
+
+.wk-floating-panel {
+  position: relative;
+  width: min(360px, calc(100vw - 32px));
+  border-radius: 1.75rem;
+  background: color-mix(in oklab, var(--card) 88%, transparent);
+  backdrop-filter: blur(24px) saturate(160%);
+  border: 1px solid var(--glass-border);
+  box-shadow: var(--shadow-soft);
+  padding: 14px;
+}
+.wk-floating-music-panel { padding: 10px; }
+
+.wk-floating-close {
+  position: absolute;
+  top: 10px;
+  right: 10px;
+  display: flex;
+  width: 28px;
+  height: 28px;
+  align-items: center;
+  justify-content: center;
+  border-radius: 999px;
+  background: var(--surface-2);
+  color: var(--muted-foreground);
+  border: none;
+  cursor: pointer;
+}
+
+.wk-floating-music-fab {
+  display: flex;
+  max-width: 220px;
+  align-items: center;
+  gap: 8px;
+  border-radius: 999px;
+  border: 1px solid var(--glass-border);
+  background: color-mix(in oklab, var(--card) 88%, transparent);
+  backdrop-filter: blur(18px) saturate(150%);
+  box-shadow: var(--shadow-soft);
+  padding: 10px 16px 10px 12px;
+  color: var(--foreground);
+  cursor: pointer;
+}
+.wk-floating-track {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 0.75rem;
+  font-weight: 500;
+}

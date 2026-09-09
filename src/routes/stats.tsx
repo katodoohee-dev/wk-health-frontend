@@ -19,15 +19,12 @@ export const Route = createFileRoute("/stats")({
   component: StatsPage,
 });
 
-/** ให้เกรดวันนี้จากความใกล้เคียงเป้าแคลอรี + สัดส่วนสารอาหาร + น้ำดื่ม (คำนวณฝั่ง client จาก TodayStats ที่มีอยู่แล้ว) */
-function computeGrade(t: { eaten: number; goal: number; protein: number; proteinGoal: number; carb: number; carbGoal: number; fat: number; fatGoal: number; water?: number; waterGoal?: number }) {
+/** ให้เกรดวันนี้จากความใกล้เคียงเป้าแคลอรี + สัดส่วนสารอาหาร (คำนวณฝั่ง client จาก TodayStats ที่มีอยู่แล้ว) */
+function computeGrade(t: { eaten: number; goal: number; protein: number; proteinGoal: number; carb: number; carbGoal: number; fat: number; fatGoal: number }) {
   const ratio = (v: number, g: number) => (g > 0 ? Math.max(0, 1 - Math.abs(v - g) / g) : 1);
   const kcalScore = ratio(t.eaten, t.goal);
   const macroScore = (ratio(t.protein, t.proteinGoal) + ratio(t.carb, t.carbGoal) + ratio(t.fat, t.fatGoal)) / 3;
-  const water = t.water ?? 0;
-  const waterGoal = t.waterGoal ?? 0;
-  const waterScore = waterGoal > 0 ? Math.min(1, water / waterGoal) : 1;
-  const score = kcalScore * 0.5 + macroScore * 0.3 + waterScore * 0.2;
+  const score = kcalScore * 0.6 + macroScore * 0.4;
   if (score >= 0.9) return { grade: "A", label: "ยอดเยี่ยม", color: "var(--mint)" };
   if (score >= 0.75) return { grade: "B", label: "ดี", color: "var(--sky)" };
   if (score >= 0.55) return { grade: "C", label: "พอใช้", color: "var(--peach)" };
@@ -46,7 +43,7 @@ function GradeBadge({ t }: { t: Parameters<typeof computeGrade>[0] }) {
       </span>
       <div className="min-w-0">
         <p className="font-display font-semibold">เกรดวันนี้ · {label}</p>
-        <p className="truncate text-xs text-muted-foreground">อิงจากแคลอรี สัดส่วนสารอาหาร และน้ำดื่ม</p>
+        <p className="truncate text-xs text-muted-foreground">อิงจากแคลอรีและสัดส่วนสารอาหาร</p>
       </div>
     </div>
   );

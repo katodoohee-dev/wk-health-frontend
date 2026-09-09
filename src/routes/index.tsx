@@ -3,7 +3,7 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import {
   Footprints, LogOut, MessageSquareHeart, Wallet, Dumbbell, Music2,
   UserRound, Plus, Snowflake, Image as ImageIcon, Users, Download,
-  BellRing, ScanLine, Watch, ArrowUpRight, Droplets, Flame, Target,
+  BellRing, ScanLine, Watch, ArrowUpRight, Flame, Target,
 } from "lucide-react";
 import { ThemeToggle } from "@/components/app/theme-toggle";
 import { ErrorState, Skeleton } from "@/components/app/states";
@@ -45,8 +45,6 @@ function Home() {
 
   const s = stats.data;
   const remaining = s ? s.goal - s.eaten + s.burned : 0;
-  const water = s?.water ?? 0;
-  const waterGoal = s?.waterGoal ?? 8;
 
   return (
     <div className="pb-10">
@@ -98,15 +96,10 @@ function Home() {
         </Link>
       </section>
 
-      <section className="mt-4 grid gap-4 sm:grid-cols-2">
+      <section className="mt-4">
         <div className="glass shadow-soft rounded-[1.75rem] p-5">
           <div className="flex items-center justify-between"><span className="label-editorial">STEPS</span><Footprints className="size-4 text-primary" /></div>
           {ped.isLoading ? <Skeleton className="mt-5 h-12 w-32" /> : ped.isError || !ped.data ? <ErrorState error={ped.error} onRetry={() => void ped.refetch()} /> : <><div className="mt-4 text-4xl font-extrabold tabular-nums">{ped.data.steps.toLocaleString()}</div><p className="mt-2 text-xs text-muted-foreground">เป้า {ped.data.goal.toLocaleString()} · {ped.data.distanceKm} กม.</p></>}
-        </div>
-        <div className="glass shadow-soft rounded-[1.75rem] p-5">
-          <div className="flex items-center justify-between"><span className="label-editorial">WATER</span><Droplets className="size-4 text-signal" /></div>
-          <div className="mt-4 text-4xl font-extrabold tabular-nums">{water}<span className="ml-2 text-sm font-medium text-muted-foreground">/ {waterGoal} แก้ว</span></div>
-          <div className="mt-4 flex gap-1.5">{Array.from({ length: waterGoal }).map((_, i) => <span key={i} className={`h-2 flex-1 rounded-full ${i < water ? "bg-live" : "bg-surface-2"}`} />)}</div>
         </div>
       </section>
 
