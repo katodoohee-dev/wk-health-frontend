@@ -35,7 +35,7 @@ function ProfilePage() {
 
   return (
     <div className="rise-in">
-      <PageHeader title="โปรไฟล์" emoji="👤" subtitle="ข้อมูลส่วนตัวและ BMI" />
+      <PageHeader title="โปรไฟล์" subtitle="ข้อมูลส่วนตัวและ BMI" />
 
       <GlassCard className="p-5">
         <SectionTitle title="ข้อมูลของฉัน" />

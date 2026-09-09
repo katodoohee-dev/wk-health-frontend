@@ -54,7 +54,7 @@ function AssistantPage() {
 
   return (
     <div className="rise-in flex min-h-[calc(100vh-2rem)] flex-col">
-      <PageHeader title="ผู้ช่วย AI" emoji="🤖" subtitle="ที่ปรึกษาโภชนาการส่วนตัวของคุณ"
+      <PageHeader title="ผู้ช่วย AI" subtitle="ที่ปรึกษาโภชนาการส่วนตัวของคุณ"
         right={<span className="glass flex items-center gap-1.5 rounded-2xl px-3 py-2 text-xs font-medium"><span className="size-2 rounded-full bg-primary" /> ออนไลน์</span>} />
 
       <div className="flex-1 space-y-3 pb-4">
@@ -63,7 +63,7 @@ function AssistantPage() {
         ) : history.isError ? (
           <ErrorState error={history.error} onRetry={() => void history.refetch()} />
         ) : thread.length === 0 ? (
-          <p className="glass-strong rounded-3xl px-4 py-6 text-center text-sm shadow-soft">สวัสดีค่ะ 🌿 ถามเรื่องอาหาร แคลอรี หรือการวางแผนมื้อได้เลยนะคะ</p>
+          <p className="glass-strong rounded-3xl px-4 py-6 text-center text-sm shadow-soft">สวัสดีค่ะ ถามเรื่องอาหาร แคลอรี หรือการวางแผนมื้อได้เลยนะคะ</p>
         ) : null}
 
         {thread.map((m) => (

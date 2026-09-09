@@ -56,9 +56,8 @@ function AuthPage() {
     <div className="rise-in flex min-h-[80vh] flex-col justify-center py-8">
       <div className="mb-6 flex items-start justify-between gap-3">
         <div className="min-w-0">
-          <p className="text-4xl">🥗</p>
-          <h1 className="mt-2 font-display text-2xl font-bold">WK Health App</h1>
-          <p className="text-sm text-muted-foreground">{mode === "login" ? "ยินดีต้อนรับกลับมา 🌿" : "สร้างบัญชีเพื่อเริ่มดูแลสุขภาพ"}</p>
+          <h1 className="font-display text-2xl font-bold">WK Health App</h1>
+          <p className="text-sm text-muted-foreground">{mode === "login" ? "ยินดีต้อนรับกลับมา" : "สร้างบัญชีเพื่อเริ่มดูแลสุขภาพ"}</p>
         </div>
         <ThemeToggle />
       </div>

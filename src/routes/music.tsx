@@ -47,7 +47,7 @@ function MusicPage() {
 
   return (
     <div className="rise-in">
-      <PageHeader title="เพลย์ลิสต์" emoji="🎵" subtitle="เปิดเพลงคลอระหว่างใช้แอป" />
+      <PageHeader title="เพลย์ลิสต์" subtitle="เปิดเพลงคลอระหว่างใช้แอป" />
 
       <GlassCard className="p-4">
         <SectionTitle title="เพิ่มเพลง" />
@@ -75,7 +75,7 @@ function MusicPage() {
         ) : lib.isError ? (
           <ErrorState error={lib.error} onRetry={() => void lib.refetch()} />
         ) : tracks.length === 0 ? (
-          <p className="glass rounded-3xl px-4 py-6 text-center text-sm text-muted-foreground">ยังไม่มีเพลง — วางลิงก์ด้านบนเพื่อเพิ่มเพลงแรก 🎧</p>
+          <p className="glass rounded-3xl px-4 py-6 text-center text-sm text-muted-foreground">ยังไม่มีเพลง — วางลิงก์ด้านบนเพื่อเพิ่มเพลงแรก</p>
         ) : (
           <div className="space-y-2">
             {tracks.map((t) => {
@@ -88,7 +88,7 @@ function MusicPage() {
                   </button>
                   <div className="min-w-0 flex-1">
                     <p className="truncate text-sm font-medium">{t.title}</p>
-                    <p className="truncate text-xs text-muted-foreground">{t.type === "youtube" ? "▶️ YouTube" : "🎧 ไฟล์เสียง"}</p>
+                    <p className="truncate text-xs text-muted-foreground">{t.type === "youtube" ? "YouTube" : "ไฟล์เสียง"}</p>
                   </div>
                   <button onClick={() => del.mutate(t.id)} aria-label={`ลบ ${t.title}`} className="press grid size-9 shrink-0 place-items-center rounded-xl text-muted-foreground hover:text-destructive">
                     <Trash2 className="size-4" />

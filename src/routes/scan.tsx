@@ -196,7 +196,7 @@ function ScanPage() {
 
   return (
     <div className="rise-in">
-      <PageHeader title="สแกนอาหาร" emoji="📸" subtitle="ถ่ายรูปหรือเลือกจากคลังภาพ" />
+      <PageHeader title="สแกนอาหาร" subtitle="ถ่ายรูปหรือเลือกจากคลังภาพ" />
 
       <GlassCard className="overflow-hidden p-0">
         <div className="relative aspect-4/5 w-full sm:aspect-video">

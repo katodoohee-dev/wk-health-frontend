@@ -75,7 +75,7 @@ function WorkoutPage() {
 
   return (
     <div className="rise-in">
-      <PageHeader title="ออกกำลังกาย" emoji="🏋️" subtitle="ตารางฝึกจาก AI + บันทึกการเผาผลาญ" />
+      <PageHeader title="ออกกำลังกาย" subtitle="ตารางฝึกจาก AI + บันทึกการเผาผลาญ" />
 
       <GlassCard className="p-5">
         <div className="flex items-center gap-4">
@@ -223,7 +223,7 @@ function WorkoutPage() {
             ))}
           </div>
         ) : (
-          <p className="text-sm text-muted-foreground">ยังไม่มีประวัติ — เริ่มบันทึกท่าแรกได้เลย 💪</p>
+          <p className="text-sm text-muted-foreground">ยังไม่มีประวัติ — เริ่มบันทึกท่าแรกได้เลย</p>
         )}
       </GlassCard>
     </div>

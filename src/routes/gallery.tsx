@@ -29,7 +29,7 @@ function GalleryPage() {
 
   return (
     <div className="rise-in">
-      <PageHeader title="แกลเลอรี" emoji="🖼️" subtitle="ย้อนดูรูปอาหารที่เคยสแกน" />
+      <PageHeader title="แกลเลอรี" subtitle="ย้อนดูรูปอาหารที่เคยสแกน" />
 
       {gallery.isLoading ? (
         <LoadingState label="กำลังโหลดแกลเลอรี…" />
@@ -40,7 +40,7 @@ function GalleryPage() {
           <span className="grid size-14 place-items-center rounded-3xl bg-muted text-muted-foreground">
             <ImageIcon className="size-6" />
           </span>
-          <p className="text-sm text-muted-foreground">ยังไม่มีรูปอาหารที่บันทึกไว้ — ลองสแกนอาหารดูสิ 📸</p>
+          <p className="text-sm text-muted-foreground">ยังไม่มีรูปอาหารที่บันทึกไว้ — ลองสแกนอาหารดูสิ</p>
         </GlassCard>
       ) : (
         <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">

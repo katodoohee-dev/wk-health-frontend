@@ -196,7 +196,7 @@ function BarcodePage() {
 
   return (
     <div className="rise-in">
-      <PageHeader title="สแกนบาร์โค้ด" emoji="📦" subtitle="ใช้กล้องหรือเลือกรูปบาร์โค้ดจากเครื่อง" />
+      <PageHeader title="สแกนบาร์โค้ด" subtitle="ใช้กล้องหรือเลือกรูปบาร์โค้ดจากเครื่อง" />
       <GlassCard className="p-4">
         <div className="grid grid-cols-2 gap-2">
           <button onClick={cameraOn ? stopCamera : startCamera} className="press bg-mint-gradient flex items-center justify-center gap-2 rounded-2xl py-3 font-medium text-primary-foreground shadow-glow">

@@ -36,7 +36,7 @@ function InsightPage() {
 
   return (
     <div className="rise-in">
-      <PageHeader title="Weekly Insight" emoji="✨" subtitle="สรุปผลลัพธ์จากข้อมูลจริงของคุณ 7 วันล่าสุด" />
+      <PageHeader title="Weekly Insight" subtitle="สรุปผลลัพธ์จากข้อมูลจริงของคุณ 7 วันล่าสุด" />
 
       {q.isLoading ? (
         <div className="space-y-3">

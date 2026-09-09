@@ -56,7 +56,7 @@ function DiaryPage() {
 
   return (
     <div className="rise-in">
-      <PageHeader title="ไดอารีการกิน" emoji="📔" subtitle={date} />
+      <PageHeader title="ไดอารีการกิน" subtitle={date} />
 
       <GlassCard className="p-4">
         <div className="grid grid-cols-7 gap-1.5">

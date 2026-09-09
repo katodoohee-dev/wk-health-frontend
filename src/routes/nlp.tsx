@@ -25,7 +25,7 @@ function NlpPage() {
 
   return (
     <div className="rise-in">
-      <PageHeader title="NLP Analyze" emoji="🧠" subtitle="เล่าให้ฟังว่าวันนี้กินอะไรบ้าง" />
+      <PageHeader title="NLP Analyze" subtitle="เล่าให้ฟังว่าวันนี้กินอะไรบ้าง" />
 
       <GlassCard className="p-4">
         <textarea value={text} onChange={(e) => setText(e.target.value)} rows={4}

@@ -52,7 +52,7 @@ function PedometerPage() {
   if (!isAuthenticated) {
     return (
       <div className="rise-in">
-        <PageHeader title="Pedometer" emoji="🚶" subtitle="ก้าวเล็ก ๆ ทุกวัน" />
+        <PageHeader title="Pedometer" subtitle="ก้าวเล็ก ๆ ทุกวัน" />
         <GlassCard className="p-6 text-center text-sm text-muted-foreground">
           กรุณาเข้าสู่ระบบก่อนใช้งานหน้านี้
         </GlassCard>
@@ -63,7 +63,7 @@ function PedometerPage() {
   if (q.isLoading) {
     return (
       <div className="rise-in">
-        <PageHeader title="Pedometer" emoji="🚶" subtitle="ก้าวเล็ก ๆ ทุกวัน" />
+        <PageHeader title="Pedometer" subtitle="ก้าวเล็ก ๆ ทุกวัน" />
         <LoadingState label="กำลังโหลดข้อมูลก้าวเดิน…" />
       </div>
     );
@@ -71,7 +71,7 @@ function PedometerPage() {
   if (q.isError || !q.data) {
     return (
       <div className="rise-in">
-        <PageHeader title="Pedometer" emoji="🚶" subtitle="ก้าวเล็ก ๆ ทุกวัน" />
+        <PageHeader title="Pedometer" subtitle="ก้าวเล็ก ๆ ทุกวัน" />
         <ErrorState error={q.error} onRetry={() => void q.refetch()} />
       </div>
     );
@@ -82,7 +82,7 @@ function PedometerPage() {
 
   return (
     <div className="rise-in">
-      <PageHeader title="Pedometer" emoji="🚶" subtitle="ก้าวเล็ก ๆ ทุกวัน" />
+      <PageHeader title="Pedometer" subtitle="ก้าวเล็ก ๆ ทุกวัน" />
 
       <GlassCard className="p-6">
         <div className="flex flex-col items-center gap-5 sm:flex-row sm:justify-center sm:gap-8">
@@ -96,7 +96,7 @@ function PedometerPage() {
           <div className="text-center sm:text-left">
             <p className="font-display text-2xl font-bold text-primary">{pct}%</p>
             <p className="max-w-48 text-sm text-muted-foreground">
-              เหลืออีก {Math.max(0, p.goal - p.steps).toLocaleString()} ก้าว สู้ ๆ นะ 💪
+              เหลืออีก {Math.max(0, p.goal - p.steps).toLocaleString()} ก้าว สู้ ๆ นะ
             </p>
           </div>
         </div>

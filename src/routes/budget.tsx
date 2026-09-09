@@ -32,7 +32,7 @@ function BudgetPage() {
 
   return (
     <div className="rise-in">
-      <PageHeader title="Budget Planner" emoji="💰" subtitle="กินดีในงบที่มี" />
+      <PageHeader title="Budget Planner" subtitle="กินดีในงบที่มี" />
 
       <GlassCard className="p-5">
         <div className="flex items-end justify-between gap-3">

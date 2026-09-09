@@ -71,7 +71,7 @@ function StatsPage() {
 
   return (
     <div className="rise-in">
-      <PageHeader title="สถิติ" emoji="📊" subtitle="ภาพรวมผลลัพธ์ของคุณ" />
+      <PageHeader title="สถิติ" subtitle="ภาพรวมผลลัพธ์ของคุณ" />
 
       {t && (
         <div className="mb-4">

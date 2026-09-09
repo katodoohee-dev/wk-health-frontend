@@ -53,7 +53,7 @@ function Home() {
       <header className="flex items-center justify-between py-5">
         <div>
           <div className="label-editorial">WK HEALTH · TODAY</div>
-          <h1 className="mt-1 text-2xl font-bold tracking-tight">สวัสดี {user?.name ?? user?.email ?? "คุณ"} 👋</h1>
+          <h1 className="mt-1 text-2xl font-bold tracking-tight">สวัสดี {user?.name ?? user?.email ?? "คุณ"}</h1>
           <p className="mt-1 text-sm text-muted-foreground">พร้อมดูแลสุขภาพของคุณวันนี้หรือยัง?</p>
         </div>
         <div className="flex items-center gap-2">
@@ -68,7 +68,7 @@ function Home() {
         <div className="relative">
           <div className="flex items-center justify-between">
             <span className="rounded-full bg-white/35 px-3 py-1 font-mono text-[10px] tracking-widest uppercase">Daily Health OS</span>
-            {s?.streak ? <span className="rounded-full bg-white/35 px-3 py-1 font-mono text-[10px]">🔥 {s.streak} day streak</span> : null}
+            {s?.streak ? <span className="rounded-full bg-white/35 px-3 py-1 font-mono text-[10px]">{s.streak} day streak</span> : null}
           </div>
           {stats.isLoading || !s ? <Skeleton className="mt-7 h-24 w-full bg-white/25" /> : stats.isError ? <div className="mt-6 rounded-2xl bg-white/40 p-4"><ErrorState error={stats.error} onRetry={() => void stats.refetch()} /></div> : (
             <div className="mt-7">
@@ -110,7 +110,7 @@ function Home() {
         </div>
       </section>
 
-      {checkin.data && <button onClick={() => !checkin.data!.alreadyCheckedInToday && doCheckin.mutate()} disabled={checkin.data.alreadyCheckedInToday || doCheckin.isPending} className="glass shadow-soft press mt-4 flex w-full items-center justify-between rounded-[1.5rem] p-5 text-left"><span><span className="label-editorial">DAILY CHECK-IN</span><span className="mt-1 block font-medium">{checkin.data.greeting}</span><span className="mt-1 block text-xs text-muted-foreground">Streak {checkin.data.streak} วัน {checkin.data.freezeAvailable > 0 ? `· ❄️ ${checkin.data.freezeAvailable}` : ""}</span></span><span className={`rounded-full px-4 py-2 text-xs font-semibold ${checkin.data.alreadyCheckedInToday ? "bg-live/15 text-live" : "bg-foreground text-background"}`}>{checkin.data.alreadyCheckedInToday ? "เช็คอินแล้ว" : doCheckin.isPending ? "กำลังเช็คอิน…" : "เช็คอิน"}</span></button>}
+      {checkin.data && <button onClick={() => !checkin.data!.alreadyCheckedInToday && doCheckin.mutate()} disabled={checkin.data.alreadyCheckedInToday || doCheckin.isPending} className="glass shadow-soft press mt-4 flex w-full items-center justify-between rounded-[1.5rem] p-5 text-left"><span><span className="label-editorial">DAILY CHECK-IN</span><span className="mt-1 block font-medium">{checkin.data.greeting}</span><span className="mt-1 block text-xs text-muted-foreground">Streak {checkin.data.streak} วัน {checkin.data.freezeAvailable > 0 ? `· freeze ${checkin.data.freezeAvailable}` : ""}</span></span><span className={`rounded-full px-4 py-2 text-xs font-semibold ${checkin.data.alreadyCheckedInToday ? "bg-live/15 text-live" : "bg-foreground text-background"}`}>{checkin.data.alreadyCheckedInToday ? "เช็คอินแล้ว" : doCheckin.isPending ? "กำลังเช็คอิน…" : "เช็คอิน"}</span></button>}
 
       <section className="mt-8">
         <div className="mb-4 flex items-end justify-between"><div><span className="label-editorial">QUICK TOOLS</span><h2 className="mt-1 text-xl font-bold">เครื่องมือของคุณ</h2></div><Link to="/diary" className="text-xs font-semibold text-primary">ดูไดอารี →</Link></div>

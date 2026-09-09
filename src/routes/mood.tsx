@@ -39,7 +39,7 @@ function MoodPage() {
 
   return (
     <div className="rise-in">
-      <PageHeader title="Mood Menu" emoji="💚" subtitle="วันนี้รู้สึกยังไง?" />
+      <PageHeader title="Mood Menu" subtitle="วันนี้รู้สึกยังไง?" />
 
       {moodsQ.isLoading ? (
         <LoadingState label="กำลังโหลดรายการอารมณ์…" />
