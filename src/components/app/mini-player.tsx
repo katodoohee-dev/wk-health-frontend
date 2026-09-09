@@ -1,6 +1,61 @@
+import { useEffect, useRef, useState } from "react";
 import { Link } from "@tanstack/react-router";
-import { Pause, Play, SkipBack, SkipForward, X, Music2 } from "lucide-react";
+import { Pause, Play, SkipBack, SkipForward, X, Music2, Volume2, Volume1, VolumeX } from "lucide-react";
 import { useMusic } from "@/lib/music";
+
+function VolumeControl() {
+  const { volume, muted, setVolume, toggleMute } = useMusic();
+  const [open, setOpen] = useState(false);
+  const wrapRef = useRef<HTMLDivElement | null>(null);
+
+  useEffect(() => {
+    if (!open) return;
+    const onClickAway = (e: MouseEvent) => {
+      if (wrapRef.current && !wrapRef.current.contains(e.target as Node)) setOpen(false);
+    };
+    document.addEventListener("mousedown", onClickAway);
+    return () => document.removeEventListener("mousedown", onClickAway);
+  }, [open]);
+
+  const effective = muted ? 0 : volume;
+  const Icon = effective === 0 ? VolumeX : effective < 0.5 ? Volume1 : Volume2;
+
+  return (
+    <div ref={wrapRef} className="relative">
+      <button
+        onClick={() => setOpen((v) => !v)}
+        onDoubleClick={toggleMute}
+        aria-label={muted ? "ปิดเสียงอยู่ กดเพื่อเปิดเสียง" : "ระดับเสียง"}
+        aria-pressed={muted}
+        className="press grid size-9 shrink-0 place-items-center rounded-xl text-muted-foreground"
+      >
+        <Icon className="size-4" />
+      </button>
+      {open && (
+        <div className="glass-strong absolute bottom-full right-0 mb-2 flex flex-col items-center gap-2 rounded-2xl p-3 shadow-soft">
+          <input
+            type="range"
+            min={0}
+            max={100}
+            step={1}
+            value={Math.round(effective * 100)}
+            onChange={(e) => setVolume(Number(e.target.value) / 100)}
+            aria-label="ปรับระดับเสียงทั้งระบบ"
+            className="h-24 w-2 shrink-0 accent-mint"
+            style={{ writingMode: "vertical-lr", direction: "rtl" }}
+          />
+          <button
+            onClick={toggleMute}
+            className="press grid size-8 place-items-center rounded-lg text-muted-foreground"
+            aria-label={muted ? "เปิดเสียง" : "ปิดเสียง"}
+          >
+            {muted ? <VolumeX className="size-4" /> : <Volume2 className="size-4" />}
+          </button>
+        </div>
+      )}
+    </div>
+  );
+}
 
 export function MiniPlayer() {
   const { current, isPlaying, toggle, next, prev, stop } = useMusic();
@@ -37,6 +92,7 @@ export function MiniPlayer() {
         <button onClick={next} aria-label="เพลงถัดไป" className="press grid size-9 place-items-center rounded-xl">
           <SkipForward className="size-4" />
         </button>
+        <VolumeControl />
         <button onClick={stop} aria-label="ปิดเพลง" className="press grid size-9 place-items-center rounded-xl text-muted-foreground">
           <X className="size-4" />
         </button>
