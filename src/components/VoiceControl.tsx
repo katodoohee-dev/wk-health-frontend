@@ -348,6 +348,9 @@ export function VoiceControl({ profileName, bodyWeightKg, onExercise, onStartGps
         await resolveDestination(a.place);
         return;
       }
+      // FIX: เพิ่มใหม่ — พูดชื่ออาหารแล้วให้ AI วิเคราะห์แคลอรีเองและบันทึกลงไดอารีทันที (ไม่ต้องเข้าแอปกดเอง)
+      // ถ้า AI วิเคราะห์ไม่ได้/ไม่ชัด จะถามกลับด้วยเสียงแทนที่จะเดาสุ่มหรือปล่อยเงียบ
+      if (key === "LOG_FOOD_TEXT") {
         try {
           const result = await apiCalc(a.text);
           if (!result?.name || !(result.kcal > 0)) {
