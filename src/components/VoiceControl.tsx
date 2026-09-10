@@ -180,6 +180,12 @@ export function VoiceControl({ profileName, bodyWeightKg, onExercise, onStartGps
   const speakingRef = useRef(false);
   const restartTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const executeRef = useRef<(text: string) => Promise<void>>(async () => undefined);
+  // FIX: บั๊กใหญ่ 🔴 — เดิมเช็คแค่ finalText (isFinal:true) ถึงจะสั่ง execute ให้ แต่หลายเบราว์เซอร์
+  // (โดยเฉพาะ Chrome บน Android) มักไม่ส่ง final result กลับมาเลยเมื่อผู้ใช้หยุดพูด — แค่ยิง onend
+  // เฉยๆ โดยไม่ finalize คำที่พูด ผลคือข้อความขึ้นเป็น interim ให้เห็นบนจอ แต่ไม่เคยถูกส่งไปประมวลผล
+  // แล้ววนกลับไป "กำลังฟัง..." ใหม่เรื่อยๆ เก็บ transcript ล่าสุดไว้ใน ref เผื่อไว้ใช้ตอน onend
+  const lastTranscriptRef = useRef("");
+  const executedThisRoundRef = useRef(false);
   // FIX: เพิ่มใหม่ — กลไกถาม-ตอบต่อเนื่อง: ถ้าระบบถามคำถามกลับ (เช่น "กี่นาทีครับ") จะเก็บ callback
   // ไว้ตรงนี้ แล้วให้คำพูดรอบถัดไปของผู้ใช้ถูกตีความเป็น "คำตอบ" แทนที่จะตีเป็นคำสั่งใหม่
   const pendingQuestionRef = useRef<((answer: string) => Promise<void>) | null>(null);
@@ -212,7 +218,7 @@ export function VoiceControl({ profileName, bodyWeightKg, onExercise, onStartGps
     r.continuous = false;
     r.interimResults = true;
     r.maxAlternatives = 5;
-    r.onstart = () => setStatus("listening");
+    r.onstart = () => { setStatus("listening"); lastTranscriptRef.current = ""; executedThisRoundRef.current = false; };
     r.onresult = (event: any) => {
       let finalText = "";
       let interim = "";
@@ -221,8 +227,13 @@ export function VoiceControl({ profileName, bodyWeightKg, onExercise, onStartGps
         if (event.results[i].isFinal) finalText += `${s} `;
         else interim += s;
       }
-      setText(finalText.trim() || interim.trim());
-      if (finalText.trim()) void executeRef.current(finalText.trim());
+      const shown = finalText.trim() || interim.trim();
+      setText(shown);
+      lastTranscriptRef.current = shown;
+      if (finalText.trim()) {
+        executedThisRoundRef.current = true;
+        void executeRef.current(finalText.trim());
+      }
     };
     r.onerror = (event: any) => {
       if (!voiceModeRef.current) return;
@@ -240,6 +251,16 @@ export function VoiceControl({ profileName, bodyWeightKg, onExercise, onStartGps
     };
     r.onend = () => {
       recognitionRef.current = null;
+      // FIX: บั๊กใหญ่ 🔴 — ถ้าจบรอบการฟังแล้วยังไม่เคย execute เลย (ไม่มี final result มาตลอด)
+      // แต่มีข้อความ interim ที่พูดไว้ค้างอยู่ ให้ถือว่านั่นคือสิ่งที่ผู้ใช้ต้องการสั่งแล้วส่งไป
+      // ประมวลผลเลย แทนที่จะทิ้งไปเฉยๆ แล้ววนฟังใหม่ไม่รู้จบ
+      if (!executedThisRoundRef.current && lastTranscriptRef.current.trim() && voiceModeRef.current) {
+        const toRun = lastTranscriptRef.current.trim();
+        lastTranscriptRef.current = "";
+        executedThisRoundRef.current = true;
+        void executeRef.current(toRun);
+        return;
+      }
       if (voiceModeRef.current && !speakingRef.current) {
         restartTimerRef.current = setTimeout(startRecognition, 250);
       }
