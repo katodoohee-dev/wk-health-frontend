@@ -68,12 +68,18 @@ export function MiniPlayer() {
     <div className="mx-auto mb-2 w-full max-w-md px-4">
       <div className="glass-strong flex items-center gap-2 rounded-3xl p-2 pl-3 shadow-soft">
         <Link to="/music" className="flex min-w-0 flex-1 items-center gap-2">
+          {/* FIX: เดิมโชว์ไอคอนโน้ตเพลงเปล่าๆ ตลอด ไม่เคยดึงปกเพลงจริงมาแสดงตอนกำลังเล่นอยู่เลย
+              ตอนนี้ถ้าเป็นเพลง YouTube จะดึงปก (ครอปเป็นจัตุรัส) มาโชว์แทน ไม่ใช่ไฟล์เสียงตรงถึงใช้ไอคอนเดิม */}
           <span
-            className={`grid size-9 shrink-0 place-items-center rounded-2xl bg-mint-soft text-mint ${
+            className={`relative grid size-9 shrink-0 place-items-center overflow-hidden rounded-2xl bg-mint-soft text-mint ${
               isPlaying ? "animate-pulse" : ""
             }`}
           >
-            <Music2 className="size-4" />
+            {current.type === "youtube" && current.ytId ? (
+              <img src={`https://img.youtube.com/vi/${current.ytId}/hqdefault.jpg`} alt="" className="absolute inset-0 size-full object-cover" />
+            ) : (
+              <Music2 className="size-4" />
+            )}
           </span>
           <span className="min-w-0">
             <span className="block truncate text-xs font-medium">{current.title}</span>
