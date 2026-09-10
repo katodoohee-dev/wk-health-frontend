@@ -209,8 +209,12 @@ export function LiveTrackMap({ steps, onSessionEnd }: LiveTrackMapProps) {
   return (
     <div className="relative h-[100dvh] w-full overflow-hidden bg-background">
       <div className={`absolute inset-0 transition-all duration-[1200ms] ease-out ${ready ? "scale-100 opacity-100 blur-0" : "scale-[1.08] opacity-0 blur-sm"}`}>
-        <MapContainer center={center} zoom={15} zoomControl={false} attributionControl={false} className="h-full w-full">
-          <TileLayer url="https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png" />
+        <MapContainer center={center} zoom={15} zoomControl={false} attributionControl={true} className="h-full w-full">
+          {/* FIX: บั๊กใหญ่ 🔴 — CARTO เปลี่ยนนโยบายให้ raster basemap เดิม (basemaps.cartocdn.com)
+              ต้องสมัคร API key ก่อนถึงจะใช้ได้ ไม่งั้นจะโชว์ลายน้ำ "API KEY REQUIRED" ทับแผนที่เต็มจอ
+              ตามที่เจอในสกรีนช็อต — เปลี่ยนมาใช้ OpenStreetMap standard tiles ซึ่งฟรีไม่ต้องใช้ key
+              (ต้องเปิด attribution ตามเงื่อนไขการใช้งานของ OSM ด้วย จึงเปิด attributionControl กลับมา) */}
+          <TileLayer url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png" attribution="&copy; OpenStreetMap contributors" />
           <IntroZoom center={center} />
           {track.length > 1 && (<Polyline positions={track.map((p) => [p.lat, p.lng]) as [number, number][]} pathOptions={{ color: "oklch(0.86 0 0)", weight: 14, opacity: 0.12, lineCap: "round" }} />)}
           {segments.map((s, i) => (<Polyline key={i} positions={s.positions} pathOptions={{ color: s.color, weight: 5, opacity: 0.95, lineCap: "round" }} />))}
