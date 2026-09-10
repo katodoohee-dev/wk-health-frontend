@@ -467,6 +467,8 @@ function GpsTracker() {
   const [shareBusy, setShareBusy] = useState(false);
   // FIX: เพิ่มใหม่ — เก็บหมุดเป้าหมายที่มาร์กจากเสียง/ปุ่ม ส่งต่อให้ LiveTrackMap วาดเส้นทาง+ระยะทางให้
   const [destination, setDestinationState] = useState<GeoResult | null>(null);
+  // FIX: เพิ่มใหม่ — เป้าหมายระยะทางวิ่ง/เดินจากเสียง ("อยากวิ่งกี่กิโล") ส่งต่อให้ LiveTrackMap โชว์ progress
+  const [goalKm, setGoalKmState] = useState<number | null>(null);
   const watchRef = useRef<number | null>(null);
 
   const history = useQuery({ queryKey: ["route", "history"], queryFn: apiRouteHistory });
@@ -573,7 +575,7 @@ function GpsTracker() {
   // ลงทะเบียนกับ gpsBridge เพื่อให้สั่งเริ่ม/หยุด/แชร์ตำแหน่งด้วยเสียงได้จริง
   // (เดิมไม่มีบรรทัดนี้ ทำให้สั่งด้วยเสียงไม่มีผลอะไรเลย แม้แชทจะตอบว่าทำสำเร็จ)
   useEffect(() => {
-    gpsBridge.register({ start, stop, shareLocation, setDestination: (dest) => setDestinationState(dest) });
+    gpsBridge.register({ start, stop, shareLocation, setDestination: (dest) => setDestinationState(dest), setGoalKm: (km) => setGoalKmState(km) });
     return () => gpsBridge.unregister();
   }, [start, stop, shareLocation]);
 
@@ -642,7 +644,7 @@ function GpsTracker() {
             {/* LiveTrackMap ทำ geolocation.watchPosition ของตัวเอง ไม่ส่ง onSessionEnd
                 เพราะปุ่ม "หยุด" ด้านบน (stop() → apiRouteStop()) บันทึกจริงอยู่แล้ว —
                 ถ้าส่ง onSessionEnd ด้วยจะเสี่ยงบันทึกซ้ำ 2 ครั้ง ในนี้ทำหน้าที่แค่โชว์แผนที่จริงระหว่างวิ่ง */}
-            <LiveTrackMap steps={points.length} destination={destination} />
+            <LiveTrackMap steps={points.length} destination={destination} goalKm={goalKm} />
           </div>
         )}
         {!routeId && points.length > 0 && (
