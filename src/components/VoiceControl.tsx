@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from "react";
+import { createPortal } from "react-dom";
 import { Mic, Volume2, VolumeX, Loader2, Check, X } from "lucide-react";
 import { useNavigate } from "@tanstack/react-router";
 import { apiFetch, ApiError } from "@/lib/api";
@@ -329,10 +330,15 @@ export function VoiceControl({ profileName, bodyWeightKg, onExercise, onStartGps
     if ("speechSynthesis" in window) window.speechSynthesis.cancel();
   }, [stopRecognition]);
 
-  // UI ถูกลดเหลือแค่ปุ่มเปิด/ปิดปุ่มเดียวตามที่ขอ — ตัด status text / waveform / transcript /
-  // result card / error box / ปุ่ม toggle เสียง AI ออกทั้งหมด แต่ logic เดิม (speech recognition,
-  // intent parsing ผ่าน backend, TTS, การสั่งงานทุก action) ยังทำงานอยู่ครบ 100% ไม่ได้ถูกแตะ
-  return (
+  // FIX: บั๊กใหญ่ 🔴 — เดิม render ปุ่มไมค์ตรงตำแหน่งที่ FloatingControls ถูกวางไว้ในต้นไม้ React
+  // ถ้ามี ancestor ไหนก็ตามที่มี CSS transform (เช่นแอนิเมชัน .rise-in ที่หลายหน้าใช้ห่อทั้งหน้า)
+  // position:fixed ของปุ่มจะเทียบกับ ancestor นั้นแทนที่จะเทียบกับหน้าจอจริง ทำให้ปุ่มลอยไปโผล่
+  // กลางหน้า ทับหัวข้อ/การ์ดแทนที่จะลอยชิดขอบจอ (ตามที่เจอในสกรีนช็อต) — เปลี่ยนมา render ผ่าน
+  // React Portal เข้า document.body ตรงๆ กันปัญหานี้เกิดซ้ำไม่ว่าใครจะห่อ component นี้ด้วยอะไรก็ตาม
+  const [portalReady, setPortalReady] = useState(false);
+  useEffect(() => setPortalReady(true), []);
+
+  const button = (
     <div className="vc-fixed-wrap">
       <button
         type="button"
@@ -347,6 +353,9 @@ export function VoiceControl({ profileName, bodyWeightKg, onExercise, onStartGps
       </button>
     </div>
   );
+
+  if (!portalReady) return null;
+  return createPortal(button, document.body);
 }
 
 export default VoiceControl;
