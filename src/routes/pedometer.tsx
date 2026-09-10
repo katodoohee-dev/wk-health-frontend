@@ -2,7 +2,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { createFileRoute } from "@tanstack/react-router";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Bar, BarChart, ResponsiveContainer, XAxis } from "recharts";
-import { Dumbbell, Flame, Footprints, Loader2, MapPin, Mountain, Play, Plus, Route as RouteIcon, Square, Timer } from "lucide-react";
+import { Dumbbell, Flame, Footprints, Loader2, MapPin, Mountain, Play, Plus, Route as RouteIcon, Share2, Square, Timer } from "lucide-react";
 import { PageHeader, GlassCard, Ring, SectionTitle } from "@/components/app/ui-bits";
 import { ErrorState, LoadingState } from "@/components/app/states";
 import { useAuth } from "@/lib/auth";
@@ -462,6 +462,8 @@ function GpsTracker() {
   const [points, setPoints] = useState<GeoPoint[]>([]);
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
+  const [shareResult, setShareResult] = useState<"shared" | "copied" | null>(null);
+  const [shareBusy, setShareBusy] = useState(false);
   const watchRef = useRef<number | null>(null);
 
   const history = useQuery({ queryKey: ["route", "history"], queryFn: apiRouteHistory });
@@ -523,12 +525,54 @@ function GpsTracker() {
     }
   }, [routeId, points, seconds, qc]);
 
-  // ลงทะเบียนกับ gpsBridge เพื่อให้สั่งเริ่ม/หยุด GPS ด้วยเสียงได้จริง
+  // FIX: เพิ่มใหม่ — เดิมไม่มีทาง "มาร์กเป้าหมาย/แชร์โลเคชั่น" ได้เลย ไม่ว่าจะกดปุ่มหรือสั่งด้วยเสียง
+  // ฟังก์ชันนี้จับพิกัดปัจจุบัน (ไม่ต้องรอ route กำลังบันทึกอยู่ก็ใช้ได้) แล้วสร้างลิงก์ Google Maps
+  // ไปยังพิกัดนั้น (ทำหน้าที่เป็น "หมุดเป้าหมาย" ที่แชร์ต่อได้) — ใช้ Web Share API ถ้าเบราว์เซอร์รองรับ
+  // (เปิด share sheet ของมือถือให้เลือกแอปที่จะส่งต่อ เช่น Line/Messenger) ถ้าไม่รองรับ fallback
+  // เป็นคัดลอกลิงก์เข้าคลิปบอร์ดแทน
+  const shareLocation = useCallback(async () => {
+    setError(null);
+    if (typeof navigator === "undefined" || !navigator.geolocation) {
+      setError("อุปกรณ์นี้ไม่รองรับการระบุตำแหน่ง (GPS)");
+      return;
+    }
+    setShareBusy(true);
+    try {
+      const pos = await new Promise<GeolocationPosition>((resolve, reject) =>
+        navigator.geolocation.getCurrentPosition(resolve, reject, { enableHighAccuracy: true, timeout: 15000 }),
+      );
+      const { latitude, longitude } = pos.coords;
+      const mapsUrl = `https://maps.google.com/?q=${latitude},${longitude}`;
+      const text = `ตำแหน่งปัจจุบันของฉัน: ${mapsUrl}`;
+      if (navigator.share) {
+        await navigator.share({ title: "ตำแหน่งปัจจุบันของฉัน", text: mapsUrl });
+        setShareResult("shared");
+      } else if (navigator.clipboard) {
+        await navigator.clipboard.writeText(text);
+        setShareResult("copied");
+      } else {
+        setError(mapsUrl);
+      }
+      setTimeout(() => setShareResult(null), 3000);
+    } catch (e) {
+      if (e instanceof Error && e.name === "AbortError") {
+        // ผู้ใช้กดยกเลิก share sheet เอง — ไม่ใช่ error ที่ต้องแจ้ง
+      } else if (e instanceof GeolocationPositionError || (e as GeolocationPositionError)?.code) {
+        setError("ไม่สามารถเข้าถึงตำแหน่งได้ กรุณาอนุญาตสิทธิ์ GPS");
+      } else {
+        setError("แชร์ตำแหน่งไม่สำเร็จ ลองใหม่อีกครั้ง");
+      }
+    } finally {
+      setShareBusy(false);
+    }
+  }, []);
+
+  // ลงทะเบียนกับ gpsBridge เพื่อให้สั่งเริ่ม/หยุด/แชร์ตำแหน่งด้วยเสียงได้จริง
   // (เดิมไม่มีบรรทัดนี้ ทำให้สั่งด้วยเสียงไม่มีผลอะไรเลย แม้แชทจะตอบว่าทำสำเร็จ)
   useEffect(() => {
-    gpsBridge.register({ start, stop });
+    gpsBridge.register({ start, stop, shareLocation });
     return () => gpsBridge.unregister();
-  }, [start, stop]);
+  }, [start, stop, shareLocation]);
 
   return (
     <>
@@ -574,6 +618,19 @@ function GpsTracker() {
             {routeId ? "หยุด" : "เริ่ม"}
           </button>
         </div>
+        <button
+          onClick={() => void shareLocation()}
+          disabled={shareBusy}
+          className="press glass mt-3 flex w-full items-center justify-center gap-2 rounded-2xl py-3 text-sm font-medium disabled:opacity-60"
+        >
+          {shareBusy ? <Loader2 className="size-4 animate-spin" /> : <Share2 className="size-4" />}
+          แชร์ตำแหน่งปัจจุบัน
+        </button>
+        {shareResult && (
+          <p className="mt-2 text-center text-xs text-mint">
+            {shareResult === "shared" ? "แชร์ตำแหน่งสำเร็จ ✓" : "คัดลอกลิงก์ตำแหน่งแล้ว ✓"}
+          </p>
+        )}
         {error && (
           <p className="mt-3 rounded-2xl bg-destructive/10 px-3 py-2.5 text-sm text-destructive">{error}</p>
         )}
