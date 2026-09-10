@@ -5,12 +5,14 @@ type GpsHandlers = {
   stop: () => void | Promise<void>;
   shareLocation?: () => void | Promise<void>;
   setDestination?: (dest: GpsDestination) => void | Promise<void>;
+  setGoalKm?: (km: number) => void | Promise<void>;
 };
 
 let handlers: GpsHandlers | null = null;
 let pendingStart = false;
 let pendingShare = false;
 let pendingDestination: GpsDestination | null = null;
+let pendingGoalKm: number | null = null;
 
 export const gpsBridge = {
   register(h: GpsHandlers) {
@@ -27,6 +29,11 @@ export const gpsBridge = {
       const dest = pendingDestination;
       pendingDestination = null;
       void h.setDestination(dest);
+    }
+    if (pendingGoalKm !== null && h.setGoalKm) {
+      const km = pendingGoalKm;
+      pendingGoalKm = null;
+      void h.setGoalKm(km);
     }
   },
   unregister() {
@@ -66,6 +73,15 @@ export const gpsBridge = {
       return false;
     }
     await handlers.setDestination(dest);
+    return true;
+  },
+  // FIX: เพิ่มใหม่ — ตั้งเป้าหมายระยะทางวิ่ง/เดินจากเสียง (เช่น "อยากวิ่งกี่กิโล" -> ตอบ 5 -> เป้าหมาย 5 กม.)
+  async setGoalKm(km: number) {
+    if (!handlers?.setGoalKm) {
+      pendingGoalKm = km;
+      return false;
+    }
+    await handlers.setGoalKm(km);
     return true;
   },
 };
