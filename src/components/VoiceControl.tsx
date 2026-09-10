@@ -195,8 +195,16 @@ export function VoiceControl({ profileName, bodyWeightKg, onExercise, onStartGps
 
   const startRecognition = useCallback(() => {
     if (!voiceModeRef.current || speakingRef.current) return;
+    // FIX: เพิ่มใหม่ — Web Speech API ต้องใช้บน HTTPS (หรือ localhost) เท่านั้น ถ้าเปิดผ่าน HTTP
+    // เฉยๆ (เช่น IP วง LAN ตอน dev) เบราว์เซอร์จะไม่มี SpeechRecognition ให้เลยแบบเงียบๆ
+    // เดิมข้อความ error ก็ไม่เคยถูกแสดงผลอยู่แล้ว (ดู FIX ที่ปุ่มไมค์ด้านล่าง) ผู้ใช้เลยไม่รู้สาเหตุ
+    if (!window.isSecureContext) {
+      setStatus("error");
+      setReply("ต้องเปิดผ่าน HTTPS ถึงจะใช้สั่งงานด้วยเสียงได้ครับ");
+      return;
+    }
     const SR = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
-    if (!SR) { setStatus("error"); setReply("เบราว์เซอร์นี้ไม่รองรับการสั่งงานด้วยเสียงครับ"); return; }
+    if (!SR) { setStatus("error"); setReply("เบราว์เซอร์นี้ไม่รองรับการสั่งงานด้วยเสียงครับ ลองใช้ Chrome ดูนะครับ"); return; }
 
     stopRecognition();
     const r = new SR();
@@ -495,8 +503,34 @@ export function VoiceControl({ profileName, bodyWeightKg, onExercise, onStartGps
   const [portalReady, setPortalReady] = useState(false);
   useEffect(() => setPortalReady(true), []);
 
+  // FIX: บั๊กใหญ่ 🔴 — ปุ่มไมค์ทำงานจริงเบื้องหลัง (เริ่มฟัง/ประมวลผล/ตอบกลับ) แต่ไม่เคย render
+  // สถานะ (status) หรือข้อความตอบกลับ (reply) ให้ผู้ใช้เห็นเลยสักที่ — ผู้ใช้กดแล้วเห็นแค่ไอคอน
+  // เปลี่ยนไปมา ไม่รู้ว่ากำลังฟังอยู่ไหม ได้ยินว่าอะไร หรือ error อะไร (เช่น เบราว์เซอร์ไม่รองรับ,
+  // ไม่ได้อนุญาตไมค์) เพิ่มแผงข้อความสถานะข้างปุ่ม ใช้ class ที่มี CSS รองรับอยู่แล้วใน voice-control.css
+  const statusDotClass =
+    status === "error" ? "vc-dot-error" :
+    status === "processing" ? "vc-dot-processing" :
+    status === "listening" || status === "success" ? "vc-dot-listening" : "vc-dot-idle";
+
   const button = (
-    <div className="vc-fixed-wrap">
+    <div className="vc-fixed-wrap" style={{ flexDirection: "column", alignItems: "flex-end", gap: 8 }}>
+      {voiceMode && (reply || text || status !== "idle") && (
+        <div className="vc-bar glass vc-rise-in" style={{ padding: "10px 14px", maxWidth: 260 }}>
+          <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+            <span className={`vc-dot ${statusDotClass}`} />
+            <div className="vc-status-text">
+              <p className={status === "error" ? "vc-error-text" : ""}>
+                {status === "listening" && !text ? "กำลังฟัง..." : status === "processing" ? "กำลังประมวลผล..." : (reply || text || "พร้อมฟังครับ")}
+              </p>
+            </div>
+          </div>
+          {text && status !== "idle" && (
+            <div className="vc-transcript-box">
+              <p>{text}</p>
+            </div>
+          )}
+        </div>
+      )}
       <button
         type="button"
         className={`vc-mic-btn vc-toggle-only ${voiceMode && status === "listening" ? "vc-breathe" : ""}`}
