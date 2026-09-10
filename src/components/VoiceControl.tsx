@@ -21,7 +21,7 @@ type VoiceControlProps = {
 };
 
 type VoiceAction =
-  | { action: "START_WALK" | "START_RUN" | "START_CYCLE" | "START_GPS" }
+  | { action: "START_WALK" | "START_RUN" | "START_CYCLE" | "START_GPS"; km?: number }
   | { action: "STOP_WALK" | "STOP_RUN" | "STOP_CYCLE" | "STOP_GPS" }
   | { action: "PLAY_MUSIC" | "PAUSE_MUSIC" | "STOP_MUSIC" | "NEXT_MUSIC" | "PREVIOUS_MUSIC" }
   | { action: "OPEN_MUSIC" | "OPEN_DIARY" | "OPEN_STATS" | "OPEN_SCAN" | "OPEN_BARCODE" | "OPEN_PEDOMETER" | "OPEN_ASSISTANT" | "OPEN_PROFILE" }
@@ -99,8 +99,9 @@ function localActions(text: string): VoiceAction[] {
   if (destMatch) out.push({ action: "SET_DESTINATION", place: (destMatch[1] || "").trim() });
   if (/(มาร์กเป้าหมาย|ปักหมุด)/i.test(t) && !destMatch) out.push({ action: "SET_DESTINATION", place: "" });
   if (/(หยุดเดิน|หยุดวิ่ง|หยุดปั่น|หยุดบันทึกเส้นทาง|หยุดออกกำลังกาย|พอแล้ว)/i.test(t)) out.push({ action: "STOP_GPS" });
-  if (/(เริ่มเดิน|ออกไปเดิน|เดินกัน|เริ่มวิ่ง|ออกไปวิ่ง|เริ่มปั่น|เริ่มออกกำลังกาย|เริ่มบันทึกเส้นทาง|ไปออกกำลังกัน)/i.test(t)) {
-    out.push({ action: /วิ่ง/.test(t) ? "START_RUN" : /ปั่น/.test(t) ? "START_CYCLE" : "START_WALK" });
+  if (/(เริ่มเดิน|ออกไปเดิน|เดินกัน|เริ่มวิ่ง|ออกไปวิ่ง|ไปวิ่ง|อยากวิ่ง|วิ่งนับก้าว|ไปวิ่งนับก้าว|เริ่มปั่น|เริ่มออกกำลังกาย|เริ่มบันทึกเส้นทาง|ไปออกกำลังกัน|อยากเดิน|ไปเดินนับก้าว)/i.test(t)) {
+    const kmMatch = t.match(/(\d+(?:\.\d+)?)\s*(กิโล|กม|km)/i);
+    out.push({ action: /วิ่ง/.test(t) ? "START_RUN" : /ปั่น/.test(t) ? "START_CYCLE" : "START_WALK", km: kmMatch ? Number(kmMatch[1]) : undefined });
   }
   if (/(กี่แคล|แคลอรี|แคลอรี่|พลังงานวันนี้)/i.test(t) && !/(เพิ่ม|บวก)/i.test(t)) out.push({ action: "SHOW_CALORIES" });
   if (/(กี่ก้าว|จำนวนก้าว|เดินไปกี่ก้าว)/i.test(t)) out.push({ action: "SHOW_STEPS" });
@@ -273,7 +274,25 @@ export function VoiceControl({ profileName, bodyWeightKg, onExercise, onStartGps
       const key = a.action;
       emit(a);
       if (key === "OPEN_PROFILE") { onOpenProfileModal(); completed++; continue; }
-      if (key === "START_WALK" || key === "START_RUN" || key === "START_CYCLE" || key === "START_GPS") { onStartGps(); completed++; continue; }
+      if (key === "START_WALK" || key === "START_RUN" || key === "START_CYCLE" || key === "START_GPS") {
+        // FIX: เพิ่มใหม่ — "อยากวิ่งกี่กิโล" ตามที่ขอ: ถ้าสั่งวิ่ง/เดิน/ปั่นแต่ไม่ได้บอกระยะทางมาด้วย
+        // ให้ถามกลับก่อนเริ่ม GPS จริง (START_GPS ที่มาจากปุ่มกดตรงๆ ไม่ต้องถาม เพราะเป็นคำสั่งกดปุ่ม)
+        const activityLabel = key === "START_RUN" ? "วิ่ง" : key === "START_CYCLE" ? "ปั่นจักรยาน" : "เดิน";
+        const askKmThenStart = async (answer: string) => {
+          const amt = parseCalorieAmount(answer);
+          if (amt !== null && amt > 0) await gpsBridge.setGoalKm(amt);
+          onStartGps();
+          speakThai(amt ? `เริ่ม${activityLabel} เป้าหมาย ${amt} กิโลครับ ลุยเลย!` : `เริ่ม${activityLabel}ให้แล้วครับ`);
+        };
+        if (key !== "START_GPS" && a.km === undefined) {
+          speakThai(`อยาก${activityLabel}กี่กิโลครับ`);
+          pendingQuestionRef.current = askKmThenStart;
+          return;
+        }
+        if (a.km) await gpsBridge.setGoalKm(a.km);
+        onStartGps();
+        completed++; continue;
+      }
       if (key === "STOP_WALK" || key === "STOP_RUN" || key === "STOP_CYCLE" || key === "STOP_GPS") { onStopGps(); completed++; continue; }
       if (key === "SHARE_LOCATION") { await gpsBridge.shareLocation(); completed++; continue; }
       if (key === "ADD_CALORIES") {
