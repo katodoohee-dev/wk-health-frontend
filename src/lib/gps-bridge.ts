@@ -1,13 +1,16 @@
 /** Shared bridge between the global voice controller and the GPS tracker. */
+export type GpsDestination = { lat: number; lng: number; label: string };
 type GpsHandlers = {
   start: () => void | Promise<void>;
   stop: () => void | Promise<void>;
   shareLocation?: () => void | Promise<void>;
+  setDestination?: (dest: GpsDestination) => void | Promise<void>;
 };
 
 let handlers: GpsHandlers | null = null;
 let pendingStart = false;
 let pendingShare = false;
+let pendingDestination: GpsDestination | null = null;
 
 export const gpsBridge = {
   register(h: GpsHandlers) {
@@ -19,6 +22,11 @@ export const gpsBridge = {
     if (pendingShare && h.shareLocation) {
       pendingShare = false;
       void h.shareLocation();
+    }
+    if (pendingDestination && h.setDestination) {
+      const dest = pendingDestination;
+      pendingDestination = null;
+      void h.setDestination(dest);
     }
   },
   unregister() {
@@ -48,6 +56,16 @@ export const gpsBridge = {
       return false;
     }
     await handlers.shareLocation();
+    return true;
+  },
+  // FIX: เพิ่มใหม่ — "มาร์กเป้าหมาย" ที่ผู้ใช้ขอ: ปักหมุดเป้าหมายจากเสียง แล้วให้หน้า GPS
+  // (ซึ่งอาจยังไม่ได้เปิดอยู่ตอนสั่งเสียง) รับพิกัดไปวาดหมุด+เส้นทาง+ระยะทางให้เมื่อเปิดหน้าขึ้นมา
+  async setDestination(dest: GpsDestination) {
+    if (!handlers?.setDestination) {
+      pendingDestination = dest;
+      return false;
+    }
+    await handlers.setDestination(dest);
     return true;
   },
 };
