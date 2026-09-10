@@ -13,6 +13,8 @@ type LiveTrackMapProps = {
   onSessionEnd?: (summary: { distanceKm: number; durationSec: number; steps: number; avgSpeedKmh: number; track: TrackPoint[]; }) => void;
   /** หมุดเป้าหมายจาก "มาร์กเป้าหมาย/นำทางไป..." (ปักผ่านเสียงหรือปุ่มก็ได้) */
   destination?: GeoResult | null;
+  /** เป้าหมายระยะทาง (กม.) จาก "อยากวิ่งกี่กิโล" — โชว์ progress + พูดประกาศตอนถึงเป้า */
+  goalKm?: number | null;
 };
 
 const SPEED_MIN = 0.5;
@@ -157,12 +159,28 @@ function Sparkline({ values, live }: { values: number[]; live: number }) {
   );
 }
 
-export function LiveTrackMap({ steps, onSessionEnd, destination }: LiveTrackMapProps) {
+export function LiveTrackMap({ steps, onSessionEnd, destination, goalKm }: LiveTrackMapProps) {
   const { track, currentPos, heading, speed, distanceKm, avgSpeedKmh, startedAt, error } = useLiveGps();
   const [follow, setFollow] = useState(true);
   const [recenterKey, setRecenterKey] = useState(0);
   const [ready, setReady] = useState(false);
   const [durationSec, setDurationSec] = useState(0);
+  const goalAnnouncedRef = useRef(false);
+
+  // FIX: เพิ่มใหม่ — "อยากวิ่งกี่กิโล" -> ตั้งเป้าไว้แล้ว พอระยะทางที่วิ่งจริงถึงเป้าหมาย ให้พูดประกาศ
+  // ทันที (แยกจากระบบเสียงหลักโดยตั้งใจ เพราะต้องพูดตอนกำลังวิ่งอยู่ ไม่ใช่ตอนตอบคำสั่ง — เรียก
+  // SpeechSynthesis ตรงๆ ที่นี่ ไม่ผ่าน VoiceControl เพื่อไม่ต้องพึ่งว่าโหมดฟังเสียงเปิดอยู่หรือไม่)
+  useEffect(() => {
+    if (!goalKm || goalKm <= 0 || goalAnnouncedRef.current) return;
+    if (distanceKm >= goalKm) {
+      goalAnnouncedRef.current = true;
+      if ("speechSynthesis" in window) {
+        const u = new SpeechSynthesisUtterance(`ถึงเป้าหมาย ${goalKm} กิโลเมตรแล้วครับ เก่งมาก!`);
+        u.lang = "th-TH";
+        window.speechSynthesis.speak(u);
+      }
+    }
+  }, [distanceKm, goalKm]);
 
   useEffect(() => { const id = setTimeout(() => setReady(true), 60); return () => clearTimeout(id); }, []);
   useEffect(() => { const id = setInterval(() => setDurationSec(Math.floor((Date.now() - startedAt) / 1000)), 1000); return () => clearInterval(id); }, [startedAt]);
@@ -251,6 +269,14 @@ export function LiveTrackMap({ steps, onSessionEnd, destination }: LiveTrackMapP
             <div>
               <p className="text-[10px] tracking-[0.2em] text-mint/75 uppercase">distance</p>
               <p className="font-display text-5xl leading-none font-semibold tracking-tight">{distanceKm.toFixed(2)}<span className="ml-1 text-base font-medium text-foreground/50">km</span></p>
+              {goalKm ? (
+                <div className="mt-1.5 w-28">
+                  <div className="h-1.5 w-full overflow-hidden rounded-full bg-[color-mix(in_oklab,white_10%,transparent)]">
+                    <div className="h-full rounded-full bg-mint transition-all" style={{ width: `${Math.min(100, (distanceKm / goalKm) * 100)}%` }} />
+                  </div>
+                  <p className="mt-0.5 text-[10px] text-foreground/50">เป้าหมาย {goalKm} km</p>
+                </div>
+              ) : null}
             </div>
             <div className="text-right">
               <p className="text-[10px] tracking-[0.2em] text-aqua/75 uppercase">pace now</p>
