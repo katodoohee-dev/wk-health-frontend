@@ -39,6 +39,14 @@
 .vc-fixed-wrap .vc-bar {
   pointer-events: auto;
 }
+/* FIX: บั๊กใหญ่ 🔴 — ปุ่มไมค์ (.vc-mic-btn) เป็นลูกตรงของ .vc-fixed-wrap โดยไม่ได้ห่อด้วย .vc-bar
+   เดิม .vc-fixed-wrap ตั้ง pointer-events: none ไว้เพื่อไม่ให้กล่อง wrapper เปล่าบัง element อื่น
+   แต่ pointer-events เป็นพรอพเพอร์ตี้ที่ inherit ลงลูกอัตโนมัติ ปุ่มไมค์เลยรับค่า none มาด้วย
+   ทำให้กดปุ่มไม่ติดเลย คลิก/แตะจะทะลุไปโดน element ที่อยู่ข้างใต้แทน (เหมือนปุ่มถูกบังทั้งที่มองเห็น)
+   แก้โดยเปิด pointer-events: auto ให้ปุ่มไมค์โดยตรง ไม่ต้องพึ่งการห่อด้วย .vc-bar */
+.vc-fixed-wrap .vc-mic-btn {
+  pointer-events: auto;
+}
 
 .vc-bar.glass {
   width: 100%;
