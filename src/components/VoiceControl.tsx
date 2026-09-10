@@ -150,12 +150,21 @@ async function askThaiAssistant(text: string) {
 
 function emit(action: VoiceAction) { window.dispatchEvent(new CustomEvent("wk:voice-action", { detail: action })); }
 
-function chooseThaiVoice() {
+function chooseThaiVoice(preferMale = true) {
   if (!("speechSynthesis" in window)) return null;
   const voices = window.speechSynthesis.getVoices();
-  return voices.find((v) => /^th[-_]/i.test(v.lang))
-    ?? voices.find((v) => v.lang.toLowerCase().startsWith("th"))
-    ?? voices.find((v) => /thai|ไทย/i.test(v.name));
+  const thaiVoices = voices.filter(
+    (v) => /^th[-_]/i.test(v.lang) || v.lang.toLowerCase().startsWith("th") || /thai|ไทย/i.test(v.name)
+  );
+  const pool = thaiVoices.length ? thaiVoices : voices;
+  if (preferMale) {
+    // FIX: เพิ่มใหม่ — ผู้ใช้ขอเสียงผู้ชายเข้มๆ แทนเสียงเริ่มต้น (ส่วนใหญ่ระบบมักให้เสียงผู้หญิงมาก่อน
+    // เพราะเรียงตาม index แรกที่เจอ) หาเสียงที่ชื่อมีคำว่า male/ชาย ก่อน ถ้าไม่เจอเลยค่อย fallback
+    // ไปใช้เสียงไทยตัวแรกที่มี แล้วไปปรับ pitch ให้ทุ้มขึ้นแทนตอนเรียก speak() แทน
+    const male = pool.find((v) => /male/i.test(v.name) && !/female/i.test(v.name));
+    if (male) return male;
+  }
+  return thaiVoices[0] ?? voices.find((v) => v.lang.toLowerCase().startsWith("en")) ?? voices[0] ?? null;
 }
 
 function detectSlot(date = new Date()): string {
@@ -266,7 +275,27 @@ export function VoiceControl({ profileName, bodyWeightKg, onExercise, onStartGps
       }
     };
     recognitionRef.current = r;
-    try { r.start(); } catch { recognitionRef.current = null; }
+    // FIX: บั๊กใหญ่ 🔴 — เดิม catch เงียบๆ ไม่ทำอะไรเลยถ้า r.start() throw (เช่น InvalidStateError
+    // ตอนตัวเก่ายังไม่ทัน stop สนิทเพราะ stop() เป็น async) ผลคือ onstart ไม่เคยถูกเรียก สถานะเลย
+    // ค้างเป็น "idle" (โชว์ "พร้อมฟังครับ") ตลอดไป ทั้งที่ voiceMode เปิดอยู่ ดูเหมือนกดแล้วไม่ทำงาน
+    // แก้โดยลองใหม่อัตโนมัติแทนที่จะปล่อยค้าง และแจ้งผู้ใช้ถ้าลองซ้ำแล้วยังไม่ได้จริงๆ
+    try {
+      r.start();
+    } catch {
+      recognitionRef.current = null;
+      if (voiceModeRef.current) {
+        restartTimerRef.current = setTimeout(() => {
+          if (!voiceModeRef.current) return;
+          try {
+            r.start();
+            recognitionRef.current = r;
+          } catch {
+            setStatus("error");
+            setReply("เริ่มฟังไม่สำเร็จครับ ลองปิดแล้วเปิดปุ่มไมค์ใหม่อีกครั้ง");
+          }
+        }, 300);
+      }
+    }
   }, [stopRecognition]);
 
   const speakThai = useCallback((message: string) => {
@@ -282,9 +311,13 @@ export function VoiceControl({ profileName, bodyWeightKg, onExercise, onStartGps
     window.speechSynthesis.cancel();
     const utterance = new SpeechSynthesisUtterance(message);
     utterance.lang = "th-TH";
-    utterance.rate = 0.95;
-    utterance.pitch = 1;
-    const voice = chooseThaiVoice();
+    utterance.rate = 0.92;
+    const voice = chooseThaiVoice(true);
+    // FIX: เพิ่มใหม่ — ตั้งเสียงระบบให้ทุ้ม/เข้มขึ้นตามที่ผู้ใช้ขอ ถ้าเจอเสียงผู้ชายจริงในเครื่อง
+    // ก็ยังลด pitch อีกนิดให้ฟังดูหนักแน่นขึ้น แต่ถ้าเจอแค่เสียงผู้หญิง (กรณีส่วนใหญ่ของเสียงไทยใน
+    // เบราว์เซอร์) จะลด pitch ลงมากกว่าเพื่อให้ได้โทนเสียงทุ้มเข้มใกล้เคียงเสียงผู้ชายที่สุด
+    const isKnownMale = voice ? /male/i.test(voice.name) && !/female/i.test(voice.name) : false;
+    utterance.pitch = isKnownMale ? 0.75 : 0.55;
     if (voice) utterance.voice = voice;
     utterance.onend = () => {
       speakingRef.current = false;
