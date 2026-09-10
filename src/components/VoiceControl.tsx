@@ -2,7 +2,8 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { Mic, Volume2, VolumeX, Loader2, Check, X } from "lucide-react";
 import { useNavigate } from "@tanstack/react-router";
-import { apiFetch, ApiError } from "@/lib/api";
+import { apiCalc, apiFetch, ApiError } from "@/lib/api";
+import { apiSaveMeal } from "@/lib/meal-save";
 import { apiAssistantChatWithContext } from "@/lib/website-ai-context";
 import { gpsBridge } from "@/lib/gps-bridge";
 import "./voice-control.css";
@@ -25,6 +26,9 @@ type VoiceAction =
   | { action: "OPEN_MUSIC" | "OPEN_DIARY" | "OPEN_STATS" | "OPEN_SCAN" | "OPEN_BARCODE" | "OPEN_PEDOMETER" | "OPEN_ASSISTANT" | "OPEN_PROFILE" }
   | { action: "EXERCISE"; activity: string; duration_min: number; mets: number }
   | { action: "SHARE_LOCATION" }
+  | { action: "LOG_FOOD_TEXT"; text: string }
+  | { action: "ADD_CALORIES"; amount: number }
+  | { action: "REMOVE_CAL_UNSUPPORTED" }
   | { action: "SHOW_CALORIES" | "SHOW_STEPS" | "SAVE_MEAL" | "NONE" };
 
 const DEEPSEEK_ENDPOINT = "https://kasidathdeepseek.katodoohee.workers.dev";
@@ -62,6 +66,15 @@ function durationMin(text: string) {
   return null;
 }
 
+function parseCalorieAmount(text: string): number | null {
+  const n = text
+    .replace(/สิบ/g, "10").replace(/หนึ่ง/g, "1").replace(/สอง/g, "2").replace(/สาม/g, "3")
+    .replace(/สี่/g, "4").replace(/ห้า/g, "5").replace(/หก/g, "6").replace(/เจ็ด/g, "7")
+    .replace(/แปด/g, "8").replace(/เก้า/g, "9").replace(/ร้อย/g, "00");
+  const m = n.match(/(\d+)/);
+  return m ? Number(m[1]) : null;
+}
+
 function localActions(text: string): VoiceAction[] {
   const t = text.toLowerCase(); const out: VoiceAction[] = [];
   if (/(เพลงถัดไป|เพลงต่อไป|ข้ามเพลง|เปลี่ยนเพลง|next)/i.test(t)) out.push({ action: "NEXT_MUSIC" });
@@ -82,8 +95,23 @@ function localActions(text: string): VoiceAction[] {
   if (/(เริ่มเดิน|ออกไปเดิน|เดินกัน|เริ่มวิ่ง|ออกไปวิ่ง|เริ่มปั่น|เริ่มออกกำลังกาย|เริ่มบันทึกเส้นทาง|ไปออกกำลังกัน)/i.test(t)) {
     out.push({ action: /วิ่ง/.test(t) ? "START_RUN" : /ปั่น/.test(t) ? "START_CYCLE" : "START_WALK" });
   }
-  if (/(กี่แคล|แคลอรี|แคลอรี่|พลังงานวันนี้)/i.test(t)) out.push({ action: "SHOW_CALORIES" });
+  if (/(กี่แคล|แคลอรี|แคลอรี่|พลังงานวันนี้)/i.test(t) && !/(เพิ่ม|บวก)/i.test(t)) out.push({ action: "SHOW_CALORIES" });
   if (/(กี่ก้าว|จำนวนก้าว|เดินไปกี่ก้าว)/i.test(t)) out.push({ action: "SHOW_STEPS" });
+
+  // FIX: เพิ่มใหม่ — เดิมสั่งเสียงบันทึกอาหาร/ปรับแคลไม่ได้เลย ต้องเข้าแอปกดเองเท่านั้น
+  // "เพิ่มแคล 300" / "บวกแคล 300" -> บันทึกรายการแคลอรีด้วยตัวเลขที่พูดตรงๆ (ไม่ผ่าน AI วิเคราะห์อาหาร)
+  const addCalMatch = /(เพิ่มแคล|บวกแคล|เพิ่มพลังงาน)/i.test(t);
+  if (addCalMatch) {
+    const amount = parseCalorieAmount(t);
+    out.push(amount !== null ? { action: "ADD_CALORIES", amount } : { action: "ADD_CALORIES", amount: -1 });
+  }
+  // "ลบแคล/หักแคล" — backend ยังไม่มี endpoint ลบ/หักรายการไดอารี ตอนนี้ทำได้แค่ "เพิ่ม" เท่านั้น
+  // ไม่ทำเป็น ADD_CALORIES ปลอมๆ เพราะจะลวงว่าลบสำเร็จทั้งที่ไม่ได้ลบจริง ให้ไปตอบอธิบายตรงๆ ผ่าน NONE -> AI ตอบ
+  // "กิน.../ทาน..." — พูดชื่ออาหารแล้วให้ AI วิเคราะห์แคลอรีเองและบันทึกลงไดอารีให้ทันที
+  if (!addCalMatch && !/(ลบแคล|หักแคล|ลดแคล)/i.test(t) && /(กิน|ทาน)/i.test(t) && !/(หยุดกิน)/i.test(t)) {
+    out.push({ action: "LOG_FOOD_TEXT", text });
+  }
+  if (/(ลบแคล|หักแคล|ลดแคล)/i.test(t)) out.push({ action: "REMOVE_CAL_UNSUPPORTED" });
   return out;
 }
 
@@ -122,6 +150,14 @@ function chooseThaiVoice() {
     ?? voices.find((v) => /thai|ไทย/i.test(v.name));
 }
 
+function detectSlot(date = new Date()): string {
+  const h = date.getHours();
+  if (h >= 5 && h < 10) return "มื้อเช้า";
+  if (h >= 10 && h < 14) return "มื้อกลางวัน";
+  if (h >= 17 && h < 21) return "มื้อเย็น";
+  return "ของว่าง";
+}
+
 export function VoiceControl({ profileName, bodyWeightKg, onExercise, onStartGps, onStopGps, onOpenProfileModal }: VoiceControlProps) {
   const navigate = useNavigate();
   const [status, setStatus] = useState<Status>("idle");
@@ -136,6 +172,9 @@ export function VoiceControl({ profileName, bodyWeightKg, onExercise, onStartGps
   const speakingRef = useRef(false);
   const restartTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const executeRef = useRef<(text: string) => Promise<void>>(async () => undefined);
+  // FIX: เพิ่มใหม่ — กลไกถาม-ตอบต่อเนื่อง: ถ้าระบบถามคำถามกลับ (เช่น "กี่นาทีครับ") จะเก็บ callback
+  // ไว้ตรงนี้ แล้วให้คำพูดรอบถัดไปของผู้ใช้ถูกตีความเป็น "คำตอบ" แทนที่จะตีเป็นคำสั่งใหม่
+  const pendingQuestionRef = useRef<((answer: string) => Promise<void>) | null>(null);
 
   useEffect(() => { voiceModeRef.current = voiceMode; }, [voiceMode]);
   useEffect(() => { ttsRef.current = tts; }, [tts]);
@@ -230,6 +269,57 @@ export function VoiceControl({ profileName, bodyWeightKg, onExercise, onStartGps
       if (key === "START_WALK" || key === "START_RUN" || key === "START_CYCLE" || key === "START_GPS") { onStartGps(); completed++; continue; }
       if (key === "STOP_WALK" || key === "STOP_RUN" || key === "STOP_CYCLE" || key === "STOP_GPS") { onStopGps(); completed++; continue; }
       if (key === "SHARE_LOCATION") { await gpsBridge.shareLocation(); completed++; continue; }
+      if (key === "ADD_CALORIES") {
+        if (a.amount < 0) {
+          speakThai("เพิ่มแคลกี่แคลครับ บอกตัวเลขมาได้เลย");
+          pendingQuestionRef.current = async (answer: string) => {
+            const amt = parseCalorieAmount(answer);
+            if (amt === null) { speakThai("ไม่เข้าใจตัวเลขครับ ลองพูดใหม่อีกครั้ง"); return; }
+            try {
+              await apiSaveMeal({ foodName: "รายการที่เพิ่มด้วยเสียง", calories: amt, slot: detectSlot(), meal: detectSlot(), description: "เพิ่มแคลด้วยเสียง", source: "manual" });
+              speakThai(`เพิ่ม ${amt} แคลให้แล้วครับ`);
+            } catch {
+              speakThai("บันทึกแคลไม่สำเร็จครับ ลองใหม่อีกครั้ง");
+            }
+          };
+          return;
+        }
+        try {
+          await apiSaveMeal({ foodName: "รายการที่เพิ่มด้วยเสียง", calories: a.amount, slot: detectSlot(), meal: detectSlot(), description: "เพิ่มแคลด้วยเสียง", source: "manual" });
+          speakThai(`เพิ่ม ${a.amount} แคลให้แล้วครับ`);
+        } catch {
+          speakThai("บันทึกแคลไม่สำเร็จครับ ลองใหม่อีกครั้ง");
+        }
+        return;
+      }
+      // FIX: เพิ่มใหม่ — พูดชื่ออาหารแล้วให้ AI วิเคราะห์แคลอรีเองและบันทึกลงไดอารีทันที (ไม่ต้องเข้าแอปกดเอง)
+      // ถ้า AI วิเคราะห์ไม่ได้/ไม่ชัด จะถามกลับด้วยเสียงแทนที่จะเดาสุ่มหรือปล่อยเงียบ
+      if (key === "REMOVE_CAL_UNSUPPORTED") {
+        speakThai("ตอนนี้ระบบยังลบหรือหักแคลไม่ได้ครับ เพิ่มแคลได้อย่างเดียว ต้องเข้าแอปไปลบรายการเองก่อนนะครับ");
+        return;
+      }
+        try {
+          const result = await apiCalc(a.text);
+          if (!result?.name || !(result.kcal > 0)) {
+            speakThai("ไม่แน่ใจว่ากินอะไรครับ บอกเมนูให้ชัดอีกนิดได้ไหม");
+            pendingQuestionRef.current = async (answer: string) => {
+              try {
+                const r2 = await apiCalc(answer);
+                await apiSaveMeal({ foodName: r2.name, calories: r2.kcal, protein: r2.protein, carbs: r2.carb, fat: r2.fat, slot: detectSlot(), meal: detectSlot(), description: answer, source: "manual" });
+                speakThai(`บันทึก ${r2.name} ${r2.kcal} แคลให้แล้วครับ`);
+              } catch {
+                speakThai("บันทึกอาหารไม่สำเร็จครับ ลองใหม่อีกครั้ง");
+              }
+            };
+            return;
+          }
+          await apiSaveMeal({ foodName: result.name, calories: result.kcal, protein: result.protein, carbs: result.carb, fat: result.fat, slot: detectSlot(), meal: detectSlot(), description: a.text, source: "manual" });
+          speakThai(`บันทึก ${result.name} ${result.kcal} แคลให้แล้วครับ`);
+        } catch {
+          speakThai("วิเคราะห์อาหารไม่สำเร็จครับ ลองพูดใหม่อีกครั้ง");
+        }
+        return;
+      }
       if (key === "EXERCISE") {
         const mins = Math.max(1, Number(a.duration_min) || durationMin(originalText) || 20);
         const mets = Math.max(0.5, Number(a.mets) || 3.5);
@@ -275,6 +365,20 @@ export function VoiceControl({ profileName, bodyWeightKg, onExercise, onStartGps
     if (!value) return;
     setText(value);
     setStatus("processing");
+    // FIX: ถ้ามีคำถามค้างอยู่ (ระบบเพิ่งถามกลับ เช่น "เท่าไหร่ครับ") ให้ตีความประโยคนี้เป็น "คำตอบ"
+    // ของคำถามนั้นแทนที่จะพยายามจับ intent ใหม่ — ทำให้พูดคุยถาม-ตอบต่อเนื่องกันได้จริง
+    if (pendingQuestionRef.current) {
+      const handler = pendingQuestionRef.current;
+      pendingQuestionRef.current = null;
+      try {
+        await handler(value);
+        setStatus("success");
+      } catch {
+        setStatus("error");
+        speakThai("ขอโทษครับ ระบบขัดข้องชั่วคราว ลองพูดใหม่อีกครั้งได้เลย");
+      }
+      return;
+    }
     try {
       let actions = localActions(value);
       try {
