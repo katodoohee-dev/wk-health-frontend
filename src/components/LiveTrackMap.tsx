@@ -2,7 +2,8 @@
 import { MapContainer, TileLayer, Polyline, Marker, CircleMarker, useMap } from "react-leaflet";
 import L from "leaflet";
 import "leaflet/dist/leaflet.css";
-import { Crosshair, Navigation, LocateFixed } from "lucide-react";
+import { Crosshair, Navigation, LocateFixed, Flag } from "lucide-react";
+import { bearingDeg as bearing, haversineKm, compassThai, type GeoResult } from "@/lib/geo";
 import "./live-track-map.css";
 
 type TrackPoint = { lat: number; lng: number; speed: number; timestamp: number; };
@@ -10,20 +11,10 @@ type TrackPoint = { lat: number; lng: number; speed: number; timestamp: number; 
 type LiveTrackMapProps = {
   steps: number;
   onSessionEnd?: (summary: { distanceKm: number; durationSec: number; steps: number; avgSpeedKmh: number; track: TrackPoint[]; }) => void;
+  /** หมุดเป้าหมายจาก "มาร์กเป้าหมาย/นำทางไป..." (ปักผ่านเสียงหรือปุ่มก็ได้) */
+  destination?: GeoResult | null;
 };
 
-function bearing(a: { lat: number; lng: number }, b: { lat: number; lng: number }) {
-  const y = Math.sin((b.lng - a.lng) * (Math.PI / 180)) * Math.cos(b.lat * (Math.PI / 180));
-  const x = Math.cos(a.lat * (Math.PI / 180)) * Math.sin(b.lat * (Math.PI / 180)) - Math.sin(a.lat * (Math.PI / 180)) * Math.cos(b.lat * (Math.PI / 180)) * Math.cos((b.lng - a.lng) * (Math.PI / 180));
-  return (Math.atan2(y, x) * 180) / Math.PI;
-}
-function haversineKm(a: { lat: number; lng: number }, b: { lat: number; lng: number }) {
-  const R = 6371;
-  const dLat = ((b.lat - a.lat) * Math.PI) / 180;
-  const dLng = ((b.lng - a.lng) * Math.PI) / 180;
-  const s = Math.sin(dLat / 2) ** 2 + Math.cos((a.lat * Math.PI) / 180) * Math.cos((b.lat * Math.PI) / 180) * Math.sin(dLng / 2) ** 2;
-  return R * 2 * Math.atan2(Math.sqrt(s), Math.sqrt(1 - s));
-}
 const SPEED_MIN = 0.5;
 const SPEED_MAX = 15;
 function speedColor(speedKmh: number) {
@@ -166,7 +157,7 @@ function Sparkline({ values, live }: { values: number[]; live: number }) {
   );
 }
 
-export function LiveTrackMap({ steps, onSessionEnd }: LiveTrackMapProps) {
+export function LiveTrackMap({ steps, onSessionEnd, destination }: LiveTrackMapProps) {
   const { track, currentPos, heading, speed, distanceKm, avgSpeedKmh, startedAt, error } = useLiveGps();
   const [follow, setFollow] = useState(true);
   const [recenterKey, setRecenterKey] = useState(0);
@@ -219,6 +210,13 @@ export function LiveTrackMap({ steps, onSessionEnd }: LiveTrackMapProps) {
           {track.length > 1 && (<Polyline positions={track.map((p) => [p.lat, p.lng]) as [number, number][]} pathOptions={{ color: "oklch(0.86 0 0)", weight: 14, opacity: 0.12, lineCap: "round" }} />)}
           {segments.map((s, i) => (<Polyline key={i} positions={s.positions} pathOptions={{ color: s.color, weight: 5, opacity: 0.95, lineCap: "round" }} />))}
           {track.length > 0 && (<CircleMarker center={[track[0]!.lat, track[0]!.lng]} radius={6} pathOptions={{ color: "oklch(0.78 0 0)", fillColor: "oklch(0.24 0 0)", fillOpacity: 1, weight: 2.5 }} />)}
+          {/* FIX: เพิ่มใหม่ — หมุดเป้าหมาย (มาร์กจากเสียง/ปุ่ม) + เส้นประจากตำแหน่งปัจจุบันไปยังเป้าหมาย */}
+          {destination && (
+            <>
+              <Polyline positions={[[currentPos.lat, currentPos.lng], [destination.lat, destination.lng]] as [number, number][]} pathOptions={{ color: "oklch(0.7 0.15 30)", weight: 3, opacity: 0.85, dashArray: "6 8" }} />
+              <CircleMarker center={[destination.lat, destination.lng]} radius={9} pathOptions={{ color: "oklch(0.98 0 0)", fillColor: "oklch(0.62 0.2 30)", fillOpacity: 1, weight: 3 }} />
+            </>
+          )}
           <LiveMarker pos={currentPos} heading={heading} follow={follow} recenterKey={recenterKey} />
         </MapContainer>
       </div>
@@ -228,6 +226,17 @@ export function LiveTrackMap({ steps, onSessionEnd }: LiveTrackMapProps) {
         <span className="size-2 animate-pulse rounded-full bg-mint" />
         <span className="text-[11px] tracking-[0.18em] text-foreground/70 uppercase">live tracking</span>
       </div>
+      {destination && (
+        <div className="glass absolute top-16 left-4 flex max-w-[75%] items-center gap-2 rounded-2xl px-3.5 py-2.5">
+          <Flag className="size-4 shrink-0 text-peach" />
+          <div className="min-w-0">
+            <p className="truncate text-xs font-semibold">{destination.label}</p>
+            <p className="text-[11px] text-foreground/60">
+              {haversineKm(currentPos, destination).toFixed(1)} กม. · ทิศ{compassThai(bearing(currentPos, destination))}
+            </p>
+          </div>
+        </div>
+      )}
       <div className="absolute top-4 right-4 flex flex-col gap-2.5">
         <button type="button" onClick={() => setRecenterKey((k) => k + 1)} aria-label="กลับไปที่ตำแหน่งของฉัน" className="glass flex size-12 items-center justify-center rounded-2xl text-mint transition-transform active:scale-90 hover:scale-105">
           <Crosshair className="size-5" />
