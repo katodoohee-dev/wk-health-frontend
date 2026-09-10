@@ -6,6 +6,7 @@ import { apiCalc, apiFetch, ApiError } from "@/lib/api";
 import { apiSaveMeal } from "@/lib/meal-save";
 import { apiAssistantChatWithContext } from "@/lib/website-ai-context";
 import { gpsBridge } from "@/lib/gps-bridge";
+import { geocodePlace, haversineKm, bearingDeg, compassThai } from "@/lib/geo";
 import "./voice-control.css";
 
 type Status = "idle" | "listening" | "processing" | "success" | "error";
@@ -29,6 +30,7 @@ type VoiceAction =
   | { action: "LOG_FOOD_TEXT"; text: string }
   | { action: "ADD_CALORIES"; amount: number }
   | { action: "REMOVE_CAL_UNSUPPORTED" }
+  | { action: "SET_DESTINATION"; place: string }
   | { action: "SHOW_CALORIES" | "SHOW_STEPS" | "SAVE_MEAL" | "NONE" };
 
 const DEEPSEEK_ENDPOINT = "https://kasidathdeepseek.katodoohee.workers.dev";
@@ -90,7 +92,12 @@ function localActions(text: string): VoiceAction[] {
   if (/(เปิด|ไป|เข้า).*(นับก้าว|pedometer)/i.test(t)) out.push({ action: "OPEN_PEDOMETER" });
   if (/(เปิด|ไป|เข้า).*(ผู้ช่วย|แชท)/i.test(t)) out.push({ action: "OPEN_ASSISTANT" });
   if (/(ตั้งโปรไฟล์|แก้โปรไฟล์|ข้อมูลส่วนตัว)/i.test(t)) out.push({ action: "OPEN_PROFILE" });
-  if (/(แชร์ตำแหน่ง|แชร์โลเคชั่น|แชร์โลเคชัน|ส่งพิกัด|แชร์พิกัด|ส่งตำแหน่ง|มาร์กเป้าหมาย|ปักหมุด)/i.test(t)) out.push({ action: "SHARE_LOCATION" });
+  if (/(แชร์ตำแหน่ง|แชร์โลเคชั่น|แชร์โลเคชัน|ส่งพิกัด|แชร์พิกัด|ส่งตำแหน่ง)/i.test(t)) out.push({ action: "SHARE_LOCATION" });
+  // FIX: เพิ่มใหม่ — "ไปเที่ยว.../นำทางไป.../พาไปที่.../ไปหา..." -> มาร์กเป้าหมายบนแผนที่ + บอกระยะทาง/ทิศทาง
+  // ถ้าพูดจบไม่ได้บอกชื่อสถานที่ (แค่ "ไปเที่ยว" เฉยๆ) place จะเป็นค่าว่าง แล้วให้ runActions ถามกลับ
+  const destMatch = t.match(/(?:ไปเที่ยว|นำทางไป|พาไปที่|พาไป|ไปหา)\s*(.*)/i);
+  if (destMatch) out.push({ action: "SET_DESTINATION", place: (destMatch[1] || "").trim() });
+  if (/(มาร์กเป้าหมาย|ปักหมุด)/i.test(t) && !destMatch) out.push({ action: "SET_DESTINATION", place: "" });
   if (/(หยุดเดิน|หยุดวิ่ง|หยุดปั่น|หยุดบันทึกเส้นทาง|หยุดออกกำลังกาย|พอแล้ว)/i.test(t)) out.push({ action: "STOP_GPS" });
   if (/(เริ่มเดิน|ออกไปเดิน|เดินกัน|เริ่มวิ่ง|ออกไปวิ่ง|เริ่มปั่น|เริ่มออกกำลังกาย|เริ่มบันทึกเส้นทาง|ไปออกกำลังกัน)/i.test(t)) {
     out.push({ action: /วิ่ง/.test(t) ? "START_RUN" : /ปั่น/.test(t) ? "START_CYCLE" : "START_WALK" });
@@ -296,6 +303,30 @@ export function VoiceControl({ profileName, bodyWeightKg, onExercise, onStartGps
       // ถ้า AI วิเคราะห์ไม่ได้/ไม่ชัด จะถามกลับด้วยเสียงแทนที่จะเดาสุ่มหรือปล่อยเงียบ
       if (key === "REMOVE_CAL_UNSUPPORTED") {
         speakThai("ตอนนี้ระบบยังลบหรือหักแคลไม่ได้ครับ เพิ่มแคลได้อย่างเดียว ต้องเข้าแอปไปลบรายการเองก่อนนะครับ");
+        return;
+      }
+      if (key === "SET_DESTINATION") {
+        const resolveDestination = async (placeName: string) => {
+          const name = placeName.trim();
+          if (!name) { speakThai("ไปเที่ยวที่ไหนครับ บอกชื่อสถานที่มาได้เลย"); pendingQuestionRef.current = resolveDestination; return; }
+          try {
+            const loc = await geocodePlace(name);
+            if (!loc) { speakThai(`หาสถานที่ "${name}" ไม่เจอครับ ลองบอกชื่อให้ชัดอีกนิด`); return; }
+            await gpsBridge.setDestination(loc);
+            let extra = "";
+            try {
+              const pos = await new Promise<GeolocationPosition>((res, rej) => navigator.geolocation.getCurrentPosition(res, rej, { timeout: 8000 }));
+              const here = { lat: pos.coords.latitude, lng: pos.coords.longitude };
+              const distKm = haversineKm(here, loc);
+              extra = `ห่างจากตรงนี้ประมาณ ${distKm.toFixed(1)} กิโลเมตร อยู่ทาง${compassThai(bearingDeg(here, loc))} `;
+            } catch {}
+            speakThai(`ปักหมุด ${loc.label} ให้แล้วครับ ${extra}เปิดหน้า GPS เพื่อดูเส้นทางได้เลย`);
+            await navigate({ to: "/pedometer" });
+          } catch {
+            speakThai("ค้นหาสถานที่ไม่สำเร็จครับ ลองใหม่อีกครั้ง");
+          }
+        };
+        await resolveDestination(a.place);
         return;
       }
         try {
