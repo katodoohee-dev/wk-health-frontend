@@ -1,6 +1,6 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { useQueryClient } from "@tanstack/react-query";
-import { apiMusicPlayed, type Track } from "@/lib/api";
+import { apiMusicLibrary, apiMusicPlayed, type Track } from "@/lib/api";
 
 type MusicCtx = { current: Track | null; isPlaying: boolean; queue: Track[]; volume: number; muted: boolean; unlock: () => Promise<void>; play: (track: Track, queue?: Track[]) => void; toggle: () => void; stop: () => void; next: () => void; prev: () => void; setVolume: (v: number) => void; toggleMute: () => void };
 const Ctx = createContext<MusicCtx | null>(null);
@@ -28,5 +28,30 @@ export function MusicProvider({children}:{children:ReactNode}){
  const stop=useCallback(()=>{ytRef.current?.stopVideo();audioRef.current?.pause();setIsPlaying(false);setCurrent(null)},[]);
  const step=useCallback((dir:1|-1)=>{if(!current||queue.length===0)return;const i=queue.findIndex(t=>t.id===current.id);const nextTrack=queue[(i+dir+queue.length)%queue.length];if(nextTrack)play(nextTrack,queue)},[current,queue,play]);const next=useCallback(()=>step(1),[step]);const prev=useCallback(()=>step(-1),[step]);
  useEffect(()=>{if(typeof navigator==="undefined"||!("mediaSession"in navigator))return;const ms=navigator.mediaSession;if(current){ms.metadata=new MediaMetadata({title:current.title,artist:"WK Health App",album:"เพลย์ลิสต์ของฉัน"});ms.playbackState=isPlaying?"playing":"paused";ms.setActionHandler("play",()=>toggle());ms.setActionHandler("pause",()=>toggle());ms.setActionHandler("nexttrack",()=>next());ms.setActionHandler("previoustrack",()=>prev())}else ms.playbackState="none"},[current,isPlaying,toggle,next,prev]);
+
+ // FIX: บั๊กใหญ่ 🔴 — ระบบคอนโทรลเสียงสั่ง "เปิดเพลง/พักเพลง/หยุดเพลง/เพลงถัดไป" ได้ (ตรวจจับคำพูดถูกต้อง)
+ // แต่ VoiceControl แค่ dispatch CustomEvent("wk:music") ลอยๆ ไม่มีใครฟัง event นี้เลยสักที่ในระบบ
+ // เหมือนสั่งงานไปแล้วหายเข้ากลีบเมฆ ผู้ใช้พูด "เปิดเพลง" แล้วไม่มีอะไรเกิดขึ้น
+ // เพิ่ม listener ตรงนี้ให้ควบคุมเพลงจากเสียงได้จริง แทนการกดปุ่มด้วยนิ้ว — "เปิดเพลง" ตอนยังไม่มี
+ // เพลงเล่นอยู่เลย จะดึงเพลงแรกจากคลังของผู้ใช้มาเล่นให้อัตโนมัติ
+ useEffect(() => {
+   const handler = (ev: Event) => {
+     const action = (ev as CustomEvent<{ action?: string }>).detail?.action;
+     if (!action) return;
+     if (action === "next") { next(); return; }
+     if (action === "prev") { prev(); return; }
+     if (action === "stop") { stop(); return; }
+     if (action === "pause") { if (isPlaying) toggle(); return; }
+     if (action === "play") {
+       if (current) { if (!isPlaying) toggle(); return; }
+       void apiMusicLibrary()
+         .then((list) => { const first = list[0]; if (first) play(first, list); })
+         .catch(() => undefined);
+     }
+   };
+   window.addEventListener("wk:music", handler);
+   return () => window.removeEventListener("wk:music", handler);
+ }, [current, isPlaying, toggle, stop, next, prev, play]);
+
  const value=useMemo(()=>({current,isPlaying,queue,volume,muted,unlock,play,toggle,stop,next,prev,setVolume,toggleMute}),[current,isPlaying,queue,volume,muted,unlock,play,toggle,stop,next,prev,setVolume,toggleMute]);return <Ctx.Provider value={value}>{children}<div aria-hidden className="pointer-events-none fixed bottom-0 left-0 size-px overflow-hidden opacity-0"><div ref={ytHostRef}/></div></Ctx.Provider>;
 }
