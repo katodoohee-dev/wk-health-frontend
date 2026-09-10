@@ -3,6 +3,7 @@ import { Mic, Volume2, VolumeX, Loader2, Check, X } from "lucide-react";
 import { useNavigate } from "@tanstack/react-router";
 import { apiFetch, ApiError } from "@/lib/api";
 import { apiAssistantChatWithContext } from "@/lib/website-ai-context";
+import { gpsBridge } from "@/lib/gps-bridge";
 import "./voice-control.css";
 
 type Status = "idle" | "listening" | "processing" | "success" | "error";
@@ -22,6 +23,7 @@ type VoiceAction =
   | { action: "PLAY_MUSIC" | "PAUSE_MUSIC" | "STOP_MUSIC" | "NEXT_MUSIC" | "PREVIOUS_MUSIC" }
   | { action: "OPEN_MUSIC" | "OPEN_DIARY" | "OPEN_STATS" | "OPEN_SCAN" | "OPEN_BARCODE" | "OPEN_PEDOMETER" | "OPEN_ASSISTANT" | "OPEN_PROFILE" }
   | { action: "EXERCISE"; activity: string; duration_min: number; mets: number }
+  | { action: "SHARE_LOCATION" }
   | { action: "SHOW_CALORIES" | "SHOW_STEPS" | "SAVE_MEAL" | "NONE" };
 
 const DEEPSEEK_ENDPOINT = "https://kasidathdeepseek.katodoohee.workers.dev";
@@ -74,6 +76,7 @@ function localActions(text: string): VoiceAction[] {
   if (/(เปิด|ไป|เข้า).*(นับก้าว|pedometer)/i.test(t)) out.push({ action: "OPEN_PEDOMETER" });
   if (/(เปิด|ไป|เข้า).*(ผู้ช่วย|แชท)/i.test(t)) out.push({ action: "OPEN_ASSISTANT" });
   if (/(ตั้งโปรไฟล์|แก้โปรไฟล์|ข้อมูลส่วนตัว)/i.test(t)) out.push({ action: "OPEN_PROFILE" });
+  if (/(แชร์ตำแหน่ง|แชร์โลเคชั่น|แชร์โลเคชัน|ส่งพิกัด|แชร์พิกัด|ส่งตำแหน่ง|มาร์กเป้าหมาย|ปักหมุด)/i.test(t)) out.push({ action: "SHARE_LOCATION" });
   if (/(หยุดเดิน|หยุดวิ่ง|หยุดปั่น|หยุดบันทึกเส้นทาง|หยุดออกกำลังกาย|พอแล้ว)/i.test(t)) out.push({ action: "STOP_GPS" });
   if (/(เริ่มเดิน|ออกไปเดิน|เดินกัน|เริ่มวิ่ง|ออกไปวิ่ง|เริ่มปั่น|เริ่มออกกำลังกาย|เริ่มบันทึกเส้นทาง|ไปออกกำลังกัน)/i.test(t)) {
     out.push({ action: /วิ่ง/.test(t) ? "START_RUN" : /ปั่น/.test(t) ? "START_CYCLE" : "START_WALK" });
@@ -225,6 +228,7 @@ export function VoiceControl({ profileName, bodyWeightKg, onExercise, onStartGps
       if (key === "OPEN_PROFILE") { onOpenProfileModal(); completed++; continue; }
       if (key === "START_WALK" || key === "START_RUN" || key === "START_CYCLE" || key === "START_GPS") { onStartGps(); completed++; continue; }
       if (key === "STOP_WALK" || key === "STOP_RUN" || key === "STOP_CYCLE" || key === "STOP_GPS") { onStopGps(); completed++; continue; }
+      if (key === "SHARE_LOCATION") { await gpsBridge.shareLocation(); completed++; continue; }
       if (key === "EXERCISE") {
         const mins = Math.max(1, Number(a.duration_min) || durationMin(originalText) || 20);
         const mets = Math.max(0.5, Number(a.mets) || 3.5);
@@ -258,7 +262,7 @@ export function VoiceControl({ profileName, bodyWeightKg, onExercise, onStartGps
       PLAY_MUSIC: "เปิดเพลง", PAUSE_MUSIC: "พักเพลง", STOP_MUSIC: "ปิดเพลง", NEXT_MUSIC: "เพลงถัดไป", PREVIOUS_MUSIC: "เพลงก่อนหน้า",
       OPEN_MUSIC: "เปิดเพลง", OPEN_DIARY: "เปิดไดอารี", OPEN_STATS: "เปิดสถิติ", OPEN_SCAN: "เปิดสแกน", OPEN_BARCODE: "เปิดบาร์โค้ด",
       OPEN_PEDOMETER: "เปิดนับก้าว", OPEN_ASSISTANT: "เปิดผู้ช่วย", OPEN_PROFILE: "เปิดโปรไฟล์", EXERCISE: "บันทึกการออกกำลัง",
-      SHOW_CALORIES: "ดูแคลอรี", SHOW_STEPS: "ดูก้าว", SAVE_MEAL: "บันทึกเมนู",
+      SHOW_CALORIES: "ดูแคลอรี", SHOW_STEPS: "ดูก้าว", SAVE_MEAL: "บันทึกเมนู", SHARE_LOCATION: "แชร์ตำแหน่ง",
     };
     const names = actions.map((a) => labels[a.action]).filter(Boolean);
     setStatus("success");
