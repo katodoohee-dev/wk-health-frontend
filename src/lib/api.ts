@@ -29,11 +29,31 @@ export class ApiError extends Error {
  
 type Json = Record<string, unknown>;
  
+/**
+ * FIX: บั๊กใหญ่ 🔴 — "ค้างที่กำลังประมวลผลตลอด" (ระบบเสียง/แชท AI ค้างไม่ตอบ ไม่ error ไม่ success)
+ * สาเหตุจริง: fetch() เดิมไม่มี timeout เลยสักจุด ถ้า backend บน Render กำลังหลับ (free tier sleep)
+ * หรือ endpoint ไหนตอบช้า/ไม่ตอบเลย request จะค้างรอ "ตลอดกาล" ไม่มีวัน resolve/reject
+ * ยิ่งหนักเข้าไปอีกตรงที่ collectWebsiteAIContext() ยิง apiFetch พร้อมกันถึง 11 endpoint ผ่าน
+ * Promise.allSettled — ถ้ามีแค่ 1 ใน 11 ค้าง มันรอ "ทุกตัว" จบก่อนถึงจะไปต่อ ทำให้ทั้งระบบผู้ช่วย
+ * เสียง/แชทค้างไปด้วย ผู้ใช้พูดจบ กด "กำลังประมวลผล..." ค้างตลอดไปโดยไม่มี error ให้เห็นเลย
+ * แก้โดยใส่ AbortController timeout 12 วิ ให้ทุก request ที่ผ่าน apiFetch — เกินเวลาจะ throw
+ * ApiError ออกมาทันที ทำให้ UI ไปต่อได้เสมอ (แสดง error/พูดข้อความขอโทษ) แทนที่จะค้างเงียบตลอดกาล
+ */
+const DEFAULT_TIMEOUT_MS = 12000;
+
 export async function apiFetch<T = Json>(
   path: string,
-  options: { method?: string; body?: unknown; signal?: AbortSignal } = {},
+  options: { method?: string; body?: unknown; signal?: AbortSignal; timeoutMs?: number } = {},
 ): Promise<T> {
   const token = getToken();
+  const timeoutMs = options.timeoutMs ?? DEFAULT_TIMEOUT_MS;
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => controller.abort(), timeoutMs);
+  if (options.signal) {
+    if (options.signal.aborted) controller.abort();
+    else options.signal.addEventListener("abort", () => controller.abort(), { once: true });
+  }
+
   let res: Response;
   try {
     res = await fetch(`${API_BASE_URL}${path}`, {
@@ -43,10 +63,15 @@ export async function apiFetch<T = Json>(
         ...(token ? { Authorization: `Bearer ${token}` } : {}),
       },
       ...(options.body !== undefined ? { body: JSON.stringify(options.body) } : {}),
-      ...(options.signal ? { signal: options.signal } : {}),
+      signal: controller.signal,
     });
-  } catch {
+  } catch (err) {
+    if ((err as any)?.name === "AbortError") {
+      throw new ApiError("เซิร์ฟเวอร์ตอบช้าเกินไป (อาจกำลังปลุกเครื่องจาก sleep) ลองใหม่อีกครั้งครับ");
+    }
     throw new ApiError("เชื่อมต่อเซิร์ฟเวอร์ไม่สำเร็จ กรุณาตรวจสอบอินเทอร์เน็ตหรือค่า API base URL");
+  } finally {
+    clearTimeout(timeoutId);
   }
  
   let data: Json = {};
