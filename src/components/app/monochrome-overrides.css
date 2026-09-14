@@ -111,7 +111,9 @@ nav > div > div {
   border-radius: 1.5rem;
   overflow: hidden;
 }
-.leaflet-tile { filter: brightness(.5) contrast(1.15) grayscale(1); }
+/* RESTORE: ใช้ filter แบบเก่า (grayscale บางส่วน ไม่ใช่ grayscale(1) เต็ม) เพื่อให้แผนที่ดูขาวดำ
+   เป็นหลักแต่ยังมี "แสงสีรุ้ง" ของเส้นทาง/หมุดที่วาดทับ (Polyline/CircleMarker) โผล่เด่นออกมาได้ */
+.leaflet-tile { filter: brightness(.46) contrast(1.22) saturate(.58) grayscale(.18); }
 .leaflet-control-zoom a {
   background: rgba(8, 11, 13, .94) !important;
   color: #f5f7f7 !important;

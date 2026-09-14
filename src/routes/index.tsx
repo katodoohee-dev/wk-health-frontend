@@ -62,7 +62,12 @@ function Home() {
         </div>
       </header>
 
-      <section className="bg-hero shadow-glow relative overflow-hidden rounded-[2rem] p-6 text-primary-foreground sm:p-8">
+      {/* FIX: บั๊กใหญ่ 🔴 — เดิมใช้ text-primary-foreground ซึ่งถูกออกแบบมาคู่กับพื้นหลังสีอ่อน
+          (เช่นปุ่ม primary) แต่การ์ดนี้ใช้ bg-hero ซึ่งในธีมมืดกลับมืดเกือบดำ ทำให้ตัวอักษร
+          (สีเกือบดำเหมือนกัน) จมหายไปกับพื้นหลัง มองไม่เห็นตัวเลขแคลอรี/สถิติเลย
+          เปลี่ยนเป็น text-foreground ซึ่งกลับสีอัตโนมัติตามธีมเหมือนกับที่ bg-hero กลับสีพอดี
+          (โหมดสว่าง: bg-hero อ่อนมาก + foreground เข้ม, โหมดมืด: bg-hero เข้มมาก + foreground อ่อน) */}
+      <section className="bg-hero shadow-glow relative overflow-hidden rounded-[2rem] p-6 text-foreground sm:p-8">
         <div className="absolute -right-12 -top-16 size-44 rounded-full bg-white/30 blur-2xl" />
         <div className="relative">
           <div className="flex items-center justify-between">
