@@ -14,7 +14,17 @@ import {
   todayISO,
   type ChatMessage,
 } from "@/lib/api";
+import {
+  apiFriendsList,
+  apiFriendLocationSharingStatus,
+  apiFriendLocations,
+  apiFriendMessages,
+} from "@/lib/api-new-features";
 
+// FIX: เพิ่มใหม่ — ก่อนหน้านี้ผู้ช่วย AI เห็นแค่ไดอารี/สถิติ/เพลง/แกลเลอรี ไม่เห็นข้อมูลฝั่งเพื่อน/GPS/แชท
+// เพื่อนเลย ทำให้ถามอะไรเกี่ยวกับเพื่อน ตำแหน่ง หรือแชทที่คุยกับเพื่อนไม่ได้ ("ไม่ต้องปิดกั้นความสามารถ")
+// ตอนนี้ดึงมาให้ครบ: รายชื่อเพื่อน+streak, สถานะเปิด/ปิดแชร์ตำแหน่งของตัวเอง, ตำแหน่งเพื่อนที่แชร์อยู่,
+// และแชทล่าสุดกับเพื่อนแต่ละคน (จำกัด 8 คนแรก + 10 ข้อความล่าสุด/คน กันก้อน context ใหญ่เกินไป)
 export async function collectWebsiteAIContext() {
   const results = await Promise.allSettled([
     apiMe(),
@@ -28,11 +38,30 @@ export async function collectWebsiteAIContext() {
     apiMusicHistory(),
     apiAssistantHistory(),
     apiGallery(),
+    apiFriendsList(),
+    apiFriendLocationSharingStatus(),
+    apiFriendLocations(),
   ]);
   const value = <T,>(i: number, fallback: T): T => {
     const r = results[i];
     return r && r.status === "fulfilled" ? (r.value as T) : fallback;
   };
+  const friends = value(11, [] as { id: string; name: string; streak: number; avatar?: string }[]);
+
+  // แชทกับเพื่อน: ต้องรู้รายชื่อเพื่อนก่อน ถึงจะไปดึงแชทของแต่ละคนได้ (เลยแยกเป็นรอบสอง)
+  const chatResults = await Promise.allSettled(
+    friends.slice(0, 8).map((f) =>
+      apiFriendMessages(f.id).then((r) => ({
+        friendId: f.id,
+        friendName: f.name,
+        recentMessages: (r.messages ?? []).slice(-10),
+      }))
+    )
+  );
+  const friendChats = chatResults
+    .filter((r): r is PromiseFulfilledResult<{ friendId: string; friendName: string; recentMessages: unknown[] }> => r.status === "fulfilled")
+    .map((r) => r.value);
+
   return {
     user: value(0, null),
     diaryToday: value(1, []),
@@ -45,12 +74,16 @@ export async function collectWebsiteAIContext() {
     musicHistory: value(8, []),
     assistantHistory: value(9, []),
     gallery: value(10, []),
+    friends,
+    friendLocationSharing: value(12, null),
+    friendLocations: value(13, []),
+    friendChats,
   };
 }
 
 export function compactWebsiteAIContext(context: Awaited<ReturnType<typeof collectWebsiteAIContext>>) {
   const json = JSON.stringify(context);
-  return json.length > 18000 ? `${json.slice(0, 18000)}\n[ข้อมูลถูกตัดส่วนท้ายเพื่อความปลอดภัยของ request]` : json;
+  return json.length > 26000 ? `${json.slice(0, 26000)}\n[ข้อมูลถูกตัดส่วนท้ายเพื่อความปลอดภัยของ request]` : json;
 }
 
 /**
