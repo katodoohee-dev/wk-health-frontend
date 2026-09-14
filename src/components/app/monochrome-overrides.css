@@ -109,21 +109,26 @@ nav > div > div {
   box-shadow: 0 22px 70px -28px oklch(0 0 0 / 65%);
 }
 
-/* Map remains dark regardless of global theme, matching the Live Track experience. */
+/* Map: high-contrast noir "toner map" look — always B&W regardless of app theme.
+   FIX: เดิมแค่ grayscale(1) เฉยๆ ทำให้แผนที่ดูเทาซีดจืด ไม่ "เท่" ตามที่ขอ
+   ปรับเป็นสไตล์ toner map: คอนทราสต์สูง เข้มขึ้น ตัดสีให้ขาว-ดำจัดจ้านแบบแผนที่พิมพ์ */
 .leaflet-container {
-  background: #070a0c !important;
+  background: #05070a !important;
   border-radius: 1.5rem;
   overflow: hidden;
 }
-.leaflet-tile { filter: brightness(.5) contrast(1.15) grayscale(1); }
+.leaflet-tile-pane {
+  filter: grayscale(1) contrast(1.85) brightness(0.62) saturate(0);
+}
+.leaflet-tile { filter: none; }
 .leaflet-control-zoom a {
-  background: rgba(8, 11, 13, .94) !important;
+  background: rgba(5, 7, 10, .94) !important;
   color: #f5f7f7 !important;
-  border-color: rgba(255,255,255,.08) !important;
+  border-color: rgba(255,255,255,.1) !important;
 }
 .leaflet-control-attribution {
-  background: rgba(8,11,13,.76) !important;
-  color: rgba(255,255,255,.62) !important;
+  background: rgba(5,7,10,.78) !important;
+  color: rgba(255,255,255,.55) !important;
 }
 
 @media (min-width: 1024px) {
