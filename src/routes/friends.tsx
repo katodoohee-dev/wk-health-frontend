@@ -1,13 +1,24 @@
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { createFileRoute } from "@tanstack/react-router";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { Users, Flame, Heart, Share2, UserPlus, Copy, Loader2, Check, Pencil, X, MapPin, MapPinOff } from "lucide-react";
+import { Users, Flame, Heart, Share2, UserPlus, Copy, Loader2, Check, Pencil, X, MapPin, MapPinOff, MessageCircle, Send } from "lucide-react";
 import { PageHeader, GlassCard } from "@/components/app/ui-bits";
 import { ErrorState, Skeleton } from "@/components/app/states";
 import { useAuth } from "@/lib/auth";
-import { apiFriendsList, apiFriendsCheer, apiFriendsInviteCode, apiFriendsAdd, apiStatsWeekSummary, apiFriendLocationSharingStatus, apiFriendLocationShare } from "@/lib/api-new-features";
+import {
+  apiFriendsList,
+  apiFriendsCheer,
+  apiFriendsInviteCode,
+  apiFriendsAdd,
+  apiStatsWeekSummary,
+  apiFriendLocationSharingStatus,
+  apiFriendLocationShare,
+  apiFriendRename,
+  apiFriendMessages,
+  apiFriendSendMessage,
+  type Friend,
+} from "@/lib/api-new-features";
 import { renderWeekShareImage, shareOrDownloadImage } from "@/lib/share-image";
-import { getFriendNickname, setFriendNickname } from "@/lib/friend-nicknames";
 
 export const Route = createFileRoute("/friends")({
   head: () => ({
@@ -19,22 +30,32 @@ export const Route = createFileRoute("/friends")({
   component: FriendsPage,
 });
 
+/** avatar ที่อัปโหลดเป็นรูปจะเป็น data URL หรือ http(s) ส่วน emoji เป็น string สั้นๆ ธรรมดา */
+function isImageAvatar(a?: string) {
+  return !!a && (a.startsWith("data:image") || a.startsWith("http://") || a.startsWith("https://"));
+}
+function AvatarBubble({ avatar, size = "size-11" }: { avatar?: string; size?: string }) {
+  return (
+    <span className={`grid ${size} shrink-0 place-items-center overflow-hidden rounded-2xl bg-mint-soft text-lg`}>
+      {isImageAvatar(avatar) ? <img src={avatar} alt="" className="size-full object-cover" /> : (avatar ?? "🙂")}
+    </span>
+  );
+}
+
 function FriendsPage() {
   const { isAuthenticated } = useAuth();
   const qc = useQueryClient();
   const [code, setCode] = useState("");
-  // FIX: เพิ่มใหม่ — ตั้งชื่อเล่นเพื่อน (local-only ดู friend-nicknames.ts) + ดูโปรไฟล์เพื่อน
-  const [nicknameVersion, setNicknameVersion] = useState(0); // บังคับ re-render หลังแก้ nickname
-  const [editingFriend, setEditingFriend] = useState<{ id: string; name: string } | null>(null);
+  const [editingFriend, setEditingFriend] = useState<Friend | null>(null);
   const [nicknameDraft, setNicknameDraft] = useState("");
-  const [viewingFriend, setViewingFriend] = useState<{ id: string; name: string; avatar?: string; streak: number } | null>(null);
+  const [viewingFriend, setViewingFriend] = useState<Friend | null>(null);
+  // FIX: เพิ่มใหม่ — ช่องแชทคุยกับเพื่อนในแอปโดยตรงตามที่ขอ
+  const [chattingFriend, setChattingFriend] = useState<Friend | null>(null);
 
   const friends = useQuery({ queryKey: ["friends", "list"], queryFn: apiFriendsList, enabled: isAuthenticated });
   const invite = useQuery({ queryKey: ["friends", "invite"], queryFn: apiFriendsInviteCode, enabled: isAuthenticated });
   const week = useQuery({ queryKey: ["stats", "week-summary"], queryFn: apiStatsWeekSummary, enabled: isAuthenticated });
 
-  // FIX: เพิ่มใหม่ — สถานะเปิด/ปิดแชร์ตำแหน่งของตัวเองให้เพื่อนเห็น (ใช้ endpoint ที่มีอยู่แล้ว
-  // ใน api-new-features.ts ซึ่งเดิมมี backend รองรับแล้วแต่ไม่มี UI ให้กดเปิด/ปิดเลย)
   const locationSharing = useQuery({
     queryKey: ["friends", "location-sharing"],
     queryFn: apiFriendLocationSharingStatus,
@@ -56,6 +77,13 @@ function FriendsPage() {
       setCode("");
       void qc.invalidateQueries({ queryKey: ["friends", "list"] });
     },
+  });
+
+  // FIX: เปลี่ยนจากเดิมที่ตั้งชื่อเล่นแบบ local-only (เห็นแค่เครื่องตัวเอง หายถ้าเปลี่ยนอุปกรณ์)
+  // มาบันทึกลง backend จริง (ตาราง friendships.nickname) ผ่าน apiFriendRename ที่เพิ่งต่อไว้
+  const rename = useMutation({
+    mutationFn: ({ id, nickname }: { id: string; nickname: string }) => apiFriendRename(id, nickname),
+    onSuccess: () => void qc.invalidateQueries({ queryKey: ["friends", "list"] }),
   });
 
   const sorted = [...(friends.data ?? [])].sort((a, b) => b.streak - a.streak);
@@ -101,9 +129,7 @@ function FriendsPage() {
             {shareResult === "shared" ? "แชร์รูปสำเร็จ" : "บันทึกรูปลงเครื่องแล้ว"}
           </p>
         )}
-        {share.isError && (
-          <p className="mt-2 text-xs text-destructive">สร้างรูปไม่สำเร็จ ลองใหม่อีกครั้ง</p>
-        )}
+        {share.isError && <p className="mt-2 text-xs text-destructive">สร้างรูปไม่สำเร็จ ลองใหม่อีกครั้ง</p>}
         {week.isLoading ? (
           <Skeleton className="mt-3 h-20 w-full rounded-2xl" />
         ) : week.isError ? (
@@ -150,8 +176,11 @@ function FriendsPage() {
             <span className={`absolute top-0.5 size-6 rounded-full bg-white shadow transition-transform ${locationSharing.data?.enabled ? "translate-x-5" : "translate-x-0.5"}`} />
           </button>
         </div>
-        {toggleLocationSharing.isError && (
-          <p className="mt-2 text-xs text-destructive">เปลี่ยนสถานะแชร์ตำแหน่งไม่สำเร็จ ลองใหม่อีกครั้ง</p>
+        {toggleLocationSharing.isError && <p className="mt-2 text-xs text-destructive">เปลี่ยนสถานะแชร์ตำแหน่งไม่สำเร็จ ลองใหม่อีกครั้ง</p>}
+        {locationSharing.data?.enabled && (
+          <p className="mt-2 text-[11px] text-muted-foreground">
+            ตำแหน่งจะถูกส่งขึ้นเซิร์ฟเวอร์เฉพาะตอนเปิดหน้า "เดิน/วิ่ง" (GPS) อยู่เท่านั้น เพื่อนที่ยืนยันแล้วถึงจะเห็นหมุดคุณ
+          </p>
         )}
       </GlassCard>
 
@@ -206,16 +235,21 @@ function FriendsPage() {
                   className="press flex min-w-0 flex-1 items-center gap-3 text-left"
                   aria-label={`ดูโปรไฟล์ ${f.name}`}
                 >
-                  <span className="grid size-11 shrink-0 place-items-center rounded-2xl bg-mint-soft text-lg">{f.avatar ?? "🙂"}</span>
+                  <AvatarBubble avatar={f.avatar} />
                   <div className="min-w-0 flex-1">
-                    {/* FIX: เพิ่มใหม่ — ถ้าตั้งชื่อเล่นไว้ โชว์ชื่อเล่นเป็นหลัก (ชื่อจริงเป็นตัวเล็กข้างล่าง) */}
-                    <p className="truncate font-medium">{getFriendNickname(f.id) || f.name}</p>
-                    {getFriendNickname(f.id) && <p className="truncate text-[10px] text-muted-foreground">{f.name}</p>}
+                    <p className="truncate font-medium">{f.name}</p>
                     <p className="flex items-center gap-1 text-xs text-muted-foreground"><Flame className="size-3" />{f.streak} วันติด</p>
                   </div>
                 </button>
                 <button
-                  onClick={() => { setEditingFriend({ id: f.id, name: f.name }); setNicknameDraft(getFriendNickname(f.id)); }}
+                  onClick={() => setChattingFriend(f)}
+                  className="press glass grid size-8 shrink-0 place-items-center rounded-xl text-sky"
+                  aria-label={`แชทกับ ${f.name}`}
+                >
+                  <MessageCircle className="size-3.5" />
+                </button>
+                <button
+                  onClick={() => { setEditingFriend(f); setNicknameDraft(f.name); }}
                   className="press glass grid size-8 shrink-0 place-items-center rounded-xl text-muted-foreground"
                   aria-label={`ตั้งชื่อเล่นให้ ${f.name}`}
                 >
@@ -234,7 +268,7 @@ function FriendsPage() {
         )}
       </section>
 
-      {/* FIX: เพิ่มใหม่ — modal ตั้งชื่อเล่นเพื่อน */}
+      {/* modal ตั้งชื่อเล่นเพื่อน — บันทึกลง backend จริงแล้ว */}
       {editingFriend && (
         <div className="fixed inset-0 z-[200] flex items-end justify-center bg-black/50 p-4 sm:items-center" onClick={() => setEditingFriend(null)}>
           <div className="glass-strong w-full max-w-sm rounded-3xl p-5" onClick={(e) => e.stopPropagation()}>
@@ -247,48 +281,144 @@ function FriendsPage() {
               value={nicknameDraft}
               onChange={(e) => setNicknameDraft(e.target.value)}
               placeholder={editingFriend.name}
-              maxLength={30}
+              maxLength={40}
               className="glass w-full rounded-xl px-3 py-2.5 text-sm outline-none"
             />
+            {rename.isError && <p className="mt-2 text-xs text-destructive">บันทึกชื่อเล่นไม่สำเร็จ ลองใหม่อีกครั้ง</p>}
             <div className="mt-3 flex gap-2">
               <button
-                onClick={() => { setFriendNickname(editingFriend.id, ""); setNicknameDraft(""); setNicknameVersion((v) => v + 1); setEditingFriend(null); }}
+                onClick={() => setEditingFriend(null)}
                 className="press glass flex-1 rounded-xl py-2.5 text-sm text-muted-foreground"
               >
-                ใช้ชื่อจริง
+                ยกเลิก
               </button>
               <button
-                onClick={() => { setFriendNickname(editingFriend.id, nicknameDraft); setNicknameVersion((v) => v + 1); setEditingFriend(null); }}
-                className="press bg-mint-gradient flex-1 rounded-xl py-2.5 text-sm font-medium text-primary-foreground shadow-glow"
+                onClick={() => {
+                  const v = nicknameDraft.trim();
+                  if (!v || !editingFriend) return;
+                  rename.mutate({ id: editingFriend.id, nickname: v }, { onSuccess: () => setEditingFriend(null) });
+                }}
+                disabled={rename.isPending || !nicknameDraft.trim()}
+                className="press bg-mint-gradient flex-1 rounded-xl py-2.5 text-sm font-medium text-primary-foreground shadow-glow disabled:opacity-50"
               >
-                บันทึก
+                {rename.isPending ? "กำลังบันทึก..." : "บันทึก"}
               </button>
             </div>
           </div>
         </div>
       )}
 
-      {/* FIX: เพิ่มใหม่ — modal ดูโปรไฟล์เพื่อน (แตะที่แถวเพื่อนในลิสต์) */}
+      {/* modal ดูโปรไฟล์เพื่อน */}
       {viewingFriend && (
         <div className="fixed inset-0 z-[200] flex items-end justify-center bg-black/50 p-4 sm:items-center" onClick={() => setViewingFriend(null)}>
           <div className="glass-strong w-full max-w-sm rounded-3xl p-6 text-center" onClick={(e) => e.stopPropagation()}>
             <button onClick={() => setViewingFriend(null)} className="press glass ml-auto grid size-8 place-items-center rounded-xl" aria-label="ปิด"><X className="size-4" /></button>
-            <span className="mx-auto grid size-20 place-items-center rounded-3xl bg-mint-soft text-4xl">{viewingFriend.avatar ?? "🙂"}</span>
-            <p className="mt-3 font-display text-xl font-bold">{getFriendNickname(viewingFriend.id) || viewingFriend.name}</p>
-            {getFriendNickname(viewingFriend.id) && <p className="text-xs text-muted-foreground">ชื่อจริง: {viewingFriend.name}</p>}
+            <div className="mx-auto"><AvatarBubble avatar={viewingFriend.avatar} size="size-20" /></div>
+            <p className="mt-3 font-display text-xl font-bold">{viewingFriend.name}</p>
             <div className="mt-4 rounded-2xl bg-muted/60 px-4 py-3">
               <p className="font-display text-2xl font-bold tabular-nums">{viewingFriend.streak}</p>
               <p className="text-xs text-muted-foreground">วัน streak ติดต่อกัน</p>
             </div>
-            <button
-              onClick={() => { setEditingFriend({ id: viewingFriend.id, name: viewingFriend.name }); setNicknameDraft(getFriendNickname(viewingFriend.id)); setViewingFriend(null); }}
-              className="press glass mt-4 flex w-full items-center justify-center gap-2 rounded-xl py-2.5 text-sm font-medium"
-            >
-              <Pencil className="size-3.5" /> ตั้งชื่อเล่น
-            </button>
+            <div className="mt-4 flex gap-2">
+              <button
+                onClick={() => { setChattingFriend(viewingFriend); setViewingFriend(null); }}
+                className="press bg-mint-gradient flex flex-1 items-center justify-center gap-2 rounded-xl py-2.5 text-sm font-medium text-primary-foreground shadow-glow"
+              >
+                <MessageCircle className="size-3.5" /> แชท
+              </button>
+              <button
+                onClick={() => { setEditingFriend(viewingFriend); setNicknameDraft(viewingFriend.name); setViewingFriend(null); }}
+                className="press glass flex flex-1 items-center justify-center gap-2 rounded-xl py-2.5 text-sm font-medium"
+              >
+                <Pencil className="size-3.5" /> ตั้งชื่อเล่น
+              </button>
+            </div>
           </div>
         </div>
       )}
+
+      {/* FIX: เพิ่มใหม่ — ช่องแชทคุยกับเพื่อนในแอปตามที่ขอ */}
+      {chattingFriend && <FriendChatModal friend={chattingFriend} onClose={() => setChattingFriend(null)} />}
+    </div>
+  );
+}
+
+/** หน้าต่างแชทกับเพื่อนคนหนึ่ง โหลดประวัติ + ส่งข้อความใหม่ + poll ทุก 4 วิเพื่ออัปเดตข้อความที่เพื่อนส่งมา */
+function FriendChatModal({ friend, onClose }: { friend: Friend; onClose: () => void }) {
+  const qc = useQueryClient();
+  const [draft, setDraft] = useState("");
+  const scrollRef = useRef<HTMLDivElement>(null);
+
+  const messages = useQuery({
+    queryKey: ["friends", "messages", friend.id],
+    queryFn: () => apiFriendMessages(friend.id),
+    refetchInterval: 4000,
+  });
+
+  const send = useMutation({
+    mutationFn: (content: string) => apiFriendSendMessage(friend.id, content),
+    onSuccess: () => {
+      setDraft("");
+      void qc.invalidateQueries({ queryKey: ["friends", "messages", friend.id] });
+    },
+  });
+
+  useEffect(() => {
+    scrollRef.current?.scrollTo({ top: scrollRef.current.scrollHeight });
+  }, [messages.data]);
+
+  return (
+    <div className="fixed inset-0 z-[210] flex items-end justify-center bg-black/50 p-0 sm:items-center sm:p-4" onClick={onClose}>
+      <div
+        className="glass-strong flex h-[80vh] w-full max-w-sm flex-col overflow-hidden rounded-t-3xl sm:h-[70vh] sm:rounded-3xl"
+        onClick={(e) => e.stopPropagation()}
+      >
+        <div className="flex items-center gap-3 border-b border-border/40 p-4">
+          <AvatarBubble avatar={friend.avatar} size="size-9" />
+          <p className="min-w-0 flex-1 truncate font-display font-semibold">{friend.name}</p>
+          <button onClick={onClose} className="press glass grid size-8 shrink-0 place-items-center rounded-xl" aria-label="ปิด"><X className="size-4" /></button>
+        </div>
+
+        <div ref={scrollRef} className="flex-1 space-y-2 overflow-y-auto p-4">
+          {messages.isLoading ? (
+            <div className="space-y-2"><Skeleton className="h-10 w-2/3 rounded-2xl" /><Skeleton className="ml-auto h-10 w-2/3 rounded-2xl" /></div>
+          ) : messages.isError ? (
+            <ErrorState error={messages.error} onRetry={() => void messages.refetch()} />
+          ) : !messages.data?.messages.length ? (
+            <p className="mt-8 text-center text-sm text-muted-foreground">ยังไม่มีข้อความ — ทักทาย {friend.name} เลยสิ</p>
+          ) : (
+            messages.data.messages.map((m) => {
+              const mine = m.toUserId === friend.id;
+              return (
+                <div key={m.id} className={`max-w-[75%] rounded-2xl px-3 py-2 text-sm ${mine ? "ml-auto bg-mint-gradient text-primary-foreground" : "glass"}`}>
+                  {m.content}
+                </div>
+              );
+            })
+          )}
+        </div>
+
+        <form
+          onSubmit={(e) => { e.preventDefault(); const v = draft.trim(); if (v) send.mutate(v); }}
+          className="flex items-center gap-2 border-t border-border/40 p-3"
+        >
+          <input
+            value={draft}
+            onChange={(e) => setDraft(e.target.value)}
+            placeholder={`ส่งข้อความหา ${friend.name}...`}
+            className="glass min-w-0 flex-1 rounded-xl px-3 py-2.5 text-sm outline-none"
+          />
+          <button
+            type="submit"
+            disabled={!draft.trim() || send.isPending}
+            className="press bg-mint-gradient grid size-10 shrink-0 place-items-center rounded-xl text-primary-foreground shadow-glow disabled:opacity-50"
+            aria-label="ส่ง"
+          >
+            {send.isPending ? <Loader2 className="size-4 animate-spin" /> : <Send className="size-4" />}
+          </button>
+        </form>
+        {send.isError && <p className="px-3 pb-2 text-xs text-destructive">ส่งข้อความไม่สำเร็จ ลองใหม่อีกครั้ง</p>}
+      </div>
     </div>
   );
 }
