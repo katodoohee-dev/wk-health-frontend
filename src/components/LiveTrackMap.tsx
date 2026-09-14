@@ -4,6 +4,7 @@ import L from "leaflet";
 import "leaflet/dist/leaflet.css";
 import { Crosshair, Navigation, LocateFixed, Flag } from "lucide-react";
 import { bearingDeg as bearing, haversineKm, compassThai, type GeoResult } from "@/lib/geo";
+import { apiFriendLocationPublish } from "@/lib/api-new-features";
 import "./live-track-map.css";
 
 type TrackPoint = { lat: number; lng: number; speed: number; timestamp: number; };
@@ -20,6 +21,11 @@ type LiveTrackMapProps = {
   /** FIX: เพิ่มใหม่ — avatar ของตัวเอง (emoji หรือรูปที่อัปโหลด/data URL) โชว์ในหมุดตำแหน่งตัวเองบนแผนที่
       ตอนแชร์ตำแหน่งให้เพื่อนเห็น ให้ดูเท่ขึ้นแทนลูกศรเฉยๆ */
   selfAvatar?: string;
+  /** FIX: เพิ่มใหม่ — บั๊กใหญ่ 🔴 เดิมต่อให้เปิดสวิตช์ "แชร์ตำแหน่งให้เพื่อน" แล้ว ไม่มีจุดไหนในระบบเรียก
+      apiFriendLocationPublish ส่งพิกัดตัวเองขึ้นเซิร์ฟเวอร์เลยสักครั้ง เพื่อนเลยไม่เห็นหมุดตลอดไป
+      ไม่ว่าจะกดแชร์กี่รอบก็ตาม — ต้องส่ง shareEnabled เข้ามาจากหน้า pedometer (อ่านจาก
+      apiFriendLocationSharingStatus) แล้ว useLiveGps ด้านล่างจะยิงตำแหน่งขึ้นเซิร์ฟเวอร์ให้เองทุก ~8 วิ */
+  shareEnabled?: boolean;
 };
 
 /** avatar ที่อัปโหลดเป็นรูปจะถูกเก็บเป็น data URL หรือลิงก์ http(s) ส่วน emoji เป็น string สั้นๆ ธรรมดา
@@ -52,7 +58,7 @@ function formatDuration(sec: number) {
   return h > 0 ? `${h}:${m.toString().padStart(2, "0")}:${s.toString().padStart(2, "0")}` : `${m}:${s.toString().padStart(2, "0")}`;
 }
 
-function useLiveGps() {
+function useLiveGps(shareEnabled?: boolean) {
   const [track, setTrack] = useState<TrackPoint[]>([]);
   const [heading, setHeading] = useState(0);
   const [speed, setSpeed] = useState(0);
@@ -61,12 +67,15 @@ function useLiveGps() {
   const watchIdRef = useRef<number | null>(null);
   const lastPointRef = useRef<TrackPoint | null>(null);
   const smoothedHeading = useRef(0);
+  const shareEnabledRef = useRef(shareEnabled);
+  const lastPublishAtRef = useRef(0);
+  useEffect(() => { shareEnabledRef.current = shareEnabled; }, [shareEnabled]);
 
   useEffect(() => {
     if (!("geolocation" in navigator)) { setError("อุปกรณ์นี้ไม่รองรับ GPS"); return; }
     watchIdRef.current = navigator.geolocation.watchPosition(
       (pos) => {
-        const { latitude, longitude, speed: rawSpeed, heading: rawHeading } = pos.coords;
+        const { latitude, longitude, accuracy, speed: rawSpeed, heading: rawHeading } = pos.coords;
         const point: TrackPoint = { lat: latitude, lng: longitude, speed: rawSpeed != null && rawSpeed >= 0 ? rawSpeed * 3.6 : 0, timestamp: pos.timestamp };
         const prev = lastPointRef.current;
         if (prev) {
@@ -84,6 +93,22 @@ function useLiveGps() {
         lastPointRef.current = point;
         setSpeed(point.speed);
         setTrack((t) => [...t, point]);
+
+        // FIX: เพิ่มใหม่ — ส่งพิกัดขึ้นเซิร์ฟเวอร์ให้เพื่อนเห็นจริงๆ (throttle ทุก 8 วิ กันยิงถี่เกิน)
+        // accuracy เป็น required field จริงฝั่ง server (ดูคอมเมนต์ที่ api-new-features.ts) ถ้ารอบนี้
+        // เบราว์เซอร์ไม่ได้ค่า accuracy มาด้วย (null) ข้ามรอบนี้ไปเลย ไม่ส่งค่ามั่วๆ ให้ server ปฏิเสธ
+        if (shareEnabledRef.current && accuracy != null && Date.now() - lastPublishAtRef.current >= 8000) {
+          lastPublishAtRef.current = Date.now();
+          void apiFriendLocationPublish({
+            lat: latitude,
+            lng: longitude,
+            accuracy,
+            heading: rawHeading ?? undefined,
+            speedMps: rawSpeed ?? undefined,
+          }).catch(() => {
+            // แชร์ไม่สำเร็จรอบนี้ (เช่นปิด sharing ไปพอดี) ไม่ต้องขึ้น error รบกวนตอนวิ่งอยู่ รอบหน้าลองใหม่เอง
+          });
+        }
       },
       (err) => {
         if (err.code === err.PERMISSION_DENIED) setError("ไม่มีสิทธิ์เข้าถึงตำแหน่ง GPS");
@@ -202,8 +227,8 @@ function Sparkline({ values, live }: { values: number[]; live: number }) {
   );
 }
 
-export function LiveTrackMap({ steps, onSessionEnd, destination, goalKm, friendLocations, selfAvatar }: LiveTrackMapProps) {
-  const { track, currentPos, heading, speed, distanceKm, avgSpeedKmh, startedAt, error } = useLiveGps();
+export function LiveTrackMap({ steps, onSessionEnd, destination, goalKm, friendLocations, selfAvatar, shareEnabled }: LiveTrackMapProps) {
+  const { track, currentPos, heading, speed, distanceKm, avgSpeedKmh, startedAt, error } = useLiveGps(shareEnabled);
   const [follow, setFollow] = useState(true);
   const [recenterKey, setRecenterKey] = useState(0);
   const [ready, setReady] = useState(false);
