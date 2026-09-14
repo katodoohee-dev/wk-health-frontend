@@ -8,6 +8,7 @@ import { ErrorState, LoadingState } from "@/components/app/states";
 import { useAuth } from "@/lib/auth";
 import { gpsBridge } from "@/lib/gps-bridge";
 import type { GeoResult } from "@/lib/geo";
+import { haversineKm } from "@/lib/geo";
 import { LiveTrackMap } from "@/components/LiveTrackMap";
 import { Link } from "@tanstack/react-router";
 import {
@@ -200,7 +201,10 @@ function AutoStepCounter({ onLogged }: { onLogged: () => void }) {
   const [supported, setSupported] = useState(true);
 
   const WINDOW_SIZE = 40; // ~0.6–0.8 วินาทีของ sample ล่าสุด ขึ้นกับอัตราสุ่มของอุปกรณ์
-  const MIN_ACTIVE_AMPLITUDE = 0.9; // m/s² ขั้นต่ำที่ถือว่า "กำลังเคลื่อนไหว" ไม่ใช่แค่สั่นนิ่งๆ
+  // FIX: บั๊กใหญ่ 🔴 — 0.9 ต่ำเกินไปสำหรับบางเครื่อง ทำให้ noise ปนจากเซนเซอร์ (มือสั่นเบาๆ, วางบนโต๊ะ
+  // ที่มีการสั่นสะเทือนเล็กน้อย, หรือ noise จาก e.acceleration บางรุ่น) ถูกนับเป็นการเดินทั้งที่ไม่ได้
+  // เดินจริง ปรับขึ้นเป็น 1.6 ให้ต้องมีความเข้มของการเคลื่อนไหวจริงแบบการเดินก่อนถึงจะเริ่มนับพีค
+  const MIN_ACTIVE_AMPLITUDE = 1.6; // m/s² ขั้นต่ำที่ถือว่า "กำลังเคลื่อนไหว" ไม่ใช่แค่สั่นนิ่งๆ
   const PEAK_RATIO = 0.55; // สัดส่วนจาก min ถึง max ที่ถือว่าเป็นพีค (ขอบบน hysteresis)
   const LOW_RATIO = 0.3; // สัดส่วนที่ถือว่ากลับสู่ dip แล้ว พร้อมตรวจพีคถัดไป (ขอบล่าง hysteresis)
   const MIN_STEP_INTERVAL_MS = 250; // เร็วสุด ~240 ก้าว/นาที (วิ่งเร็ว) กันนับซ้ำเร็วเกินจริง
@@ -213,6 +217,7 @@ function AutoStepCounter({ onLogged }: { onLogged: () => void }) {
   const lastStepAtRef = useRef(0);
   const recentIntervalsRef = useRef<number[]>([]);
   const handlerRef = useRef<((e: DeviceMotionEvent) => void) | null>(null);
+  const activeStreakRef = useRef(0);
 
   const log = useMutation({
     mutationFn: (n: number) => apiPedometerLog(n, { seconds }),
@@ -276,8 +281,14 @@ function AutoStepCounter({ onLogged }: { onLogged: () => void }) {
     if (amplitude < MIN_ACTIVE_AMPLITUDE) {
       // สัญญาณนิ่งเกินไป (วางมือถือเฉยๆ/สั่นเบาๆ) — ยังไม่ถือว่ากำลังเดิน กันนับมั่ว
       wasAboveRef.current = false;
+      activeStreakRef.current = 0;
       return;
     }
+    // FIX: บั๊กใหญ่ 🔴 — เดิมพอ amplitude เกิน threshold "ครั้งเดียว" ก็เริ่มตรวจพีคทันที สัญญาณกระตุก
+    // สั้นๆ ครั้งเดียว (เช่น วางมือถือกระแทกโต๊ะ, เดินสะดุด) จะโดนนับเป็นก้าวได้ทั้งที่ไม่ได้เดินต่อเนื่อง
+    // ต้องเห็นสัญญาณเข้มพอต่อเนื่องกันอย่างน้อย 4 รอบ sample ก่อน ถึงจะเชื่อว่ากำลังเดินจริง
+    activeStreakRef.current += 1;
+    if (activeStreakRef.current < 4) return;
 
     const upperThreshold = min + amplitude * PEAK_RATIO;
     const lowerThreshold = min + amplitude * LOW_RATIO;
@@ -326,6 +337,7 @@ function AutoStepCounter({ onLogged }: { onLogged: () => void }) {
       wasAboveRef.current = false;
       lastStepAtRef.current = 0;
       recentIntervalsRef.current = [];
+      activeStreakRef.current = 0;
       setLiveSteps(0);
       setSeconds(0);
       setCadence(0);
@@ -499,7 +511,22 @@ function GpsTracker() {
       setPoints([]);
       watchRef.current = navigator.geolocation.watchPosition(
         (pos) =>
-          setPoints((ps) => [...ps, { lat: pos.coords.latitude, lng: pos.coords.longitude }]),
+          setPoints((ps) => {
+            // FIX: บั๊กใหญ่ 🔴 — เดิมรับพิกัด GPS ทุกจุดที่ browser ส่งมาโดยไม่กรองเลย แม้ยืนอยู่
+            // กับที่สัญญาณ GPS ก็มักเพี้ยน/สั่นไปมาในระยะไม่กี่เมตรตามธรรมชาติของ GPS มือถือ พอเอา
+            // จุดเพี้ยนๆ พวกนี้มาคำนวณระยะทางรวมกันเรื่อยๆ ระยะทาง (และก้าวที่แปลงจากระยะทาง)
+            // เลยเพิ่มขึ้นเองทั้งที่ไม่ได้เดิน แก้โดย: (1) ทิ้งพิกัดที่ accuracy แย่เกิน 25 เมตร
+            // (สัญญาณไม่นิ่งพอเชื่อถือได้) (2) ทิ้งพิกัดที่ขยับจากจุดก่อนหน้าน้อยกว่า 3 เมตร (คือ noise
+            // ไม่ใช่การเดินจริง — คนเดินช้าสุดก็ยังขยับได้มากกว่านี้ในช่วงเวลาสุ่มตัวอย่างของ GPS)
+            if (pos.coords.accuracy != null && pos.coords.accuracy > 25) return ps;
+            const next = { lat: pos.coords.latitude, lng: pos.coords.longitude };
+            const last = ps[ps.length - 1];
+            if (last) {
+              const movedKm = haversineKm(last, next);
+              if (movedKm * 1000 < 3) return ps;
+            }
+            return [...ps, next];
+          }),
         () => setError("ไม่สามารถเข้าถึงตำแหน่งได้ กรุณาอนุญาตสิทธิ์ GPS"),
         { enableHighAccuracy: true, maximumAge: 1000, timeout: 15000 },
       );
