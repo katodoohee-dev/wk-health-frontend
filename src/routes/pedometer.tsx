@@ -35,7 +35,7 @@ export const Route = createFileRoute("/pedometer")({
 });
 
 function PedometerPage() {
-  const { isAuthenticated } = useAuth();
+  const { isAuthenticated, user } = useAuth();
   const qc = useQueryClient();
   const [steps, setSteps] = useState(1000);
 
@@ -703,7 +703,7 @@ function GpsTracker() {
             {/* LiveTrackMap ทำ geolocation.watchPosition ของตัวเอง ไม่ส่ง onSessionEnd
                 เพราะปุ่ม "หยุด" ด้านบน (stop() → apiRouteStop()) บันทึกจริงอยู่แล้ว —
                 ถ้าส่ง onSessionEnd ด้วยจะเสี่ยงบันทึกซ้ำ 2 ครั้ง ในนี้ทำหน้าที่แค่โชว์แผนที่จริงระหว่างวิ่ง */}
-            <LiveTrackMap steps={points.length} destination={destination} goalKm={goalKm} friendLocations={friendMapPins} />
+            <LiveTrackMap steps={points.length} destination={destination} goalKm={goalKm} friendLocations={friendMapPins} selfAvatar={String(user?.["avatar"] ?? "")} />
           </div>
         )}
         {!routeId && points.length > 0 && (
