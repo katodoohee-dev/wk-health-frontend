@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { createFileRoute } from "@tanstack/react-router";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { Link2, Loader2, Music2, Pause, Play, Plus, Trash2, History } from "lucide-react";
+import { Link2, Loader2, Music2, Pause, Play, Plus, Search, Trash2, History } from "lucide-react";
 import { PageHeader, GlassCard, SectionTitle } from "@/components/app/ui-bits";
 import { ErrorState, LoadingState } from "@/components/app/states";
 import { useAuth } from "@/lib/auth";
@@ -68,6 +68,10 @@ function MusicPage() {
   });
 
   const tracks = lib.data ?? [];
+  const [query, setQuery] = useState("");
+  const filteredTracks = query.trim()
+    ? tracks.filter((t) => t.title.toLowerCase().includes(query.trim().toLowerCase()))
+    : tracks;
 
   return (
     <div className="rise-in">
@@ -106,15 +110,21 @@ function MusicPage() {
 
       <section className="mt-4">
         <SectionTitle title="คลังเพลงของฉัน" />
+        <span className="glass mb-3 flex items-center gap-2 rounded-2xl px-3">
+          <Search className="size-4 shrink-0 text-muted-foreground" />
+          <input value={query} onChange={(e) => setQuery(e.target.value)} placeholder="ค้นหาชื่อเพลง…" className="min-w-0 flex-1 bg-transparent py-3 text-sm outline-none" />
+        </span>
         {lib.isLoading ? (
           <LoadingState label="กำลังโหลดเพลย์ลิสต์…" />
         ) : lib.isError ? (
           <ErrorState error={lib.error} onRetry={() => void lib.refetch()} />
         ) : tracks.length === 0 ? (
           <p className="glass rounded-3xl px-4 py-6 text-center text-sm text-muted-foreground">ยังไม่มีเพลง — วางลิงก์ด้านบนเพื่อเพิ่มเพลงแรก</p>
+        ) : filteredTracks.length === 0 ? (
+          <p className="glass rounded-3xl px-4 py-6 text-center text-sm text-muted-foreground">ไม่พบเพลงที่ตรงกับ "{query}"</p>
         ) : (
           <div className="space-y-2">
-            {tracks.map((t) => {
+            {filteredTracks.map((t) => {
               const active = current?.id === t.id;
               return (
                 <div key={t.id} className={`glass-strong flex items-center gap-3 rounded-3xl p-3 shadow-soft ${active ? "ring-2 ring-primary/40" : ""}`}>
