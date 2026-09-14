@@ -680,8 +680,16 @@ export async function apiAssistantHistory(): Promise<ChatMessage[]> {
   return (Array.isArray(list) ? list : []).map(readChat);
 }
  
-export async function apiAssistantChat(message: string): Promise<ChatMessage> {
-  const data = await apiFetch("/api/assistant/chat", { method: "POST", body: { message } });
+// FIX: บั๊กใหญ่ 🔴 — "JSON หลุดเข้าไปในแชท" เดิมฟังก์ชันนี้รับแค่ message เดียว ทำให้
+// website-ai-context.ts ต้องเอา context (JSON ข้อมูลผู้ใช้) ไปต่อรวมกับข้อความที่ผู้ใช้พิมพ์เอง
+// ก่อนส่ง พอ backend เก็บ message ที่ว่าลง history แล้วโหลดกลับมาแสดง เลยเห็น JSON หลุดในบับเบิลแชท
+// แก้โดยแยก context ออกเป็น parameter/field ต่างหาก backend จะใช้ context แค่ประกอบ prompt
+// แต่บันทึกและแสดงผลด้วย message ล้วนๆ เท่านั้น — ปลอดภัยไม่มีข้อมูลภายในหลุดให้เห็นอีก
+export async function apiAssistantChat(message: string, context?: string): Promise<ChatMessage> {
+  const data = await apiFetch("/api/assistant/chat", {
+    method: "POST",
+    body: context ? { message, context } : { message },
+  });
   const r = pick<Json>(data, ["message", "data", "result"], data);
   const text =
     pick<string>(r, ["reply", "text", "answer", "content", "message"], "") ||
