@@ -67,6 +67,42 @@ function MusicPage() {
     onSuccess: () => void qc.invalidateQueries({ queryKey: ["music", "library"] }),
   });
 
+  // FIX: เพิ่มใหม่ — นำเข้าเพลงจำนวนมากพร้อมกันทีเดียว (สำหรับกรณีมีรายการเพลงเป็นร้อยๆ)
+  // วางทีละบรรทัด รูปแบบ "ลิงก์ YouTube" หรือ "ลิงก์ YouTube | ชื่อเพลง" (ถ้าไม่ใส่ชื่อ จะดึงจาก oEmbed ให้)
+  // รันทีละเพลงตามลำดับ (ไม่ยิงพร้อมกันหมด กัน rate limit ของ backend/YouTube oEmbed) พร้อมแถบความคืบหน้า
+  const [bulkOpen, setBulkOpen] = useState(false);
+  const [bulkText, setBulkText] = useState("");
+  const [bulkRunning, setBulkRunning] = useState(false);
+  const [bulkProgress, setBulkProgress] = useState<{ done: number; total: number; failed: number } | null>(null);
+
+  const runBulkImport = async () => {
+    const lines = bulkText.split("\n").map((l) => l.trim()).filter(Boolean);
+    if (lines.length === 0) return;
+    setBulkRunning(true);
+    setBulkProgress({ done: 0, total: lines.length, failed: 0 });
+    let failed = 0;
+    for (let i = 0; i < lines.length; i++) {
+      const [rawUrl, rawTitle] = lines[i]!.split("|").map((s) => s.trim());
+      const link = rawUrl ?? "";
+      const id = parseYouTubeId(link);
+      try {
+        let finalTitle = rawTitle;
+        if (!finalTitle && id) {
+          try {
+            const r = await fetch(`https://www.youtube.com/oembed?url=${encodeURIComponent(link)}&format=json`);
+            if (r.ok) { const d = await r.json(); finalTitle = d?.title; }
+          } catch {}
+        }
+        await apiMusicAdd({ url: link, title: finalTitle || link, type: id ? "youtube" : "audio", ...(id ? { ytId: id } : {}) });
+      } catch {
+        failed++;
+      }
+      setBulkProgress({ done: i + 1, total: lines.length, failed });
+    }
+    setBulkRunning(false);
+    void qc.invalidateQueries({ queryKey: ["music"] });
+  };
+
   const tracks = lib.data ?? [];
 
   return (
@@ -102,6 +138,45 @@ function MusicPage() {
           {add.isError && <p className="rounded-2xl bg-destructive/10 px-3 py-2.5 text-sm text-destructive">{add.error instanceof Error ? add.error.message : "เพิ่มเพลงไม่สำเร็จ"}</p>}
           <p className="text-xs text-muted-foreground">วางลิงก์ YouTube แล้วระบบดึงปกและชื่อเพลงให้อัตโนมัติ หรือใส่ไฟล์เสียงตรงก็ได้</p>
         </div>
+      </GlassCard>
+
+      <GlassCard className="mt-3 p-4">
+        <button onClick={() => setBulkOpen((v) => !v)} className="press flex w-full items-center justify-between text-left">
+          <SectionTitle title="นำเข้าเพลงหลายเพลงพร้อมกัน" />
+          <span className="text-xs text-muted-foreground">{bulkOpen ? "ซ่อน" : "เปิด"}</span>
+        </button>
+        {bulkOpen && (
+          <div className="rise-in mt-2 space-y-2">
+            <textarea
+              value={bulkText}
+              onChange={(e) => setBulkText(e.target.value)}
+              disabled={bulkRunning}
+              rows={6}
+              placeholder={"วางลิงก์ YouTube ทีละบรรทัด เช่น\nhttps://youtube.com/watch?v=xxxxx\nhttps://youtube.com/watch?v=yyyyy | ชื่อเพลง (ไม่ใส่ก็ได้ ระบบดึงให้)"}
+              className="glass w-full resize-y rounded-2xl px-4 py-3 text-sm outline-none disabled:opacity-60"
+            />
+            <button
+              onClick={() => void runBulkImport()}
+              disabled={bulkRunning || !bulkText.trim()}
+              className="press bg-mint-gradient flex w-full items-center justify-center gap-2 rounded-2xl py-3 text-sm font-medium text-primary-foreground shadow-glow disabled:opacity-60"
+            >
+              {bulkRunning ? <Loader2 className="size-4 animate-spin" /> : <Plus className="size-4" />}
+              {bulkRunning ? "กำลังนำเข้า…" : "นำเข้าทั้งหมด"}
+            </button>
+            {bulkProgress && (
+              <div>
+                <div className="h-1.5 w-full overflow-hidden rounded-full bg-muted">
+                  <div className="h-full rounded-full bg-mint transition-all" style={{ width: `${(bulkProgress.done / bulkProgress.total) * 100}%` }} />
+                </div>
+                <p className="mt-1 text-xs text-muted-foreground">
+                  นำเข้าแล้ว {bulkProgress.done}/{bulkProgress.total} เพลง
+                  {bulkProgress.failed > 0 ? ` (ผิดพลาด ${bulkProgress.failed} เพลง — เช็คว่าลิงก์ถูกต้องไหม)` : ""}
+                  {!bulkRunning && bulkProgress.done === bulkProgress.total ? " — เสร็จแล้ว ✓" : ""}
+                </p>
+              </div>
+            )}
+          </div>
+        )}
       </GlassCard>
 
       <section className="mt-4">

@@ -64,7 +64,11 @@
   --glass-border: oklch(1 0 0 / 9%);
   --shadow-soft: 0 22px 65px -30px oklch(0 0 0 / 75%);
   --shadow-glow: 0 18px 60px -20px oklch(0.78 0.17 164 / 42%);
-  --gradient-hero: linear-gradient(135deg, oklch(0.12 0 0), oklch(0.08 0 0));
+  /* NOTE: hero card text uses --primary-foreground (near-black, oklch 0.075).
+     Keep this gradient noticeably lighter than that or the "Daily Health OS"
+     card numbers go unreadable (this was the "data disappears in dark mode"
+     bug — text wasn't gone, it was near-black on near-black). */
+  --gradient-hero: linear-gradient(135deg, oklch(0.78 0 0), oklch(0.66 0 0));
   --gradient-mint: linear-gradient(135deg, oklch(0.82 0 0), oklch(0.66 0 0));
   --gradient-peach: linear-gradient(135deg, oklch(0.19 0 0), oklch(0.13 0 0));
 }
@@ -105,23 +109,29 @@ nav > div > div {
   box-shadow: 0 22px 70px -28px oklch(0 0 0 / 65%);
 }
 
-/* Map remains dark regardless of global theme, matching the Live Track experience. */
+/* Map: high-contrast noir "toner map" look — always B&W regardless of app theme.
+   FIX: เดิมแค่ grayscale(1) เฉยๆ ทำให้แผนที่ดูเทาซีดจืด ไม่ "เท่" ตามที่ขอ
+   ปรับเป็นสไตล์ toner map: คอนทราสต์สูง เข้มขึ้น ตัดสีให้ขาว-ดำจัดจ้านแบบแผนที่พิมพ์ */
 .leaflet-container {
-  background: #070a0c !important;
+  background: #05070a !important;
   border-radius: 1.5rem;
   overflow: hidden;
 }
-/* RESTORE: ใช้ filter แบบเก่า (grayscale บางส่วน ไม่ใช่ grayscale(1) เต็ม) เพื่อให้แผนที่ดูขาวดำ
-   เป็นหลักแต่ยังมี "แสงสีรุ้ง" ของเส้นทาง/หมุดที่วาดทับ (Polyline/CircleMarker) โผล่เด่นออกมาได้ */
-.leaflet-tile { filter: brightness(.46) contrast(1.22) saturate(.58) grayscale(.18); }
+/* RESTORE: ใช้ filter ระดับ pane (เทคนิคที่ดีกว่าเดิม ไม่มีรอยต่อระหว่าง tile) ตามที่ฝั่ง noir ปรับไว้
+   แต่ลด grayscale/saturate ลงจากเต็ม 100% เพื่อให้ยังเป็นขาวดำคอนทราสต์สูงเป็นหลัก ในขณะที่เส้นทาง/
+   หมุด GPS สีรุ้งที่วาดทับ (Polyline/CircleMarker) ยังโผล่สีออกมาให้เห็นชัดเจนตามที่ขอ */
+.leaflet-tile-pane {
+  filter: grayscale(.82) contrast(1.85) brightness(0.62) saturate(.4);
+}
+.leaflet-tile { filter: none; }
 .leaflet-control-zoom a {
-  background: rgba(8, 11, 13, .94) !important;
+  background: rgba(5, 7, 10, .94) !important;
   color: #f5f7f7 !important;
-  border-color: rgba(255,255,255,.08) !important;
+  border-color: rgba(255,255,255,.1) !important;
 }
 .leaflet-control-attribution {
-  background: rgba(8,11,13,.76) !important;
-  color: rgba(255,255,255,.62) !important;
+  background: rgba(5,7,10,.78) !important;
+  color: rgba(255,255,255,.55) !important;
 }
 
 @media (min-width: 1024px) {

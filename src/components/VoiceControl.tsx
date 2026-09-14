@@ -510,6 +510,14 @@ export function VoiceControl({ profileName, bodyWeightKg, onExercise, onStartGps
   useEffect(() => { executeRef.current = execute; }, [execute]);
 
   const startVoiceMode = useCallback(() => {
+    // FIX: บั๊กใหญ่ 🔴 — เดิมเรียก setVoiceMode(true) แล้วเรียก startRecognition() ต่อทันที
+    // แต่ startRecognition() เช็คเงื่อนไขจาก voiceModeRef.current (ref) ไม่ใช่ state โดยตรง
+    // และ voiceModeRef ถูกอัปเดตผ่าน useEffect ซึ่งยังไม่ทันรันตอนนี้ — ค่าที่ startRecognition()
+    // อ่านได้ตอนนั้นเลยยังเป็น false (ค่าเก่าก่อนกด) ทำให้เงื่อนไข !voiceModeRef.current เป็นจริง
+    // แล้ว return ออกไปเงียบๆ ตั้งแต่ต้นฟังก์ชัน ไม่เคยไปถึง r.start() เลยสักครั้ง — เบราว์เซอร์เลย
+    // ไม่เคยขอสิทธิ์ไมโครโฟนจริงๆ (ไม่มี prompt, ไม่มีไอคอนไมค์ขึ้น, ไม่มี permission ให้ตั้งค่าด้วยซ้ำ)
+    // แก้โดยอัปเดต ref ตรงๆ ทันทีแบบ synchronous ก่อนเรียก startRecognition() กัน race condition นี้
+    voiceModeRef.current = true;
     setVoiceMode(true);
     localStorage.setItem(VOICE_MODE_KEY, "1");
     setReply("พร้อมฟังครับ พูดภาษาไทยได้ตามธรรมชาติเลย");

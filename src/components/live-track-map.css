@@ -3,6 +3,15 @@
   background: oklch(0.14 0.03 220);
 }
 
+/* FIX: เพิ่มใหม่ — ทำแผนที่ GPS ให้ขาวดำเท่ๆ สไตล์ noir/toner map ตามที่ขอ
+   เส้นทางที่วิ่งจริงเรืองแสงขาวนวลบนแผนที่ดำ ดูพรีเมียมแบบแอปวิ่งระดับบน แทนที่จะเป็นเส้นเรียบๆ */
+.gps-track-glow {
+  filter: drop-shadow(0 0 6px oklch(0.95 0 0 / 0.55)) drop-shadow(0 0 14px oklch(0.95 0 0 / 0.28));
+}
+.gps-noir-map .leaflet-marker-icon {
+  filter: drop-shadow(0 0 10px oklch(0.95 0 0 / 0.4));
+}
+
 .gps-puck {
   position: relative;
   display: grid;

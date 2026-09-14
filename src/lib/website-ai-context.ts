@@ -54,32 +54,32 @@ export function compactWebsiteAIContext(context: Awaited<ReturnType<typeof colle
 }
 
 /**
- * ห่อ "ข้อความ" ของผู้ใช้ด้วยบริบทข้อมูลจริงจากทั้งเว็บ (ไดอารีวันนี้, สถิติ, ก้าวเดิน,
- * ประวัติออกกำลังกาย/เส้นทาง, คลังเพลง, ประวัติการฟัง, ประวัติแชทเดิม, แกลเลอรี) ก่อนส่งให้ AI
- * เพื่อให้ผู้ช่วยตอบแบบรู้จักผู้ใช้และรู้จักทั้งแอปจริงๆ ไม่ใช่แค่ข้อความโดดๆ
- * ไม่เปลี่ยนรูปแบบ request ที่ backend รับ (ยังเป็น string เดียวใน field "message" เหมือนเดิม
- * — ไม่เพิ่ม field ใหม่ กัน zod schema เดิม reject) แค่ทำให้เนื้อหาใน message สมบูรณ์ขึ้น
- * ถ้าดึงบริบทไม่สำเร็จ (เช่น เน็ตหลุด) fallback กลับไปส่งข้อความเดิมตรงๆ ไม่ให้แชทพัง
+ * รวบรวมบริบทข้อมูลจริงจากทั้งเว็บ (ไดอารีวันนี้, สถิติ, ก้าวเดิน, ประวัติออกกำลังกาย/เส้นทาง,
+ * คลังเพลง, ประวัติการฟัง, ประวัติแชทเดิม, แกลเลอรี) แยกออกจากข้อความของผู้ใช้โดยเด็ดขาด
+ * เพื่อให้ผู้ช่วยตอบแบบรู้จักผู้ใช้และรู้จักทั้งแอปจริงๆ โดยไม่ใช่แค่ข้อความโดดๆ
+ *
+ * FIX: บั๊กใหญ่ 🔴 — เดิมฟังก์ชันนี้ต่อ context (JSON) รวมเข้ากับ userMessage เป็น string เดียว
+ * เพราะตอนนั้น backend schema รับแค่ field "message" อย่างเดียว ผลคือ JSON ก้อนใหญ่ + คำสั่งลับ
+ * ("ห้ามพูดถึงข้อมูล JSON นี้ตรงๆ กับผู้ใช้") ถูกส่งไปเป็นส่วนหนึ่งของ "ข้อความผู้ใช้" แล้วถูก
+ * backend บันทึกลงประวัติแชทแบบตรงๆ พอโหลดกลับมาแสดงผล เลยเห็น JSON หลุดในบับเบิลแชทของผู้ใช้เอง
+ * ตอนนี้ backend รองรับ field "context" แยกต่างหากแล้ว จึงคืนค่าเป็น object {message, context}
+ * แทน — message เป็นคำพูดจริงของผู้ใช้ล้วนๆ (จะถูกบันทึก/แสดงผล) ส่วน context ใช้แค่ประกอบ prompt
+ * ฝั่ง backend เท่านั้น ไม่มีวันถูกบันทึกหรือแสดงเป็นข้อความของผู้ใช้อีกต่อไป
  */
-export async function buildContextualMessage(userMessage: string): Promise<string> {
+export async function buildContextualMessage(
+  userMessage: string
+): Promise<{ message: string; context?: string }> {
   try {
     const context = await collectWebsiteAIContext();
     const compact = compactWebsiteAIContext(context);
-    return [
-      "[บริบทข้อมูลจริงของผู้ใช้คนนี้จากทั้งแอป ณ ตอนนี้ — ใช้ประกอบการตอบให้แม่นยำและเป็นส่วนตัว",
-      " ไม่ต้องอ้างถึงหรือพูดถึงข้อมูล JSON นี้ตรงๆ กับผู้ใช้]",
-      compact,
-      "",
-      "[ข้อความจากผู้ใช้]",
-      userMessage,
-    ].join("\n");
+    return { message: userMessage, context: compact };
   } catch {
-    return userMessage;
+    return { message: userMessage };
   }
 }
 
 /** ส่งข้อความไปหาผู้ช่วย AI พร้อมบริบททั้งเว็บแนบไปด้วยเสมอ ใช้แทน apiAssistantChat ตรงๆ ได้ทุกจุด */
 export async function apiAssistantChatWithContext(userMessage: string): Promise<ChatMessage> {
-  const augmented = await buildContextualMessage(userMessage);
-  return apiAssistantChat(augmented);
+  const { message, context } = await buildContextualMessage(userMessage);
+  return apiAssistantChat(message, context);
 }

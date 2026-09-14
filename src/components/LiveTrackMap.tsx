@@ -221,7 +221,7 @@ export function LiveTrackMap({ steps, onSessionEnd, destination, goalKm }: LiveT
   return (
     <div className="relative h-[100dvh] w-full overflow-hidden bg-background">
       <div className={`absolute inset-0 transition-all duration-[1200ms] ease-out ${ready ? "scale-100 opacity-100 blur-0" : "scale-[1.08] opacity-0 blur-sm"}`}>
-        <MapContainer center={center} zoom={15} zoomControl={false} attributionControl={true} className="h-full w-full">
+        <MapContainer center={center} zoom={15} zoomControl={false} attributionControl={true} className="gps-noir-map h-full w-full">
           {/* FIX: บั๊กใหญ่ 🔴 — CARTO เปลี่ยนนโยบายให้ raster basemap เดิม (basemaps.cartocdn.com)
               ต้องสมัคร API key ก่อนถึงจะใช้ได้ ไม่งั้นจะโชว์ลายน้ำ "API KEY REQUIRED" ทับแผนที่เต็มจอ
               ตามที่เจอในสกรีนช็อต — เปลี่ยนมาใช้ OpenStreetMap standard tiles ซึ่งฟรีไม่ต้องใช้ key
@@ -229,12 +229,13 @@ export function LiveTrackMap({ steps, onSessionEnd, destination, goalKm }: LiveT
           <TileLayer url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png" attribution="&copy; OpenStreetMap contributors" />
           <IntroZoom center={center} />
           {track.length > 1 && (<Polyline positions={track.map((p) => [p.lat, p.lng]) as [number, number][]} pathOptions={{ color: "oklch(0.86 0.14 168)", weight: 14, opacity: 0.12, lineCap: "round" }} />)}
-          {segments.map((s, i) => (<Polyline key={i} positions={s.positions} pathOptions={{ color: s.color, weight: 5, opacity: 0.95, lineCap: "round" }} />))}
+          {segments.map((s, i) => (<Polyline key={i} className="gps-track-glow" positions={s.positions} pathOptions={{ color: s.color, weight: 5, opacity: 0.95, lineCap: "round" }} />))}
           {track.length > 0 && (<CircleMarker center={[track[0]!.lat, track[0]!.lng]} radius={6} pathOptions={{ color: "oklch(0.78 0.13 200)", fillColor: "oklch(0.24 0.06 200)", fillOpacity: 1, weight: 2.5 }} />)}
-          {/* FIX: เพิ่มใหม่ — หมุดเป้าหมาย (มาร์กจากเสียง/ปุ่ม) + เส้นประจากตำแหน่งปัจจุบันไปยังเป้าหมาย */}
+          {/* FIX: เพิ่มใหม่ — หมุดเป้าหมาย (มาร์กจากเสียง/ปุ่ม) + เส้นประจากตำแหน่งปัจจุบันไปยังเป้าหมาย
+              (สีส้มเด่นให้ตัดกับเส้นทางไล่สีรุ้ง มองเห็นง่ายว่าไหนคือเป้าหมาย) */}
           {destination && (
             <>
-              <Polyline positions={[[currentPos.lat, currentPos.lng], [destination.lat, destination.lng]] as [number, number][]} pathOptions={{ color: "oklch(0.7 0.15 30)", weight: 3, opacity: 0.85, dashArray: "6 8" }} />
+              <Polyline positions={[[currentPos.lat, currentPos.lng], [destination.lat, destination.lng]] as [number, number][]} pathOptions={{ color: "oklch(0.85 0.12 60)", weight: 3, opacity: 0.85, dashArray: "6 8" }} />
               <CircleMarker center={[destination.lat, destination.lng]} radius={9} pathOptions={{ color: "oklch(0.98 0 0)", fillColor: "oklch(0.62 0.2 30)", fillOpacity: 1, weight: 3 }} />
             </>
           )}
