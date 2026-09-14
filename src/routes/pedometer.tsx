@@ -471,6 +471,10 @@ function RouteMap({ points }: { points: GeoPoint[] }) {
 }
 
 function GpsTracker() {
+  // FIX: `user` ถูกใช้ด้านล่าง (ส่งเป็น selfAvatar ให้ LiveTrackMap) แต่ GpsTracker เป็นคอมโพเนนต์
+  // แยกจากที่ดึง useAuth() ไว้ ทำให้ `user` ไม่อยู่ใน scope -> ReferenceError: user is not defined
+  // (หน้าเด้ง error ทันทีตอนเปิดหน้านับก้าว) ดึง useAuth() ในคอมโพเนนต์นี้เองให้ถูก scope
+  const { user } = useAuth();
   const qc = useQueryClient();
   const [routeId, setRouteId] = useState<string | null>(null);
   const [seconds, setSeconds] = useState(0);
