@@ -88,8 +88,17 @@ export function apiFriendLocationShare(enabled: boolean) {
   return localLocationFetch<FriendLocationSharingStatus>("/api/friends/location/share", { method: "POST", body: { enabled } });
 }
 
-export function apiFriendLocationPublish(payload: Omit<FriendLocation, "updatedAt">) {
-  return localLocationFetch<{ success: boolean }>("/api/friends/location/publish", { method: "POST", body: payload });
+// FIX: บั๊ก type เดิม 🔴 — apiFriendLocationPublish ใช้ type Omit<FriendLocation,"updatedAt"> ซึ่งมี
+// friendId เป็น required field ทั้งที่ server (src/routes/api/friends/location/publish.ts) ไม่ได้
+// อ่าน friendId จาก body เลย มันใช้ user.id จาก token ยืนยันตัวตนเป็นคนกำหนด friendId เองฝั่ง server
+// — ผลคือถ้าจะเรียกใช้จริงต้องยัด friendId มั่วๆ ทั้งที่ไม่มีความหมาย ในทางกลับกัน "accuracy" กลับ
+// เป็น required จริงฝั่ง server (return 400 ถ้าไม่ส่งมา) แต่ type เดิมทำเป็น optional
+// แก้ type ให้ตรงกับ contract จริงของ server
+// friendId?: บางที่ (friend-location.ts) ยังส่ง "self" มาด้วยความเข้าใจผิดเดิม — server ไม่ได้ใช้
+// ค่านี้เลย (ดูคอมเมนต์ด้านบน) รับไว้เฉยๆ เพื่อไม่ ทำให้โค้ดเดิมพัง แต่ไม่มีผลอะไรกับ request จริง
+export type PublishLocationPayload = { friendId?: string; lat: number; lng: number; accuracy: number; heading?: number; speedMps?: number };
+export function apiFriendLocationPublish(payload: PublishLocationPayload) {
+  return localLocationFetch<{ success: boolean; updatedAt: string }>("/api/friends/location/publish", { method: "POST", body: payload });
 }
 
 export function apiFriendLocations() {

@@ -7,6 +7,14 @@ import { PageHeader, GlassCard, SectionTitle } from "@/components/app/ui-bits";
 import { useAuth } from "@/lib/auth";
 import { apiBmi, apiUpdateMe, num } from "@/lib/api";
 
+const AVATAR_OPTIONS = ["🙂", "😄", "😎", "🥳", "🧘", "🏃", "🚴", "🏋️", "🐱", "🐶", "🦊", "🐼", "🐸", "🦉", "🌱", "🔥"];
+// FIX: เพิ่มใหม่ — เก็บ avatar สำรองไว้ในเครื่อง เผื่อ backend PATCH /api/auth/me ยังไม่รองรับ
+// field "avatar" (เหมือนกรณี "name" เดิมที่เคยถูก zod schema ทิ้งเงียบๆ ตามคอมเมนต์ apiUpdateMe
+// ด้านล่าง) อย่างน้อยผู้ใช้ยังเห็น avatar ที่เลือกไว้ในเครื่องตัวเองแม้ backend จะไม่บันทึกจริง
+const AVATAR_KEY = "wk-health:my-avatar";
+function readLocalAvatar(): string { try { return window.localStorage.getItem(AVATAR_KEY) ?? ""; } catch { return ""; } }
+function writeLocalAvatar(v: string) { try { window.localStorage.setItem(AVATAR_KEY, v); } catch { /* ไม่ critical */ } }
+
 export const Route = createFileRoute("/profile")({
   head: () => ({
     meta: [
@@ -25,12 +33,17 @@ function ProfilePage() {
   const [goalKcal, setGoalKcal] = useState(String(num(user?.goalKcal ?? user?.goal_kcal, 2000)));
   const [weight, setWeight] = useState(String(num(user?.["weightKg"], 60)));
   const [height, setHeight] = useState(String(num(user?.["heightCm"], 170)));
+  const [avatar, setAvatar] = useState(String(user?.["avatar"] ?? readLocalAvatar() ?? "🙂"));
+  const [avatarOpen, setAvatarOpen] = useState(false);
 
   const bmi = useQuery({ queryKey: ["bmi", weight, height], queryFn: () => apiBmi(Number(weight), Number(height)), enabled: false });
 
   const save = useMutation({
-    mutationFn: () => apiUpdateMe({ name, goalKcal: Number(goalKcal), weightKg: Number(weight), heightCm: Number(height) }),
-    onSuccess: (u) => { if (u) setUser(u); },
+    mutationFn: () => apiUpdateMe({ name, goalKcal: Number(goalKcal), weightKg: Number(weight), heightCm: Number(height), avatar }),
+    onSuccess: (u) => {
+      writeLocalAvatar(avatar);
+      if (u) setUser({ ...u, avatar: u["avatar"] ?? avatar });
+    },
   });
 
   return (
@@ -39,6 +52,30 @@ function ProfilePage() {
 
       <GlassCard className="p-5">
         <SectionTitle title="ข้อมูลของฉัน" />
+        <div className="mb-4 flex flex-col items-center">
+          <button
+            onClick={() => setAvatarOpen((v) => !v)}
+            className="press grid size-20 place-items-center rounded-3xl bg-mint-soft text-4xl"
+            aria-label="เปลี่ยนรูปโปรไฟล์"
+          >
+            {avatar}
+          </button>
+          <p className="mt-2 text-xs text-muted-foreground">แตะเพื่อเปลี่ยนรูปโปรไฟล์</p>
+          {avatarOpen && (
+            <div className="glass mt-3 grid grid-cols-8 gap-1.5 rounded-2xl p-3">
+              {AVATAR_OPTIONS.map((a) => (
+                <button
+                  key={a}
+                  onClick={() => { setAvatar(a); setAvatarOpen(false); }}
+                  className={`press grid size-8 place-items-center rounded-xl text-lg ${avatar === a ? "bg-mint-gradient shadow-glow" : ""}`}
+                  aria-label={`เลือก avatar ${a}`}
+                >
+                  {a}
+                </button>
+              ))}
+            </div>
+          )}
+        </div>
         <div className="space-y-3">
           <Field label="ชื่อ" value={name} onChange={setName} icon={<User className="size-4" />} />
           <Field label="เป้าหมายแคลอรี (kcal/วัน)" value={goalKcal} onChange={setGoalKcal} type="number" />

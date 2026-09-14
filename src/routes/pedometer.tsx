@@ -7,6 +7,8 @@ import { PageHeader, GlassCard, Ring, SectionTitle } from "@/components/app/ui-b
 import { ErrorState, LoadingState } from "@/components/app/states";
 import { useAuth } from "@/lib/auth";
 import { gpsBridge } from "@/lib/gps-bridge";
+import { apiFriendLocations, apiFriendLocationSharingStatus, apiFriendsList } from "@/lib/api-new-features";
+import { startFriendLocationSharing, stopFriendLocationSharing } from "@/lib/friend-location";
 import type { GeoResult } from "@/lib/geo";
 import { haversineKm } from "@/lib/geo";
 import { LiveTrackMap } from "@/components/LiveTrackMap";
@@ -485,6 +487,36 @@ function GpsTracker() {
 
   const history = useQuery({ queryKey: ["route", "history"], queryFn: apiRouteHistory });
 
+  // FIX: เพิ่มใหม่ — ดึงตำแหน่งเพื่อนที่เปิดแชร์ไว้ มาโชว์เป็นหมุดบนแผนที่ตอนกำลังวิ่ง/เดิน
+  // (โพลทุก 8 วิ พอสำหรับตำแหน่งคน ไม่ต้องเรียลไทม์จัดจนกินแบตเตอรี่) + รายชื่อเพื่อนไว้จับคู่
+  // avatar/ชื่อ เพราะ apiFriendLocations คืนแค่ friendId/lat/lng ไม่มีชื่อ/avatar ติดมาด้วย
+  const friendsForMap = useQuery({ queryKey: ["friends", "list"], queryFn: apiFriendsList });
+  const friendLocationsQuery = useQuery({
+    queryKey: ["friends", "locations"],
+    queryFn: apiFriendLocations,
+    enabled: !!routeId,
+    refetchInterval: routeId ? 8000 : false,
+  });
+  const sharingStatus = useQuery({ queryKey: ["friends", "location-sharing"], queryFn: apiFriendLocationSharingStatus });
+
+  const friendMapPins = (friendLocationsQuery.data ?? []).map((loc) => {
+    const info = (friendsForMap.data ?? []).find((f) => f.id === loc.friendId);
+    return { friendId: loc.friendId, name: info?.name ?? "เพื่อน", avatar: info?.avatar, lat: loc.lat, lng: loc.lng };
+  });
+
+  // FIX: เพิ่มใหม่ — ระหว่างกำลังวิ่ง/เดิน ถ้าเปิดแชร์ตำแหน่งไว้ (ตั้งค่าได้ที่หน้าเพื่อน) ให้เริ่ม
+  // ส่งตำแหน่งสดให้เพื่อนผ่าน service กลางที่มีอยู่แล้ว (friend-location.ts — มี watchPosition +
+  // throttle ส่งขึ้น server ทุก 5 วิ ในตัวอยู่แล้ว) แทนที่จะเปิด GPS watcher ซ้ำซ้อนเองอีกชุด
+  // ซึ่งจะกิน battery คู่กันโดยไม่จำเป็นและอาจส่งตำแหน่งชนกันเป็นสอง request พร้อมกัน
+  useEffect(() => {
+    if (routeId && sharingStatus.data?.enabled) {
+      void startFriendLocationSharing();
+    } else {
+      void stopFriendLocationSharing();
+    }
+    return () => { void stopFriendLocationSharing(); };
+  }, [routeId, sharingStatus.data?.enabled]);
+
   useEffect(() => {
     if (!routeId) return;
     const t = window.setInterval(() => setSeconds((s) => s + 1), 1000);
@@ -671,7 +703,7 @@ function GpsTracker() {
             {/* LiveTrackMap ทำ geolocation.watchPosition ของตัวเอง ไม่ส่ง onSessionEnd
                 เพราะปุ่ม "หยุด" ด้านบน (stop() → apiRouteStop()) บันทึกจริงอยู่แล้ว —
                 ถ้าส่ง onSessionEnd ด้วยจะเสี่ยงบันทึกซ้ำ 2 ครั้ง ในนี้ทำหน้าที่แค่โชว์แผนที่จริงระหว่างวิ่ง */}
-            <LiveTrackMap steps={points.length} destination={destination} goalKm={goalKm} />
+            <LiveTrackMap steps={points.length} destination={destination} goalKm={goalKm} friendLocations={friendMapPins} />
           </div>
         )}
         {!routeId && points.length > 0 && (

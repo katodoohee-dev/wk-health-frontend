@@ -58,3 +58,21 @@
     opacity: 0;
   }
 }
+
+/* FIX: เพิ่มใหม่ — หมุดตำแหน่งเพื่อนบนแผนที่ GPS (อีโมจิ avatar ของเพื่อนในวงกลมเด่น) */
+.gps-friend-pin {
+  display: grid;
+  place-items: center;
+  width: 36px;
+  height: 36px;
+  border-radius: 9999px 9999px 9999px 2px;
+  transform: rotate(45deg);
+  background: color-mix(in oklab, oklch(0.72 0.15 280) 88%, black);
+  box-shadow: 0 6px 18px -4px oklch(0.72 0.15 280 / 0.6), 0 0 0 2px oklch(0.98 0 0 / 0.85);
+}
+.gps-friend-pin span {
+  display: block;
+  transform: rotate(-45deg);
+  font-size: 17px;
+  line-height: 1;
+}

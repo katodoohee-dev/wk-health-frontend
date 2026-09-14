@@ -15,6 +15,8 @@ type LiveTrackMapProps = {
   destination?: GeoResult | null;
   /** เป้าหมายระยะทาง (กม.) จาก "อยากวิ่งกี่กิโล" — โชว์ progress + พูดประกาศตอนถึงเป้า */
   goalKm?: number | null;
+  /** FIX: เพิ่มใหม่ — ตำแหน่งเพื่อนที่แชร์ให้เห็น (จาก apiFriendLocations) แสดงเป็นหมุดบนแผนที่ */
+  friendLocations?: { friendId: string; name: string; avatar?: string; lat: number; lng: number }[];
 };
 
 const SPEED_MIN = 0.5;
@@ -109,6 +111,22 @@ function createArrowIcon() {
   });
 }
 
+// FIX: เพิ่มใหม่ — หมุดเพื่อน สร้างแบบ lazy เหมือน createArrowIcon (ห้ามสร้าง L.divIcon ตอน module
+// load เพราะ Leaflet ต้องการ window/document ซึ่งไม่มีตอน SSR — ดู commit d350ec5 ที่เคยแก้บั๊กนี้)
+const friendIconCache = new Map<string, L.DivIcon>();
+function friendDivIcon(avatar: string) {
+  const cached = friendIconCache.get(avatar);
+  if (cached) return cached;
+  const icon = L.divIcon({
+    className: "!bg-transparent !border-0",
+    iconSize: [40, 40],
+    iconAnchor: [20, 36],
+    html: `<div class="gps-friend-pin"><span>${avatar}</span></div>`,
+  });
+  friendIconCache.set(avatar, icon);
+  return icon;
+}
+
 function LiveMarker({ pos, heading, follow, recenterKey }: { pos: { lat: number; lng: number }; heading: number; follow: boolean; recenterKey: number; }) {
   const map = useMap();
   const markerRef = useRef<L.Marker>(null);
@@ -162,7 +180,7 @@ function Sparkline({ values, live }: { values: number[]; live: number }) {
   );
 }
 
-export function LiveTrackMap({ steps, onSessionEnd, destination, goalKm }: LiveTrackMapProps) {
+export function LiveTrackMap({ steps, onSessionEnd, destination, goalKm, friendLocations }: LiveTrackMapProps) {
   const { track, currentPos, heading, speed, distanceKm, avgSpeedKmh, startedAt, error } = useLiveGps();
   const [follow, setFollow] = useState(true);
   const [recenterKey, setRecenterKey] = useState(0);
@@ -240,6 +258,15 @@ export function LiveTrackMap({ steps, onSessionEnd, destination, goalKm }: LiveT
             </>
           )}
           <LiveMarker pos={currentPos} heading={heading} follow={follow} recenterKey={recenterKey} />
+          {/* FIX: เพิ่มใหม่ — หมุดตำแหน่งเพื่อนที่เปิดแชร์ตำแหน่งไว้ (สีฟ้า-ม่วงให้ต่างจากสีรุ้งของ
+              เส้นทางตัวเอง และสีส้มของหมุดเป้าหมาย แยกแยะง่ายว่าอันไหนคือใคร) */}
+          {friendLocations?.map((f) => (
+            <Marker
+              key={f.friendId}
+              position={[f.lat, f.lng]}
+              icon={friendDivIcon(f.avatar ?? "🙂")}
+            />
+          ))}
         </MapContainer>
       </div>
       <div className="pointer-events-none absolute inset-x-0 top-0 h-40 bg-gradient-to-b from-background/70 to-transparent" />
