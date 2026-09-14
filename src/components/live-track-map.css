@@ -3,14 +3,11 @@
   background: oklch(0.14 0.03 220);
 }
 
-/* FIX: เพิ่มใหม่ — ทำแผนที่ GPS ให้ขาวดำเท่ๆ สไตล์ noir/toner map ตามที่ขอ
-   เส้นทางที่วิ่งจริงเรืองแสงขาวนวลบนแผนที่ดำ ดูพรีเมียมแบบแอปวิ่งระดับบน แทนที่จะเป็นเส้นเรียบๆ
-   เดิม class .gps-noir-map ถูกใส่ไว้ที่ MapContainer แล้ว แต่ไม่มี filter จริงมาก่อน ทำให้ tile
-   ยังเป็นสี OSM ปกติ (ไม่ขาวดำ) — เพิ่ม grayscale ที่ tile-pane ตรงนี้ ส่วนเส้นทาง/หมุด/ป้ายกำกับ
-   ไม่ถูก filter เพราะอยู่คนละ pane เลยยังเห็นสีรุ้งของเส้นทางชัดเจนตัดกับแผนที่ขาวดำ */
-.gps-noir-map .leaflet-tile-pane {
-  filter: grayscale(1) contrast(1.15) brightness(0.82) invert(0.92);
-}
+/* FIX: เอา filter ตัวที่ซ้อนกับ monochrome-overrides.css ออก (ตัวเดิมมี invert(0.92) ผสมด้วย
+   ทำให้ tile กลับสี/เพี้ยน มองดูเหมือนแผนที่พัง) เหลือ filter หลักตัวเดียวที่ monochrome-overrides.css
+   (.leaflet-tile-pane { grayscale + contrast + brightness + saturate }) ซึ่งให้ผล toner map
+   ขาวดำคอนทราสต์สูงตามที่ต้องการอยู่แล้ว ส่วนเส้นทาง/หมุด GPS สีรุ้งตามความเร็ว (speedColor) อยู่คนละ
+   pane เลยยังเห็นสีรุ้งชัดเจนตัดกับแผนที่ขาวดำเหมือนเดิม ไม่ต้องแก้ */
 .gps-track-glow {
   filter: drop-shadow(0 0 6px oklch(0.95 0 0 / 0.55)) drop-shadow(0 0 14px oklch(0.95 0 0 / 0.28));
 }
