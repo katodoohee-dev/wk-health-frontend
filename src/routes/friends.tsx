@@ -176,7 +176,14 @@ function FriendsPage() {
             <span className={`absolute top-0.5 size-6 rounded-full bg-white shadow transition-transform ${locationSharing.data?.enabled ? "translate-x-5" : "translate-x-0.5"}`} />
           </button>
         </div>
-        {toggleLocationSharing.isError && <p className="mt-2 text-xs text-destructive">เปลี่ยนสถานะแชร์ตำแหน่งไม่สำเร็จ ลองใหม่อีกครั้ง</p>}
+        {toggleLocationSharing.isError && (
+          <p className="mt-2 text-xs text-destructive">
+            {toggleLocationSharing.error instanceof Error ? toggleLocationSharing.error.message : "เปลี่ยนสถานะแชร์ตำแหน่งไม่สำเร็จ ลองใหม่อีกครั้ง"}
+          </p>
+        )}
+        {!toggleLocationSharing.isError && !locationSharing.data?.enabled && (friends.data?.length ?? 0) === 0 && (
+          <p className="mt-2 text-xs text-muted-foreground">ต้องมีเพื่อนที่ยืนยันแล้วอย่างน้อย 1 คนก่อนถึงจะเปิดแชร์ตำแหน่งได้ — เพิ่มเพื่อนด้านล่างก่อน</p>
+        )}
         {locationSharing.data?.enabled && (
           <p className="mt-2 text-[11px] text-muted-foreground">
             ตำแหน่งจะถูกส่งขึ้นเซิร์ฟเวอร์เฉพาะตอนเปิดหน้า "เดิน/วิ่ง" (GPS) อยู่เท่านั้น เพื่อนที่ยืนยันแล้วถึงจะเห็นหมุดคุณ
