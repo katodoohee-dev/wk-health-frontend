@@ -295,37 +295,57 @@ export function LiveTrackMap({ steps, onSessionEnd, destination, goalKm, friendL
         </button>
       </div>
       <div className="absolute inset-x-0 bottom-0 flex justify-center px-4 pb-5">
-        <div className="glass animate-rise-in w-full max-w-[440px] rounded-[28px] p-4 shadow-[var(--shadow-glow)]">
+        {/* FIX: รีดีไซน์การ์ดสถิติ — คงโครงสร้างเดิมทั้งหมด (distance/pace now/เวลา/ก้าว/เฉลี่ย/
+            speed graph) ตามที่ขอ เปลี่ยนแค่โทนสี+ฟอนต์ให้เข้ากับธีมขาวดำ+แสงสีรุ้งของแผนที่มากขึ้น:
+            (1) พื้นการ์ดเป็นกระจกดำสนิท (noir) คงที่เสมอไม่ขึ้นกับธีมแอป เพราะการ์ดนี้ลอยทับแผนที่
+                ที่มืดอยู่แล้วตลอด ให้ตัดกันชัดเจนแบบเครื่อง GPS กีฬาจริงๆ
+            (2) ตัวเลขทั้งหมดใช้ font-mono (IBM Plex Mono, tabular-nums) แทน font-display ทั่วไป
+                ให้ความรู้สึกเป็นเครื่องวัดสัญญาณ/นาฬิกาสปอร์ตมากกว่าตัวอักษรมนๆ ของ UI ทั่วไป
+            (3) สีป้ายกำกับ (distance/pace now/เวลา/ก้าว/เฉลี่ย) ดึงจากโทนรุ้งเดียวกับเส้นทาง
+                (hue 25→165 ส้มถึงฟ้า) แทนสี mint/aqua เดิมที่ไม่เกี่ยวกับพาเลตต์เส้นทางเลย */}
+        <div
+          className="animate-rise-in w-full max-w-[440px] rounded-[28px] p-4"
+          style={{
+            background: "color-mix(in oklab, black 78%, transparent)",
+            backdropFilter: "blur(18px) saturate(1.1)",
+            border: "1px solid color-mix(in oklab, white 14%, transparent)",
+            boxShadow: "0 0 50px -12px oklch(0.7 0.15 168 / 0.35), 0 12px 30px -10px black",
+          }}
+        >
           <div className="flex items-end justify-between">
             <div>
-              <p className="text-[10px] tracking-[0.2em] text-mint/75 uppercase">distance</p>
-              <p className="font-display text-5xl leading-none font-semibold tracking-tight">{distanceKm.toFixed(2)}<span className="ml-1 text-base font-medium text-foreground/50">km</span></p>
+              <p className="text-[10px] tracking-[0.2em] uppercase" style={{ color: "oklch(0.75 0.15 40)" }}>distance</p>
+              <p className="font-mono text-5xl leading-none font-semibold tracking-tight text-white tabular-nums">{distanceKm.toFixed(2)}<span className="ml-1 text-base font-medium text-white/45">km</span></p>
               {goalKm ? (
                 <div className="mt-1.5 w-28">
-                  <div className="h-1.5 w-full overflow-hidden rounded-full bg-[color-mix(in_oklab,white_10%,transparent)]">
-                    <div className="h-full rounded-full bg-mint transition-all" style={{ width: `${Math.min(100, (distanceKm / goalKm) * 100)}%` }} />
+                  <div className="h-1.5 w-full overflow-hidden rounded-full bg-white/10">
+                    <div className="h-full rounded-full transition-all" style={{ width: `${Math.min(100, (distanceKm / goalKm) * 100)}%`, background: "linear-gradient(90deg, oklch(0.75 0.16 40), oklch(0.78 0.16 165))" }} />
                   </div>
-                  <p className="mt-0.5 text-[10px] text-foreground/50">เป้าหมาย {goalKm} km</p>
+                  <p className="mt-0.5 text-[10px] text-white/45">เป้าหมาย {goalKm} km</p>
                 </div>
               ) : null}
             </div>
             <div className="text-right">
-              <p className="text-[10px] tracking-[0.2em] text-aqua/75 uppercase">pace now</p>
-              <p className="font-display text-3xl leading-none font-semibold text-aurora">{paceLabel(speed)}<span className="ml-1 text-xs font-medium text-foreground/45">/km</span></p>
+              <p className="text-[10px] tracking-[0.2em] uppercase" style={{ color: "oklch(0.78 0.14 195)" }}>pace now</p>
+              <p className="font-mono text-3xl leading-none font-semibold tracking-tight text-white tabular-nums">{paceLabel(speed)}<span className="ml-1 text-xs font-medium text-white/40">/km</span></p>
             </div>
           </div>
           <div className="mt-4 grid grid-cols-3 gap-2">
-            {[{ label: "เวลา", value: formatDuration(durationSec) }, { label: "ก้าว", value: steps.toLocaleString() }, { label: "เฉลี่ย", value: `${avgSpeedKmh.toFixed(1)} km/h` }].map((s) => (
-              <div key={s.label} className="rounded-2xl bg-[color-mix(in_oklab,white_6%,transparent)] px-3 py-2.5">
-                <p className="text-[10px] tracking-[0.14em] text-foreground/45 uppercase">{s.label}</p>
-                <p className="font-display mt-0.5 text-lg leading-none font-semibold">{s.value}</p>
+            {[
+              { label: "เวลา", value: formatDuration(durationSec), hue: 55 },
+              { label: "ก้าว", value: steps.toLocaleString(), hue: 110 },
+              { label: "เฉลี่ย", value: `${avgSpeedKmh.toFixed(1)} km/h`, hue: 165 },
+            ].map((s) => (
+              <div key={s.label} className="rounded-2xl bg-white/[0.05] px-3 py-2.5" style={{ borderTop: `2px solid oklch(0.72 0.14 ${s.hue})` }}>
+                <p className="text-[10px] tracking-[0.14em] text-white/45 uppercase">{s.label}</p>
+                <p className="font-mono mt-0.5 text-lg leading-none font-semibold text-white tabular-nums">{s.value}</p>
               </div>
             ))}
           </div>
           <div className="mt-3">
             <div className="mb-1 flex items-center justify-between">
-              <p className="text-[10px] tracking-[0.16em] text-foreground/40 uppercase">speed graph</p>
-              <p className="text-[10px] text-foreground/40">{track.length} จุด</p>
+              <p className="text-[10px] tracking-[0.16em] text-white/40 uppercase">speed graph</p>
+              <p className="text-[10px] text-white/40">{track.length} จุด</p>
             </div>
             <Sparkline values={speedValues} live={progress} />
           </div>
