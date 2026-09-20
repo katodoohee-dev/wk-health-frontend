@@ -9,7 +9,7 @@ export interface WeekShareData {
 }
 
 const WIDTH = 1080;
-const HEIGHT = 1350; // อัตราส่วนโพสต์ IG story-friendly
+const HEIGHT = 1650; // FIX: เพิ่มความสูงจากเดิม 1350 เพื่อเผื่อที่ให้ QR code ด้านล่างการ์ด ไม่ให้ทับสถิติ
 
 function roundRect(ctx: CanvasRenderingContext2D, x: number, y: number, w: number, h: number, r: number) {
   ctx.beginPath();
@@ -19,6 +19,27 @@ function roundRect(ctx: CanvasRenderingContext2D, x: number, y: number, w: numbe
   ctx.arcTo(x, y + h, x, y, r);
   ctx.arcTo(x, y, x + w, y, r);
   ctx.closePath();
+}
+
+// FIX: เพิ่มใหม่ — ตามที่ขอ "ฝัง URL ไปพร้อมรูป" จริงๆ ให้ดีกว่าแค่เผาตัวหนังสือ ใช้ QR code แทน เพราะ
+// สแกนด้วยกล้องมือถือได้ทันทีไม่ว่าจะแชร์ไปแพลตฟอร์มไหน (IG/FB/TikTok/Line ฯลฯ) ไม่ติดข้อจำกัดเรื่อง
+// ลิงก์คลิกได้เลย เพราะมันเป็นแค่รูปภาพส่วนหนึ่งของรูปที่แชร์ ไม่ต้องพึ่ง API ของแพลตฟอร์มใดๆ
+// ใช้ api.qrserver.com (ฟรี รองรับ CORS ไม่ต้องลง library เพิ่ม) ถ้าโหลดไม่สำเร็จ (เช่นไม่มีเน็ตตอนสร้างรูป)
+// ก็ข้ามไปเงียบๆ ยังเหลือ badge ชื่อเว็บมุมซ้ายบนช่วยไว้อยู่ดี ไม่ทำให้สร้างรูปพัง
+async function loadQrImage(url: string, sizePx = 240): Promise<HTMLImageElement | null> {
+  try {
+    const qrUrl = `https://api.qrserver.com/v1/create-qr-code/?size=${sizePx}x${sizePx}&margin=0&data=${encodeURIComponent(url)}`;
+    const img = new Image();
+    img.crossOrigin = "anonymous";
+    await new Promise<void>((resolve, reject) => {
+      img.onload = () => resolve();
+      img.onerror = () => reject(new Error("โหลด QR ไม่สำเร็จ"));
+      img.src = qrUrl;
+    });
+    return img;
+  } catch {
+    return null;
+  }
 }
 
 /** วาดการ์ดสรุปสัปดาห์ลง canvas แล้วคืนค่าเป็น Blob (image/png) */
@@ -39,7 +60,8 @@ export async function renderWeekShareImage(data: WeekShareData): Promise<Blob> {
   // white glass card
   const pad = 64;
   const cardY = 220;
-  const cardH = HEIGHT - cardY - 160;
+  const cardH = 970; // FIX: คงที่ไว้เท่าค่าที่เคยคำนวณได้ตอน HEIGHT=1350 เดิม (ไม่ผูกกับ HEIGHT ใหม่ที่สูงขึ้น
+  // เพราะสูงขึ้นมาเพื่อเผื่อที่ให้ QR โค้ดด้านล่างเท่านั้น ไม่ได้ต้องการให้การ์ดสถิติสูงตามไปด้วย)
   ctx.fillStyle = "rgba(255,255,255,0.92)";
   roundRect(ctx, pad, cardY, WIDTH - pad * 2, cardH, 48);
   ctx.fill();
@@ -104,6 +126,24 @@ export async function renderWeekShareImage(data: WeekShareData): Promise<Blob> {
       ctx.stroke();
     }
   });
+
+  // FIX: เพิ่มใหม่ — QR code สแกนเปิดเว็บได้ทันที วางไว้เหนือวันที่ด้านล่าง มีกล่องขาวรองพื้นให้สแกนง่าย
+  const qrSize = 200;
+  const qrImg = await loadQrImage(`https://${siteUrl}`, qrSize * 2); // โหลดละเอียดกว่าขนาดจริง 2 เท่า กันภาพแตก
+  if (qrImg) {
+    const qrBoxPad = 20;
+    const qrBoxSize = qrSize + qrBoxPad * 2;
+    const qrX = WIDTH / 2 - qrBoxSize / 2;
+    const qrY = cardY + cardH + 60; // ใต้การ์ดสถิติแบบมีระยะห่างชัดเจน ไม่ทับกัน
+    ctx.fillStyle = "#ffffff";
+    roundRect(ctx, qrX, qrY, qrBoxSize, qrBoxSize, 24);
+    ctx.fill();
+    ctx.drawImage(qrImg, qrX + qrBoxPad, qrY + qrBoxPad, qrSize, qrSize);
+    ctx.textAlign = "center";
+    ctx.font = "500 24px 'Segoe UI', system-ui, sans-serif";
+    ctx.fillStyle = "rgba(255,255,255,0.92)";
+    ctx.fillText("แสกนเปิดเว็บ WK Health", WIDTH / 2, qrY + qrBoxSize + 42);
+  }
 
   // footer
   ctx.textAlign = "center";
