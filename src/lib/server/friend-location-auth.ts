@@ -28,7 +28,11 @@ export async function authenticateRequest(request: Request) {
 }
 
 export async function getConfirmedFriendIds(token: string) {
-  const raw = await backendFetch<FriendRecord[] | { friends?: FriendRecord[]; data?: FriendRecord[] }>("/friends", token);
+  // FIX: บั๊กใหญ่ 🔴 — เดิมเรียก "/friends" (ไม่มี /api นำหน้า) แต่ backend จริงติด route ไว้ที่
+  // "/api/friends" เท่านั้น ทำให้ request นี้ชน 404 ทุกครั้ง แล้ว mapError ก็ดักจับไปคืน error
+  // "บริการตำแหน่งยังไม่พร้อมใช้งาน" อย่างเงียบๆ — ผลคือรายชื่อ "เพื่อนที่ยืนยันแล้ว" ว่างเปล่าตลอด
+  // ทำให้ปักหมุดเพื่อนบน GPS ไม่เคยขึ้นเลยสักครั้ง ไม่ว่าจะกดแชร์ตำแหน่งกี่รอบก็ตาม
+  const raw = await backendFetch<FriendRecord[] | { friends?: FriendRecord[]; data?: FriendRecord[] }>("/api/friends", token);
   const list = Array.isArray(raw) ? raw : (raw as any)?.friends || (raw as any)?.data || [];
   return Array.from(new Set(list.map((friend: FriendRecord) => String(friend.id)).filter(Boolean)));
 }

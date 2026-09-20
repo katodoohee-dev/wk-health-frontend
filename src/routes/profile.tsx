@@ -1,7 +1,7 @@
-import { useState } from "react";
+import { useRef, useState } from "react";
 import { createFileRoute } from "@tanstack/react-router";
 import { useMutation, useQuery } from "@tanstack/react-query";
-import { Loader2, Scale, Save, User, Watch, ChevronRight } from "lucide-react";
+import { Loader2, Scale, Save, User, Watch, ChevronRight, Camera } from "lucide-react";
 import { Link } from "@tanstack/react-router";
 import { PageHeader, GlassCard, SectionTitle } from "@/components/app/ui-bits";
 import { useAuth } from "@/lib/auth";
@@ -35,6 +35,31 @@ function ProfilePage() {
   const [height, setHeight] = useState(String(num(user?.["heightCm"], 170)));
   const [avatar, setAvatar] = useState(String(user?.["avatar"] ?? readLocalAvatar() ?? "🙂"));
   const [avatarOpen, setAvatarOpen] = useState(false);
+  const [photoError, setPhotoError] = useState("");
+  const fileInputRef = useRef<HTMLInputElement>(null);
+  const isPhotoAvatar = avatar.startsWith("data:image");
+
+  // FIX: เพิ่มใหม่ — อัปโหลดรูปโปรไฟล์จริงได้ (ไม่ใช่แค่เลือก emoji) แปลงเป็น data URL เก็บไว้เหมือน
+  // avatar เดิม (localStorage + พยายามส่งขึ้น backend) เพื่อให้หมุดตำแหน่งตอนแชร์ GPS ใช้รูปนี้ได้ด้วย
+  function handlePhotoPick(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0];
+    e.target.value = "";
+    if (!file) return;
+    setPhotoError("");
+    if (!file.type.startsWith("image/")) { setPhotoError("เลือกไฟล์รูปภาพเท่านั้น"); return; }
+    if (file.size > 4 * 1024 * 1024) { setPhotoError("ไฟล์ใหญ่เกินไป (ไม่เกิน 4MB)"); return; }
+    const reader = new FileReader();
+    reader.onload = () => {
+      const dataUrl = String(reader.result);
+      setAvatar(dataUrl);
+      setAvatarOpen(false);
+      // เก็บไว้ในเครื่องทันทีตอนเลือกรูป เผื่อ backend ไม่รองรับ field "avatar" เป็นรูป (payload ใหญ่/
+      // ถูก zod schema ทิ้งเงียบๆ) อย่างน้อยผู้ใช้ยังเห็นรูปที่เลือกไว้ในเครื่องตัวเองแน่นอน
+      writeLocalAvatar(dataUrl);
+    };
+    reader.onerror = () => setPhotoError("อ่านไฟล์ไม่สำเร็จ ลองใหม่อีกครั้ง");
+    reader.readAsDataURL(file);
+  }
 
   const bmi = useQuery({ queryKey: ["bmi", weight, height], queryFn: () => apiBmi(Number(weight), Number(height)), enabled: false });
 
@@ -55,24 +80,35 @@ function ProfilePage() {
         <div className="mb-4 flex flex-col items-center">
           <button
             onClick={() => setAvatarOpen((v) => !v)}
-            className="press grid size-20 place-items-center rounded-3xl bg-mint-soft text-4xl"
+            className="press grid size-20 place-items-center overflow-hidden rounded-3xl bg-mint-soft text-4xl"
             aria-label="เปลี่ยนรูปโปรไฟล์"
           >
-            {avatar}
+            {isPhotoAvatar ? <img src={avatar} alt="รูปโปรไฟล์" className="size-full object-cover" /> : avatar}
           </button>
           <p className="mt-2 text-xs text-muted-foreground">แตะเพื่อเปลี่ยนรูปโปรไฟล์</p>
+          {photoError && <p className="mt-1 text-xs text-destructive">{photoError}</p>}
           {avatarOpen && (
-            <div className="glass mt-3 grid grid-cols-8 gap-1.5 rounded-2xl p-3">
-              {AVATAR_OPTIONS.map((a) => (
-                <button
-                  key={a}
-                  onClick={() => { setAvatar(a); setAvatarOpen(false); }}
-                  className={`press grid size-8 place-items-center rounded-xl text-lg ${avatar === a ? "bg-mint-gradient shadow-glow" : ""}`}
-                  aria-label={`เลือก avatar ${a}`}
-                >
-                  {a}
-                </button>
-              ))}
+            <div className="glass mt-3 w-full max-w-xs rounded-2xl p-3">
+              <input ref={fileInputRef} type="file" accept="image/*" onChange={handlePhotoPick} className="hidden" />
+              <button
+                onClick={() => fileInputRef.current?.click()}
+                className="press bg-mint-gradient mb-3 flex w-full items-center justify-center gap-2 rounded-xl py-2.5 text-sm font-medium text-primary-foreground"
+              >
+                <Camera className="size-4" /> อัปโหลดรูปโปรไฟล์
+              </button>
+              <p className="mb-1.5 text-center text-[11px] text-muted-foreground">หรือเลือกอีโมจิ</p>
+              <div className="grid grid-cols-8 gap-1.5">
+                {AVATAR_OPTIONS.map((a) => (
+                  <button
+                    key={a}
+                    onClick={() => { setAvatar(a); setAvatarOpen(false); }}
+                    className={`press grid size-8 place-items-center rounded-xl text-lg ${avatar === a ? "bg-mint-gradient shadow-glow" : ""}`}
+                    aria-label={`เลือก avatar ${a}`}
+                  >
+                    {a}
+                  </button>
+                ))}
+              </div>
             </div>
           )}
         </div>

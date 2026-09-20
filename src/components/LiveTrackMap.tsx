@@ -17,7 +17,16 @@ type LiveTrackMapProps = {
   goalKm?: number | null;
   /** FIX: เพิ่มใหม่ — ตำแหน่งเพื่อนที่แชร์ให้เห็น (จาก apiFriendLocations) แสดงเป็นหมุดบนแผนที่ */
   friendLocations?: { friendId: string; name: string; avatar?: string; lat: number; lng: number }[];
+  /** FIX: เพิ่มใหม่ — avatar ของตัวเอง (emoji หรือรูปที่อัปโหลด/data URL) โชว์ในหมุดตำแหน่งตัวเองบนแผนที่
+      ตอนแชร์ตำแหน่งให้เพื่อนเห็น ให้ดูเท่ขึ้นแทนลูกศรเฉยๆ */
+  selfAvatar?: string;
 };
+
+/** avatar ที่อัปโหลดเป็นรูปจะถูกเก็บเป็น data URL หรือลิงก์ http(s) ส่วน emoji เป็น string สั้นๆ ธรรมดา
+    ใช้แยกว่าจะ render เป็น <img> หรือ <span>{emoji}</span> */
+function isImageAvatar(a?: string) {
+  return !!a && (a.startsWith("data:image") || a.startsWith("http://") || a.startsWith("https://"));
+}
 
 const SPEED_MIN = 0.5;
 const SPEED_MAX = 15;
@@ -93,7 +102,22 @@ function useLiveGps() {
   return { track, currentPos: track.length ? track[track.length - 1] : null, heading, speed, distanceKm, avgSpeedKmh, startedAt, error };
 }
 
-function createArrowIcon() {
+// FIX: เพิ่มใหม่ — ถ้ามีรูปโปรไฟล์จริง (data URL/http) ให้โชว์รูปในหมุดตำแหน่งตัวเองแทนลูกศรเฉยๆ
+// ดูเท่ขึ้นตอนแชร์ตำแหน่งให้เพื่อนเห็น ลูกศรทิศทางยังคงอยู่แต่ย่อเป็นป้ายเล็กมุมขวาล่างของรูปแทน
+function createArrowIcon(avatar?: string) {
+  const hasPhoto = isImageAvatar(avatar);
+  const photoHtml = hasPhoto
+    ? `<img src="${avatar}" alt="" class="gps-self-photo" />
+       <span class="gps-arrow gps-arrow-badge">
+         <svg viewBox="0 0 24 24" width="12" height="12" fill="currentColor" aria-hidden="true">
+           <path d="M12 2.5 20 21l-8-4.6L4 21z"/>
+         </svg>
+       </span>`
+    : `<span class="gps-arrow">
+         <svg viewBox="0 0 24 24" width="20" height="20" fill="currentColor" aria-hidden="true">
+           <path d="M12 2.5 20 21l-8-4.6L4 21z"/>
+         </svg>
+       </span>`;
   return L.divIcon({
     className: "!bg-transparent !border-0",
     iconSize: [72, 72],
@@ -102,35 +126,33 @@ function createArrowIcon() {
     <div class="gps-puck">
       <span class="gps-halo"></span>
       <span class="gps-halo gps-halo-2"></span>
-      <span class="gps-arrow">
-        <svg viewBox="0 0 24 24" width="20" height="20" fill="currentColor" aria-hidden="true">
-          <path d="M12 2.5 20 21l-8-4.6L4 21z"/>
-        </svg>
-      </span>
+      ${photoHtml}
     </div>`,
   });
 }
 
 // FIX: เพิ่มใหม่ — หมุดเพื่อน สร้างแบบ lazy เหมือน createArrowIcon (ห้ามสร้าง L.divIcon ตอน module
 // load เพราะ Leaflet ต้องการ window/document ซึ่งไม่มีตอน SSR — ดู commit d350ec5 ที่เคยแก้บั๊กนี้)
+// RESTORE: รองรับ avatar ที่เป็นรูปจริง (ไม่ใช่แค่ emoji) ให้หมุดเพื่อนดูเท่ขึ้นเหมือนหมุดตัวเอง
 const friendIconCache = new Map<string, L.DivIcon>();
 function friendDivIcon(avatar: string) {
   const cached = friendIconCache.get(avatar);
   if (cached) return cached;
+  const inner = isImageAvatar(avatar) ? `<img src="${avatar}" alt="" class="gps-friend-photo" />` : `<span>${avatar}</span>`;
   const icon = L.divIcon({
     className: "!bg-transparent !border-0",
     iconSize: [40, 40],
     iconAnchor: [20, 36],
-    html: `<div class="gps-friend-pin"><span>${avatar}</span></div>`,
+    html: `<div class="gps-friend-pin">${inner}</div>`,
   });
   friendIconCache.set(avatar, icon);
   return icon;
 }
 
-function LiveMarker({ pos, heading, follow, recenterKey }: { pos: { lat: number; lng: number }; heading: number; follow: boolean; recenterKey: number; }) {
+function LiveMarker({ pos, heading, follow, recenterKey, avatar }: { pos: { lat: number; lng: number }; heading: number; follow: boolean; recenterKey: number; avatar?: string; }) {
   const map = useMap();
   const markerRef = useRef<L.Marker>(null);
-  const arrowIcon = useMemo(() => createArrowIcon(), []);
+  const arrowIcon = useMemo(() => createArrowIcon(avatar), [avatar]);
 
   useEffect(() => {
     const el = markerRef.current?.getElement()?.querySelector<HTMLElement>(".gps-arrow");
@@ -180,7 +202,7 @@ function Sparkline({ values, live }: { values: number[]; live: number }) {
   );
 }
 
-export function LiveTrackMap({ steps, onSessionEnd, destination, goalKm, friendLocations }: LiveTrackMapProps) {
+export function LiveTrackMap({ steps, onSessionEnd, destination, goalKm, friendLocations, selfAvatar }: LiveTrackMapProps) {
   const { track, currentPos, heading, speed, distanceKm, avgSpeedKmh, startedAt, error } = useLiveGps();
   const [follow, setFollow] = useState(true);
   const [recenterKey, setRecenterKey] = useState(0);
@@ -257,7 +279,7 @@ export function LiveTrackMap({ steps, onSessionEnd, destination, goalKm, friendL
               <CircleMarker center={[destination.lat, destination.lng]} radius={9} pathOptions={{ color: "oklch(0.98 0 0)", fillColor: "oklch(0.62 0.2 30)", fillOpacity: 1, weight: 3 }} />
             </>
           )}
-          <LiveMarker pos={currentPos} heading={heading} follow={follow} recenterKey={recenterKey} />
+          <LiveMarker pos={currentPos} heading={heading} follow={follow} recenterKey={recenterKey} avatar={selfAvatar} />
           {/* FIX: เพิ่มใหม่ — หมุดตำแหน่งเพื่อนที่เปิดแชร์ตำแหน่งไว้ (สีฟ้า-ม่วงให้ต่างจากสีรุ้งของ
               เส้นทางตัวเอง และสีส้มของหมุดเป้าหมาย แยกแยะง่ายว่าอันไหนคือใคร) */}
           {friendLocations?.map((f) => (

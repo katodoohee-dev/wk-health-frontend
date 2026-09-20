@@ -11,7 +11,9 @@ export const Route = createFileRoute("/api/friends/location/share")({
           const body = await request.json().catch(() => ({} as Record<string, unknown>));
           const enabled = body?.enabled === true;
           if (enabled) {
-            const raw = await fetch(`${backendUrl()}/friends`, {
+            // FIX: บั๊กใหญ่ 🔴 — เดิมยิงไป `${backendUrl()}/friends` (ไม่มี /api นำหน้า) ชน 404 ทุกครั้ง
+            // ทำให้กด "แชร์ตำแหน่งให้เพื่อน" ไม่ได้เลยสักครั้ง ขึ้น error "ไม่สามารถตรวจสอบรายชื่อเพื่อนได้" ตลอด
+            const raw = await fetch(`${backendUrl()}/api/friends`, {
               headers: { Authorization: `Bearer ${token}`, Accept: "application/json" },
             });
             if (!raw.ok) return json({ success: false, error: "ไม่สามารถตรวจสอบรายชื่อเพื่อนได้" }, 503);

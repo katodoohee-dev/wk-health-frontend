@@ -16,6 +16,18 @@ export function apiFriendsList() { return apiFetch<Friend[]>("/api/friends"); }
 export function apiFriendsCheer(friendId: string) { return apiFetch<{ success: boolean }>(`/api/friends/cheer/${friendId}`, { method: "POST" }); }
 export function apiFriendsInviteCode() { return apiFetch<{ code: string }>("/api/friends/invite-code"); }
 export function apiFriendsAdd(code: string) { return apiFetch<{ success: boolean }>("/api/friends/add", { method: "POST", body: { code } }); }
+// FIX: เพิ่มใหม่ — ตั้งชื่อเล่นให้เพื่อน (เห็นแค่ฝั่งเราคนเดียว)
+export function apiFriendRename(friendId: string, nickname: string) {
+  return apiFetch<{ success: boolean; nickname: string }>(`/api/friends/${friendId}/nickname`, { method: "PATCH", body: { nickname } });
+}
+// FIX: เพิ่มใหม่ — ช่องแชทคุยกับเพื่อนในแอป
+export interface FriendMessage { id: number; fromUserId: string; toUserId: string; content: string; createdAt: string; }
+export function apiFriendMessages(friendId: string) {
+  return apiFetch<{ success: boolean; messages: FriendMessage[] }>(`/api/friends/${friendId}/messages`);
+}
+export function apiFriendSendMessage(friendId: string, content: string) {
+  return apiFetch<{ success: boolean; message: FriendMessage }>(`/api/friends/${friendId}/messages`, { method: "POST", body: { content } });
+}
 export function apiStatsWeekSummary() { return apiFetch<{ streak: number; avgKcal: number; daysOnGoal: number }>("/api/stats/week-summary"); }
 
 export interface NotificationSettings { mealReminder: boolean; streakRisk: boolean; weeklyInsight: boolean; smartTiming: boolean; quietStart: string; quietEnd: string; }

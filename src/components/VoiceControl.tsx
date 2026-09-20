@@ -5,6 +5,7 @@ import { useNavigate } from "@tanstack/react-router";
 import { apiCalc, apiFetch, ApiError } from "@/lib/api";
 import { apiSaveMeal } from "@/lib/meal-save";
 import { apiAssistantChatWithContext } from "@/lib/website-ai-context";
+import { apiFriendsList, apiFriendSendMessage } from "@/lib/api-new-features";
 import { gpsBridge } from "@/lib/gps-bridge";
 import { geocodePlace, haversineKm, bearingDeg, compassThai } from "@/lib/geo";
 import "./voice-control.css";
@@ -24,13 +25,16 @@ type VoiceAction =
   | { action: "START_WALK" | "START_RUN" | "START_CYCLE" | "START_GPS"; km?: number }
   | { action: "STOP_WALK" | "STOP_RUN" | "STOP_CYCLE" | "STOP_GPS" }
   | { action: "PLAY_MUSIC" | "PAUSE_MUSIC" | "STOP_MUSIC" | "NEXT_MUSIC" | "PREVIOUS_MUSIC" }
-  | { action: "OPEN_MUSIC" | "OPEN_DIARY" | "OPEN_STATS" | "OPEN_SCAN" | "OPEN_BARCODE" | "OPEN_PEDOMETER" | "OPEN_ASSISTANT" | "OPEN_PROFILE" }
+  | { action: "OPEN_MUSIC" | "OPEN_DIARY" | "OPEN_STATS" | "OPEN_SCAN" | "OPEN_BARCODE" | "OPEN_PEDOMETER" | "OPEN_ASSISTANT" | "OPEN_PROFILE" | "OPEN_FRIENDS" }
   | { action: "EXERCISE"; activity: string; duration_min: number; mets: number }
   | { action: "SHARE_LOCATION" }
   | { action: "LOG_FOOD_TEXT"; text: string }
   | { action: "ADD_CALORIES"; amount: number }
   | { action: "REMOVE_CAL_UNSUPPORTED" }
   | { action: "SET_DESTINATION"; place: string }
+  // FIX: เพิ่มใหม่ — สั่งด้วยเสียงให้ "ควบคุม" ช่องแชทเพื่อนได้ ไม่ใช่แค่ให้ AI อ่านวิเคราะห์เฉยๆ
+  // เช่น "ส่งข้อความหาก้องว่าไปกินข้าวกันไหม" -> friend_name="ก้อง" message="ไปกินข้าวกันไหม"
+  | { action: "SEND_FRIEND_MESSAGE"; friend_name: string; message: string }
   | { action: "SHOW_CALORIES" | "SHOW_STEPS" | "SAVE_MEAL" | "NONE" };
 
 const DEEPSEEK_ENDPOINT = "https://kasidathdeepseek.katodoohee.workers.dev";
@@ -38,7 +42,7 @@ const TTS_KEY = "wk_voice_tts_enabled";
 const VOICE_MODE_KEY = "wk_voice_mode_enabled";
 const ROUTES: Record<string, string> = {
   OPEN_MUSIC: "/music", OPEN_DIARY: "/diary", OPEN_STATS: "/stats", OPEN_SCAN: "/scan",
-  OPEN_BARCODE: "/barcode", OPEN_PEDOMETER: "/pedometer", OPEN_ASSISTANT: "/assistant",
+  OPEN_BARCODE: "/barcode", OPEN_PEDOMETER: "/pedometer", OPEN_ASSISTANT: "/assistant", OPEN_FRIENDS: "/friends",
 };
 
 const LOCAL_METS = [
@@ -90,7 +94,8 @@ function localActions(text: string): VoiceAction[] {
   if (/(เปิด|ไป|เข้า).*(สแกน|กล้องอาหาร)/i.test(t)) out.push({ action: "OPEN_SCAN" });
   if (/(เปิด|ไป|เข้า).*(บาร์โค้ด)/i.test(t)) out.push({ action: "OPEN_BARCODE" });
   if (/(เปิด|ไป|เข้า).*(นับก้าว|pedometer)/i.test(t)) out.push({ action: "OPEN_PEDOMETER" });
-  if (/(เปิด|ไป|เข้า).*(ผู้ช่วย|แชท)/i.test(t)) out.push({ action: "OPEN_ASSISTANT" });
+  if (/(เปิด|ไป|เข้า).*(ผู้ช่วย|คุยกับ\s*ai|คุยกับผู้ช่วย)/i.test(t)) out.push({ action: "OPEN_ASSISTANT" });
+  if (/(เปิด|ไป|เข้า).*(หน้าเพื่อน|รายชื่อเพื่อน)|^(เพื่อน)$/i.test(t)) out.push({ action: "OPEN_FRIENDS" });
   if (/(ตั้งโปรไฟล์|แก้โปรไฟล์|ข้อมูลส่วนตัว)/i.test(t)) out.push({ action: "OPEN_PROFILE" });
   if (/(แชร์ตำแหน่ง|แชร์โลเคชั่น|แชร์โลเคชัน|ส่งพิกัด|แชร์พิกัด|ส่งตำแหน่ง)/i.test(t)) out.push({ action: "SHARE_LOCATION" });
   // FIX: เพิ่มใหม่ — "ไปเที่ยว.../นำทางไป.../พาไปที่.../ไปหา..." -> มาร์กเป้าหมายบนแผนที่ + บอกระยะทาง/ทิศทาง
@@ -441,6 +446,28 @@ export function VoiceControl({ profileName, bodyWeightKg, onExercise, onStartGps
         onExercise({ activity: String(a.activity || "ออกกำลังกาย"), duration_min: mins, mets, kcal: Math.round(mets * bodyWeightKg * mins / 60) });
         completed++; continue;
       }
+      // FIX: เพิ่มใหม่ — "ควบคุม" แชทเพื่อนด้วยเสียงได้จริง ไม่ใช่แค่ให้ AI อ่านวิเคราะห์เฉยๆ ตามที่ขอ
+      if (key === "SEND_FRIEND_MESSAGE") {
+        const sendTo = async (friendName: string, message: string) => {
+          const name = friendName.trim();
+          const msg = message.trim();
+          if (!name) { speakThai("ส่งหาเพื่อนคนไหนครับ บอกชื่อมาได้เลย"); pendingQuestionRef.current = async (answer) => sendTo(answer, msg); return; }
+          if (!msg) { speakThai(`จะบอก${name}ว่าอะไรครับ`); pendingQuestionRef.current = async (answer) => sendTo(name, answer); return; }
+          try {
+            const friends = await apiFriendsList();
+            const norm = (s: string) => s.toLowerCase().replace(/\s/g, "");
+            const matches = friends.filter((f) => norm(f.name).includes(norm(name)) || norm(name).includes(norm(f.name)));
+            if (matches.length === 0) { speakThai(`หาเพื่อนชื่อ ${name} ในรายชื่อเพื่อนไม่เจอครับ`); return; }
+            if (matches.length > 1) { speakThai(`มีเพื่อนชื่อคล้าย ${name} หลายคนครับ บอกชื่อให้ชัดกว่านี้หน่อยได้ไหม`); return; }
+            await apiFriendSendMessage(matches[0]!.id, msg);
+            speakThai(`ส่งข้อความหา ${matches[0]!.name} ให้แล้วครับ`);
+          } catch {
+            speakThai("ส่งข้อความไม่สำเร็จครับ ลองใหม่อีกครั้ง");
+          }
+        };
+        await sendTo(a.friend_name, a.message);
+        return;
+      }
       const route = ROUTES[key];
       if (route) { await navigate({ to: route as any }); completed++; continue; }
       if (["PLAY_MUSIC", "PAUSE_MUSIC", "STOP_MUSIC", "NEXT_MUSIC", "PREVIOUS_MUSIC"].includes(key)) {
@@ -467,7 +494,8 @@ export function VoiceControl({ profileName, bodyWeightKg, onExercise, onStartGps
       STOP_WALK: "หยุดเดิน", STOP_RUN: "หยุดวิ่ง", STOP_CYCLE: "หยุดปั่น", STOP_GPS: "หยุดติดตาม",
       PLAY_MUSIC: "เปิดเพลง", PAUSE_MUSIC: "พักเพลง", STOP_MUSIC: "ปิดเพลง", NEXT_MUSIC: "เพลงถัดไป", PREVIOUS_MUSIC: "เพลงก่อนหน้า",
       OPEN_MUSIC: "เปิดเพลง", OPEN_DIARY: "เปิดไดอารี", OPEN_STATS: "เปิดสถิติ", OPEN_SCAN: "เปิดสแกน", OPEN_BARCODE: "เปิดบาร์โค้ด",
-      OPEN_PEDOMETER: "เปิดนับก้าว", OPEN_ASSISTANT: "เปิดผู้ช่วย", OPEN_PROFILE: "เปิดโปรไฟล์", EXERCISE: "บันทึกการออกกำลัง",
+      OPEN_PEDOMETER: "เปิดนับก้าว", OPEN_ASSISTANT: "เปิดผู้ช่วย", OPEN_PROFILE: "เปิดโปรไฟล์", OPEN_FRIENDS: "เปิดหน้าเพื่อน",
+      SEND_FRIEND_MESSAGE: "ส่งข้อความหาเพื่อน", EXERCISE: "บันทึกการออกกำลัง",
       SHOW_CALORIES: "ดูแคลอรี", SHOW_STEPS: "ดูก้าว", SAVE_MEAL: "บันทึกเมนู", SHARE_LOCATION: "แชร์ตำแหน่ง",
     };
     const names = actions.map((a) => labels[a.action]).filter(Boolean);
