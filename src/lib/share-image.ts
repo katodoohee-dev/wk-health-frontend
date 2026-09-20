@@ -44,6 +44,27 @@ export async function renderWeekShareImage(data: WeekShareData): Promise<Blob> {
   roundRect(ctx, pad, cardY, WIDTH - pad * 2, cardH, 48);
   ctx.fill();
 
+  // FIX: เพิ่มใหม่ — ตามที่ขอ "ลิงก์/ชื่อเว็บโผล่มุมซ้ายบน" ของรูปที่แชร์ลงสตอรี่ (ไม่ใช่ลิงก์กดได้จริง —
+  // Instagram/Facebook/TikTok ล็อกฟีเจอร์ลิงก์กดได้จากภายนอกไว้ ต้องเป็นแอปที่จดทะเบียนกับ Meta/TikTok
+  // เท่านั้น เว็บทำเองไม่ได้ นี่คือทางที่ทำได้จริง: เผาชื่อเว็บลงในรูปให้คนเห็นแล้วจำ/พิมพ์ตามเอง)
+  const siteUrl = typeof window !== "undefined" ? window.location.host : "wk-health-frontend.onrender.com";
+  const badgePadX = 22;
+  const badgeH = 52;
+  ctx.font = "600 26px 'Segoe UI', system-ui, sans-serif";
+  const badgeTextW = ctx.measureText(siteUrl).width;
+  const badgeW = badgeTextW + badgePadX * 2 + 34;
+  ctx.fillStyle = "rgba(15,23,42,0.32)";
+  roundRect(ctx, 48, 44, badgeW, badgeH, badgeH / 2);
+  ctx.fill();
+  // จุดเล็กๆ นำหน้าแบบไอคอนแบรนด์ (มินต์ตัดกับพื้นหลัง badge)
+  ctx.beginPath();
+  ctx.arc(48 + badgePadX + 10, 44 + badgeH / 2, 8, 0, Math.PI * 2);
+  ctx.fillStyle = "#8fe3c4";
+  ctx.fill();
+  ctx.textAlign = "left";
+  ctx.fillStyle = "#ffffff";
+  ctx.fillText(siteUrl, 48 + badgePadX + 30, 44 + badgeH / 2 + 9);
+
   // heading
   ctx.fillStyle = "#0f172a";
   ctx.textAlign = "center";
@@ -101,10 +122,15 @@ export async function renderWeekShareImage(data: WeekShareData): Promise<Blob> {
 /** ดาวน์โหลดรูป หรือเปิด native share sheet ถ้าเบราว์เซอร์รองรับ (Web Share API level 2) */
 export async function shareOrDownloadImage(blob: Blob, filename: string) {
   const file = new File([blob], filename, { type: "image/png" });
+  // FIX: เพิ่มใหม่ — แนบ url ไปด้วยตอน share ไม่ใช่แค่รูปเฉยๆ แอปที่รองรับ (Line, Messenger, SMS,
+  // Twitter/X ฯลฯ) จะขึ้นเป็นลิงก์กดเข้าเว็บได้จริงในโพสต์/ข้อความที่ส่ง — Instagram/Facebook Stories
+  // และ TikTok ไม่รองรับส่วนนี้ (ดูเหตุผลในคอมเมนต์ที่ render ด้านบน) แต่แอปอื่นๆ ส่วนใหญ่รองรับ
+  const shareUrl = typeof window !== "undefined" ? window.location.origin : undefined;
+  const shareData = { files: [file], title: "สรุปสัปดาห์ของฉัน — WK Health App", text: "สรุปสัปดาห์ของฉันจาก WK Health App", url: shareUrl };
 
   if (typeof navigator !== "undefined" && "canShare" in navigator && navigator.canShare?.({ files: [file] })) {
     try {
-      await navigator.share({ files: [file], title: "สรุปสัปดาห์ของฉัน" });
+      await navigator.share(shareData);
       return "shared" as const;
     } catch (err) {
       // ผู้ใช้กดยกเลิก share sheet — ไม่ถือเป็น error
