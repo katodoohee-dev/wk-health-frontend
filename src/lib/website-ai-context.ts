@@ -59,7 +59,7 @@ export async function collectWebsiteAIContext() {
     )
   );
   const friendChats = chatResults
-    .filter((r): r is PromiseFulfilledResult<{ friendId: string; friendName: string; recentMessages: unknown[] }> => r.status === "fulfilled")
+    .filter((r) => r.status === "fulfilled")
     .map((r) => r.value);
 
   return {
