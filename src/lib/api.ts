@@ -85,10 +85,52 @@ export async function apiFetch<T = Json>(
     const msg =
       (typeof data["error"] === "string" && data["error"]) ||
       (typeof data["message"] === "string" && data["message"]) ||
+      formatValidationIssues(data) ||
       `เกิดข้อผิดพลาด (${res.status})`;
     throw new ApiError(msg, res.status);
   }
   return data as T;
+}
+
+/**
+ * FIX: เดิมถ้า backend ตอบ validation error แบบ zod (เช่น { errors: { foodName: ["Required"] } }
+ * หรือ { issues: [{ path: ["calories"], message: "Required" }] }) apiFetch จะมองไม่เห็นข้อความ
+ * เหล่านี้เลย (เช็คแค่ data.error / data.message ที่เป็น string เดี่ยว) แล้ว fallback ไปโชว์
+ * "เกิดข้อผิดพลาด (400)" เฉยๆ ทำให้ผู้ใช้เห็นแค่ข้อความ error ทั่วไป โดยไม่รู้เลยว่า field ไหนที่
+ * backend มองว่าขาดไป (จุดตายจริงของปัญหา "กดบันทึกแล้วขึ้น Required") — แก้โดยแกะรูปแบบ validation
+ * error ที่พบบ่อย (zod .flatten() / issues[] / errors[]) ออกมาเป็นข้อความ "ชื่อ field: ข้อความ"
+ * ให้เห็นตรงๆ ในแอป
+ */
+function formatValidationIssues(data: Json): string | null {
+  const parts: string[] = [];
+  const errors = data["errors"];
+  if (errors && typeof errors === "object" && !Array.isArray(errors)) {
+    for (const [field, val] of Object.entries(errors as Record<string, unknown>)) {
+      const msg = Array.isArray(val) ? val.join(", ") : String(val);
+      parts.push(`${field}: ${msg}`);
+    }
+  } else if (Array.isArray(errors)) {
+    for (const e of errors) {
+      if (e && typeof e === "object") {
+        const path = Array.isArray((e as any).path) ? (e as any).path.join(".") : (e as any).path;
+        const message = (e as any).message ?? JSON.stringify(e);
+        parts.push(path ? `${path}: ${message}` : String(message));
+      } else {
+        parts.push(String(e));
+      }
+    }
+  }
+  const issues = data["issues"];
+  if (Array.isArray(issues)) {
+    for (const i of issues) {
+      if (i && typeof i === "object") {
+        const path = Array.isArray((i as any).path) ? (i as any).path.join(".") : (i as any).path;
+        const message = (i as any).message ?? JSON.stringify(i);
+        parts.push(path ? `${path}: ${message}` : String(message));
+      }
+    }
+  }
+  return parts.length ? `ข้อมูลไม่ครบ/ไม่ถูกต้อง — ${parts.join(" · ")}` : null;
 }
  
 /** ดึงค่าแรกที่เจอจากหลายชื่อ key (backend อาจตั้งชื่อไม่ตรงกัน) */
@@ -474,9 +516,23 @@ export async function apiPedometerLog(
 ) {
   const distanceKm = opts.distanceKm ?? Math.round(steps * 0.0007 * 100) / 100; // ประมาณ ~0.7m/ก้าว
   const seconds = opts.seconds ?? Math.round(steps * 0.5); // ประมาณ ~0.5 วิ/ก้าว
+  // ส่งชื่อ field ซ้ำหลายแบบ (เหมือน apiSaveMeal) กันกรณี backend ใช้ชื่อ field ไม่ตรงกับที่คิดไว้
+  // แล้วตอบ validation error "Required" กลับมาทั้งที่ frontend ส่งค่าไปแล้วจริงๆ
   return apiFetch("/api/pedometer/log", {
     method: "POST",
-    body: { steps, distanceKm, seconds },
+    body: {
+      steps,
+      step: steps,
+      count: steps,
+      stepCount: steps,
+      distanceKm,
+      distance_km: distanceKm,
+      distance: distanceKm,
+      seconds,
+      durationSeconds: seconds,
+      duration_seconds: seconds,
+      date: new Date().toISOString().slice(0, 10),
+    },
   });
 }
  

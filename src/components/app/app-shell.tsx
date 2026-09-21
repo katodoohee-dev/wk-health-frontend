@@ -4,6 +4,7 @@ import { BarChart3, BookOpen, Bot, Home, Loader2, ScanLine } from "lucide-react"
 import { useAuth } from "@/lib/auth";
 import { MusicProvider } from "@/lib/music";
 import { FloatingControls } from "@/components/app/floating-controls";
+import { AppCommandRuntimeLoader } from "@/components/AppCommandRuntimeLoader";
 import "@/components/app/monochrome-overrides.css";
 
 const tabs = [
@@ -50,6 +51,7 @@ export function AppShell({ children }: { children: ReactNode }) {
         </div>
 
         {!isAuthRoute && isAuthenticated && <FloatingControls />}
+        {!isAuthRoute && isAuthenticated && <AppCommandRuntimeLoader />}
 
         {!isAuthRoute && isAuthenticated && (
           <nav className="fixed inset-x-0 bottom-0 z-40 pb-[env(safe-area-inset-bottom)]">
