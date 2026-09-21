@@ -672,8 +672,20 @@ export async function apiWorkoutHistory(): Promise<WorkoutHistoryItem[]> {
  
 export type GeoPoint = { lat: number; lng: number };
  
-export async function apiRouteStart(): Promise<string> {
-  const data = await apiFetch("/api/route/start", { method: "POST", body: {} });
+export async function apiRouteStart(start?: { lat?: number; lng?: number; goalKm?: number }): Promise<string> {
+  // FIX: เดิมส่ง body ว่างเปล่า {} ไปที่ /api/route/start ตรงๆ ถ้า backend มี field ตัวเลขที่จำเป็น
+  // (เช่น lat/lng เริ่มต้น หรือ goalKm) แล้วมีชั้น parse body ก่อนถึง zod ที่ default ค่าที่ขาดไปเป็น
+  // string ว่าง "" (พบได้บ่อยกับ some body parser) จะโดน zod ปฏิเสธด้วย "Expected number, received
+  // string" ทันที ทั้งที่ frontend "ไม่ได้ส่งอะไรผิด" แค่ไม่ได้ส่งเลย — แก้โดยส่งค่าตัวเลขที่เป็นไปได้
+  // เสมอ (0 เป็นค่าเริ่มต้นที่ปลอดภัย ค่าจริงจะถูกอัปเดตตอน apiRouteStop ที่มีพิกัด/ระยะทางจริงอยู่แล้ว)
+  const lat = start?.lat ?? 0;
+  const lng = start?.lng ?? 0;
+  const goalKm = start?.goalKm ?? 0;
+  const startedAt = Date.now();
+  const data = await apiFetch("/api/route/start", {
+    method: "POST",
+    body: { lat, lng, goalKm, startedAt, startAt: startedAt, timestamp: startedAt },
+  });
   const r = pick<Json>(data, ["route", "data"], data);
   return String(pick(r, ["routeId", "id", "_id"], pick(data, ["routeId", "id"], "")));
 }

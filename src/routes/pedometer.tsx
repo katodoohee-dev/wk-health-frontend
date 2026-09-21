@@ -550,7 +550,7 @@ function GpsTracker() {
     }
     try {
       setBusy(true);
-      const id = await apiRouteStart();
+      const id = await apiRouteStart({ goalKm: goalKm ?? 0 });
       setRouteId(id || "temp");
       setSeconds(0);
       setPoints([]);
@@ -580,7 +580,7 @@ function GpsTracker() {
     } finally {
       setBusy(false);
     }
-  }, []);
+  }, [goalKm]);
 
   const stop = useCallback(async () => {
     if (!routeId) return;
