@@ -109,19 +109,18 @@ nav > div > div {
   box-shadow: 0 22px 70px -28px oklch(0 0 0 / 65%);
 }
 
-/* Map: high-contrast noir "toner map" look — always B&W regardless of app theme.
-   FIX: เดิมแค่ grayscale(1) เฉยๆ ทำให้แผนที่ดูเทาซีดจืด ไม่ "เท่" ตามที่ขอ
-   ปรับเป็นสไตล์ toner map: คอนทราสต์สูง เข้มขึ้น ตัดสีให้ขาว-ดำจัดจ้านแบบแผนที่พิมพ์ */
+/* Map: dark, colorful basemap — restored to the original look (pre-noir).
+   เดิมใช้ CARTO dark_all tiles ซึ่งตอนนี้ต้องสมัคร API key ถึงจะใช้ได้ (ไม่งั้นขึ้นลายน้ำทับแผนที่)
+   เปลี่ยนมาใช้ OpenStreetMap tiles ฟรีแทน แล้วจำลองโทนมืด/มีสีสันแบบเดิมด้วย CSS filter ระดับ pane
+   (invert + hue-rotate เป็นเทคนิคมาตรฐานสำหรับทำ "dark mode map" จาก tile สีสว่างปกติ โดยไม่ต้องพึ่ง
+   tile provider ที่ต้องจ่ายเงิน) แทนที่ grayscale/toner filter แบบขาวดำที่ปรับไว้ก่อนหน้านี้ */
 .leaflet-container {
   background: #05070a !important;
   border-radius: 1.5rem;
   overflow: hidden;
 }
-/* RESTORE: ใช้ filter ระดับ pane (เทคนิคที่ดีกว่าเดิม ไม่มีรอยต่อระหว่าง tile) ตามที่ฝั่ง noir ปรับไว้
-   แต่ลด grayscale/saturate ลงจากเต็ม 100% เพื่อให้ยังเป็นขาวดำคอนทราสต์สูงเป็นหลัก ในขณะที่เส้นทาง/
-   หมุด GPS สีรุ้งที่วาดทับ (Polyline/CircleMarker) ยังโผล่สีออกมาให้เห็นชัดเจนตามที่ขอ */
 .leaflet-tile-pane {
-  filter: grayscale(.82) contrast(1.85) brightness(0.62) saturate(.4);
+  filter: invert(1) hue-rotate(180deg) brightness(0.92) contrast(0.9) saturate(1.15);
 }
 .leaflet-tile { filter: none; }
 .leaflet-control-zoom a {
