@@ -697,7 +697,16 @@ export async function apiRouteStop(input: {
   path: GeoPoint[];
   durationSeconds: number;
 }): Promise<RouteResult> {
-  const data = await apiFetch("/api/route/stop", { method: "POST", body: input });
+  // FIX: บั๊กใหญ่ 🔴 — backend (/api/route/stop) ต้องการ routeId เป็น "number" (z.number().int().positive())
+  // เพราะเก็บเป็น SQLite autoincrement id ตรงๆ แต่ apiRouteStart() ฝั่งนี้ทำ String() ครอบ routeId
+  // ไว้ตั้งแต่ต้น (เผื่อ backend อื่นใช้ string id) แล้ว apiRouteStop เดิมส่ง routeId ที่เป็น string
+  // นั้นตรงๆ ไปโดยไม่แปลงกลับ — zod เห็น string ที่ควรเป็น number เลยปฏิเสธด้วย
+  // "Expected number, received string" ทุกครั้งที่กด "หยุด" (ตรงกับ error ที่เจอจริงในแอป)
+  const routeIdNum = Number(input.routeId);
+  const data = await apiFetch("/api/route/stop", {
+    method: "POST",
+    body: { ...input, routeId: Number.isFinite(routeIdNum) ? routeIdNum : input.routeId },
+  });
   const r = pick<Json>(data, ["route", "result", "data"], data);
   return {
     distanceKm: num(pick(r, ["distanceKm", "distance", "km"], 0)),

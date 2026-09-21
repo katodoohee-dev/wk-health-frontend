@@ -588,6 +588,16 @@ function GpsTracker() {
       navigator.geolocation.clearWatch(watchRef.current);
       watchRef.current = null;
     }
+    // FIX: เพิ่มใหม่ — backend บังคับต้องมีพิกัดอย่างน้อย 2 จุดถึงจะคำนวณระยะทางได้ (haversine ต้องมี
+    // จุดคู่) ถ้ากด "หยุด" เร็วเกินไปก่อนที่ GPS จะได้พิกัดที่ 2 (เช่น สัญญาณช้า/กดหยุดทันทีหลังกดเริ่ม)
+    // เดิมจะยิง request ไปแล้วโดน backend ปฏิเสธด้วยข้อความ zod ดิบๆ ที่ผู้ใช้งงว่าหมายถึงอะไร
+    // แก้โดยเช็คก่อนฝั่ง frontend แล้วโชว์ข้อความไทยที่เข้าใจง่ายแทน ไม่ต้องยิง request เลย
+    if (points.length < 2) {
+      setError("ยังเก็บพิกัดได้ไม่พอ (ต้องมีอย่างน้อย 2 จุด) กรุณารอสักครู่ให้ GPS จับสัญญาณแล้วลองหยุดใหม่");
+      setBusy(false);
+      setRouteId(null);
+      return;
+    }
     try {
       setBusy(true);
       await apiRouteStop({ routeId, path: points, durationSeconds: seconds });

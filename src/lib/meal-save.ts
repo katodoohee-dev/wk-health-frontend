@@ -56,7 +56,9 @@ export async function apiSaveMeal(input: MealSaveInput) {
       mealType: normalizeMeal(input.mealType ?? input.slot ?? input.meal),
       slot: input.slot,
       meal: input.meal,
-      photoUrl: input.photoUrl ?? null,
+      // backend schema ใช้ z.string().optional() — รับ string หรือ "ไม่ส่ง key นี้เลย" เท่านั้น
+      // ไม่รับ null ตรงๆ (ส่ง null ไปจะโดนปฏิเสธถ้าไม่มีรูป) จึงส่ง key นี้เฉพาะตอนมีค่าจริงเท่านั้น
+      ...(input.photoUrl ? { photoUrl: input.photoUrl } : {}),
       description: input.description,
       source: input.source ?? "manual",
     },
