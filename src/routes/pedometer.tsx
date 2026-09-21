@@ -2,9 +2,9 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { createFileRoute } from "@tanstack/react-router";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Bar, BarChart, ResponsiveContainer, XAxis } from "recharts";
-import { Dumbbell, Flame, Footprints, Loader2, MapPin, Mountain, Play, Plus, Route as RouteIcon, Share2, Square, Timer } from "lucide-react";
+import { Dumbbell, Flame, Footprints, Loader2, MapPin, Mountain, Play, Plus, Route as RouteIcon, Share2, Square, Timer, X, Image as ImageIcon, Check } from "lucide-react";
 import { PageHeader, GlassCard, Ring, SectionTitle } from "@/components/app/ui-bits";
-import { ErrorState, LoadingState } from "@/components/app/states";
+import { ErrorState, LoadingState, Skeleton } from "@/components/app/states";
 import { useAuth } from "@/lib/auth";
 import { gpsBridge } from "@/lib/gps-bridge";
 import { apiFriendLocations, apiFriendLocationSharingStatus, apiFriendsList } from "@/lib/api-new-features";
@@ -16,11 +16,15 @@ import { Link } from "@tanstack/react-router";
 import {
   apiPedometerLog,
   apiPedometerToday,
+  apiRouteDetail,
   apiRouteHistory,
   apiRouteStart,
   apiRouteStop,
   type GeoPoint,
 } from "@/lib/api";
+// FIX: เพิ่มใหม่ — ตามที่ขอ "แชร์สถิติการวิ่งพร้อมเส้นทาง" เลือกสีเส้น/พื้นหลังเองได้
+import { renderRunSharePreview, loadImageFromFile } from "@/lib/share-run-image";
+import { shareOrDownloadImage } from "@/lib/share-image";
 
 export const Route = createFileRoute("/pedometer")({
   head: () => ({
@@ -38,6 +42,8 @@ function PedometerPage() {
   const { isAuthenticated, user } = useAuth();
   const qc = useQueryClient();
   const [steps, setSteps] = useState(1000);
+  // FIX: เพิ่มใหม่ — ตามที่ขอ "แชร์สถิติการวิ่งพร้อมเส้นทาง"
+  const [sharingRouteId, setSharingRouteId] = useState<string | null>(null);
 
   const q = useQuery({
     queryKey: ["pedometer", "today"],
@@ -733,6 +739,14 @@ function GpsTracker() {
                   </p>
                 </div>
                 <span className="shrink-0 text-sm font-semibold tabular-nums text-peach">{r.kcal} kcal</span>
+                {/* FIX: เพิ่มใหม่ — ปุ่มแชร์สถิติการวิ่งพร้อมเส้นทางจริง ตามที่ขอ */}
+                <button
+                  onClick={() => setSharingRouteId(r.id)}
+                  className="press glass grid size-8 shrink-0 place-items-center rounded-xl text-mint"
+                  aria-label="แชร์สถิติเส้นทางนี้"
+                >
+                  <Share2 className="size-3.5" />
+                </button>
               </div>
             ))}
           </div>
@@ -740,6 +754,8 @@ function GpsTracker() {
           <p className="text-sm text-muted-foreground">ยังไม่มีเส้นทางที่บันทึกไว้</p>
         )}
       </GlassCard>
+
+      {sharingRouteId && <ShareRunModal routeId={sharingRouteId} onClose={() => setSharingRouteId(null)} />}
     </>
   );
 }
@@ -762,6 +778,144 @@ function Stat({
       </span>
       <p className="mt-2 truncate font-display font-bold tabular-nums">{value}</p>
       <p className="truncate text-xs text-muted-foreground">{label}</p>
+    </div>
+  );
+}
+
+/** FIX: เพิ่มใหม่ — โมดัลแชร์สถิติการวิ่งพร้อมเส้นทางจริง เลือกสีเส้น (วงล้อสีของระบบ) และพื้นหลังเองได้
+    ตามดีไซน์ที่ผู้ใช้ส่งมา ดึงตัวเลข Dist/Time/Pace จากข้อมูลจริงที่บันทึกไว้ตอนจบการวิ่ง ไม่ปัดเพี้ยน */
+function ShareRunModal({ routeId, onClose }: { routeId: string; onClose: () => void }) {
+  const canvasRef = useRef<HTMLCanvasElement>(null);
+  const [lineColor, setLineColor] = useState("#e0201a");
+  const [bgImage, setBgImage] = useState<HTMLImageElement | null>(null);
+  const [blob, setBlob] = useState<Blob | null>(null);
+  const [renderError, setRenderError] = useState<string | null>(null);
+  const [rendering, setRendering] = useState(false);
+  const [shareBusy, setShareBusy] = useState(false);
+  const [shareResult, setShareResult] = useState<"shared" | "downloaded" | null>(null);
+  const [shareError, setShareError] = useState<string | null>(null);
+
+  const detail = useQuery({ queryKey: ["route", "detail", routeId], queryFn: () => apiRouteDetail(routeId) });
+
+  useEffect(() => {
+    if (!detail.data || !canvasRef.current) return;
+    let cancelled = false;
+    setRendering(true);
+    setRenderError(null);
+    renderRunSharePreview(canvasRef.current, {
+      distanceKm: detail.data.distanceKm,
+      durationSeconds: detail.data.durationSeconds,
+      path: detail.data.path,
+      lineColor,
+      backgroundImage: bgImage,
+      date: detail.data.date ? new Date(detail.data.date) : new Date(),
+    })
+      .then((b) => { if (!cancelled) setBlob(b); })
+      .catch((err) => { if (!cancelled) setRenderError(err instanceof Error ? err.message : "สร้างรูปตัวอย่างไม่สำเร็จ"); })
+      .finally(() => { if (!cancelled) setRendering(false); });
+    return () => { cancelled = true; };
+  }, [detail.data, lineColor, bgImage]);
+
+  const handleBgUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    e.target.value = "";
+    if (!file) return;
+    try {
+      const img = await loadImageFromFile(file);
+      setBgImage(img);
+    } catch {
+      setRenderError("อัปโหลดรูปพื้นหลังไม่สำเร็จ ลองไฟล์อื่น");
+    }
+  };
+
+  const handleShare = async () => {
+    if (!blob) return;
+    setShareBusy(true);
+    setShareError(null);
+    try {
+      const result = await shareOrDownloadImage(blob, `wk-health-run-${routeId}.png`);
+      if (result !== "cancelled") {
+        setShareResult(result);
+        setTimeout(() => setShareResult(null), 3000);
+      }
+    } catch {
+      setShareError("แชร์ไม่สำเร็จ ลองใหม่อีกครั้ง");
+    } finally {
+      setShareBusy(false);
+    }
+  };
+
+  return (
+    <div className="fixed inset-0 z-[220] flex items-end justify-center bg-black/60 p-4 sm:items-center" onClick={onClose}>
+      <div
+        className="glass-strong flex max-h-[92vh] w-full max-w-sm flex-col gap-3 overflow-y-auto rounded-3xl p-5"
+        onClick={(e) => e.stopPropagation()}
+      >
+        <div className="flex items-center justify-between">
+          <p className="font-display font-semibold">แชร์สถิติการวิ่ง</p>
+          <button onClick={onClose} className="press glass grid size-8 place-items-center rounded-xl" aria-label="ปิด">
+            <X className="size-4" />
+          </button>
+        </div>
+
+        {detail.isLoading ? (
+          <Skeleton className="aspect-[9/16] w-full rounded-2xl" />
+        ) : detail.isError ? (
+          <ErrorState error={detail.error} onRetry={() => void detail.refetch()} />
+        ) : (
+          <div className="relative overflow-hidden rounded-2xl bg-muted">
+            <canvas ref={canvasRef} className="w-full" />
+            {rendering && (
+              <div className="absolute inset-0 grid place-items-center bg-black/30">
+                <Loader2 className="size-6 animate-spin text-white" />
+              </div>
+            )}
+          </div>
+        )}
+        {renderError && <p className="text-xs text-destructive">{renderError}</p>}
+
+        <div className="flex items-center gap-2">
+          <label className="glass flex items-center gap-2 rounded-xl px-3 py-2.5 text-xs">
+            <span className="text-muted-foreground">สีเส้นทาง</span>
+            <input
+              type="color"
+              value={lineColor}
+              onChange={(e) => setLineColor(e.target.value)}
+              className="size-8 cursor-pointer rounded-lg border-0 bg-transparent p-0"
+              aria-label="เลือกสีเส้นทาง"
+            />
+          </label>
+          <label className="press glass flex flex-1 cursor-pointer items-center justify-center gap-2 rounded-xl px-3 py-2.5 text-xs text-muted-foreground">
+            <ImageIcon className="size-3.5" /> พื้นหลังเอง
+            <input type="file" accept="image/*" onChange={handleBgUpload} className="hidden" />
+          </label>
+          {bgImage && (
+            <button
+              onClick={() => setBgImage(null)}
+              className="press glass grid size-9 shrink-0 place-items-center rounded-xl text-muted-foreground"
+              aria-label="ลบพื้นหลังที่อัปโหลด กลับไปใช้พื้นขาว"
+            >
+              <X className="size-3.5" />
+            </button>
+          )}
+        </div>
+
+        {shareResult && (
+          <p className="flex items-center gap-1 text-xs text-mint">
+            <Check className="size-3.5" />
+            {shareResult === "shared" ? "แชร์รูปสำเร็จ" : "บันทึกรูปลงเครื่องแล้ว"}
+          </p>
+        )}
+        {shareError && <p className="text-xs text-destructive">{shareError}</p>}
+
+        <button
+          onClick={handleShare}
+          disabled={!blob || rendering || shareBusy}
+          className="press bg-mint-gradient flex items-center justify-center gap-2 rounded-xl py-3 text-sm font-medium text-primary-foreground shadow-glow disabled:opacity-50"
+        >
+          {shareBusy ? <Loader2 className="size-4 animate-spin" /> : <Share2 className="size-4" />} แชร์รูปนี้
+        </button>
+      </div>
     </div>
   );
 }
