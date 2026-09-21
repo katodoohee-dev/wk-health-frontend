@@ -645,7 +645,29 @@ export type RouteHistoryItem = {
   durationSeconds: number;
   date: string;
 };
- 
+
+// FIX: เพิ่มใหม่ — ดึงรายละเอียดเส้นทางเดียว "พร้อมพิกัด GPS จริงทั้งเส้น" (path) สำหรับตอนแชร์
+// สถิติการวิ่งพร้อมเส้นทาง — apiRouteHistory (list) ไม่มี path ให้ (กันก้อนข้อมูลใหญ่เกินจำเป็น)
+export type RouteDetail = RouteHistoryItem & { path: { lat: number; lng: number; t?: number }[] };
+
+export async function apiRouteDetail(id: string): Promise<RouteDetail> {
+  const data = await apiFetch(`/api/route/${id}`);
+  const r = pick<Json>(data, ["route"], data);
+  const rawPath = pick<Json[]>(r, ["path"], []);
+  return {
+    id: String(pick(r, ["id"], id)),
+    distanceKm: num(pick(r, ["distance_km", "distanceKm"], 0)),
+    kcal: num(pick(r, ["kcal_burned", "kcal"], 0)),
+    durationSeconds: num(pick(r, ["duration_seconds", "durationSeconds"], 0)),
+    date: String(pick(r, ["ended_at", "date"], "")).slice(0, 16).replace("T", " "),
+    path: (Array.isArray(rawPath) ? rawPath : []).map((p) => ({
+      lat: num(pick(p, ["lat"], 0)),
+      lng: num(pick(p, ["lng"], 0)),
+      t: pick(p, ["t"], undefined) as number | undefined,
+    })),
+  };
+}
+
 export async function apiRouteHistory(): Promise<RouteHistoryItem[]> {
   const data = await apiFetch("/api/route/history");
   const list = pick<Json[]>(data, ["routes", "history", "items", "data"], []);
