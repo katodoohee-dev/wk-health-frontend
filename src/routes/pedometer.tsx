@@ -42,8 +42,6 @@ function PedometerPage() {
   const { isAuthenticated, user } = useAuth();
   const qc = useQueryClient();
   const [steps, setSteps] = useState(1000);
-  // FIX: เพิ่มใหม่ — ตามที่ขอ "แชร์สถิติการวิ่งพร้อมเส้นทาง"
-  const [sharingRouteId, setSharingRouteId] = useState<string | null>(null);
 
   const q = useQuery({
     queryKey: ["pedometer", "today"],
@@ -493,6 +491,11 @@ function GpsTracker() {
   const [destination, setDestinationState] = useState<GeoResult | null>(null);
   // FIX: เพิ่มใหม่ — เป้าหมายระยะทางวิ่ง/เดินจากเสียง ("อยากวิ่งกี่กิโล") ส่งต่อให้ LiveTrackMap โชว์ progress
   const [goalKm, setGoalKmState] = useState<number | null>(null);
+  // FIX: บั๊กใหญ่ 🔴 — เดิมประกาศ sharingRouteId ไว้ใน PedometerPage (คอมโพเนนต์แม่) แต่ปุ่ม "แชร์" และ
+  // ตัว ShareRunModal ที่ใช้ตัวแปรนี้จริงๆ อยู่ใน GpsTracker (คอมโพเนนต์แยกกันคนละ scope) ทำให้เกิด
+  // "ReferenceError: sharingRouteId is not defined" พังทั้งหน้าทันทีที่โหลด (ตรงกับบั๊ก `user` ที่เคย
+  // เจอมาก่อนหน้านี้ในคอมเมนต์ด้านบน) ย้ายมาประกาศใน GpsTracker ให้ถูก scope
+  const [sharingRouteId, setSharingRouteId] = useState<string | null>(null);
   const watchRef = useRef<number | null>(null);
 
   const history = useQuery({ queryKey: ["route", "history"], queryFn: apiRouteHistory });
