@@ -106,13 +106,9 @@ function useLiveGps() {
 // ดูเท่ขึ้นตอนแชร์ตำแหน่งให้เพื่อนเห็น ลูกศรทิศทางยังคงอยู่แต่ย่อเป็นป้ายเล็กมุมขวาล่างของรูปแทน
 function createArrowIcon(avatar?: string) {
   const hasPhoto = isImageAvatar(avatar);
+  // FIX: ตามที่ขอ — เอาลูกศรออกไปทั้งหมดเมื่อมีรูปโปรไฟล์ เหลือแค่รูปวงกลมอย่างเดียว ไม่มี badge ลูกศรมุมขวาล่างแล้ว
   const photoHtml = hasPhoto
-    ? `<img src="${avatar}" alt="" class="gps-self-photo" />
-       <span class="gps-arrow gps-arrow-badge">
-         <svg viewBox="0 0 24 24" width="12" height="12" fill="currentColor" aria-hidden="true">
-           <path d="M12 2.5 20 21l-8-4.6L4 21z"/>
-         </svg>
-       </span>`
+    ? `<img src="${avatar}" alt="" class="gps-self-photo" />`
     : `<span class="gps-arrow">
          <svg viewBox="0 0 24 24" width="20" height="20" fill="currentColor" aria-hidden="true">
            <path d="M12 2.5 20 21l-8-4.6L4 21z"/>
