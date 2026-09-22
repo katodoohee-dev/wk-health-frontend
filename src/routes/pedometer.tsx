@@ -10,7 +10,8 @@ import { gpsBridge } from "@/lib/gps-bridge";
 import { apiFriendLocations, apiFriendLocationSharingStatus, apiFriendsList } from "@/lib/api-new-features";
 import { startFriendLocationSharing, stopFriendLocationSharing } from "@/lib/friend-location";
 import type { GeoResult } from "@/lib/geo";
-import { haversineKm } from "@/lib/geo";
+import { haversineKm, estimateKcalBurnedClient } from "@/lib/geo";
+import { enqueuePendingRoute, flushPendingRoutes, getPendingRoutes } from "@/lib/route-offline-queue";
 import { LiveTrackMap } from "@/components/LiveTrackMap";
 import { Link } from "@tanstack/react-router";
 import {
@@ -497,6 +498,11 @@ function GpsTracker() {
   // เจอมาก่อนหน้านี้ในคอมเมนต์ด้านบน) ย้ายมาประกาศใน GpsTracker ให้ถูก scope
   const [sharingRouteId, setSharingRouteId] = useState<string | null>(null);
   const watchRef = useRef<number | null>(null);
+  // FIX: เพิ่มใหม่ — เก็บ routeId จริงจาก server แยกจาก routeId ที่โชว์ในหน้าจอ (ซึ่งอาจเป็น local id
+  // ชั่วคราวตอนออฟไลน์) เพราะเริ่มวิ่งได้ทันทีโดยไม่ต้องรอ apiRouteStart() เสร็จก่อน (ดู start() ด้านล่าง)
+  const serverRouteIdRef = useRef<string | null>(null);
+  const [notice, setNotice] = useState<string | null>(null);
+  const [pendingCount, setPendingCount] = useState(0);
 
   const history = useQuery({ queryKey: ["route", "history"], queryFn: apiRouteHistory });
 
@@ -542,43 +548,75 @@ function GpsTracker() {
     };
   }, []);
 
+  // FIX: เพิ่มใหม่ — ตามที่ขอ "รันสะสมแบบ real-time ไม่ต้องรอวิ่งเสร็จ" คำนวณระยะทาง/kcal จาก
+  // พิกัดที่มีอยู่ในเครื่องตรงๆ ทุกครั้งที่ได้พิกัดใหม่ (สูตรเดียวกับ server เป๊ะๆ) แทนที่จะรอเรียก
+  // apiRouteStop() ตอนจบแล้วค่อยรู้ตัวเลข — ผู้ใช้เห็นระยะทาง/kcal อัปเดตสดระหว่างวิ่งทันที
+  const liveDistanceKm = points.length >= 2
+    ? points.slice(1).reduce((sum, p, i) => sum + haversineKm(points[i]!, p), 0)
+    : 0;
+  const liveKcal = estimateKcalBurnedClient(liveDistanceKm, seconds);
+
+  // FIX: เพิ่มใหม่ — ตามที่ขอ "ตั้งค่าให้ใช้ได้ทั้งมีเน็ตและไม่มีเน็ต" ลองซิงค์เส้นทางที่ค้างอยู่ใน
+  // เครื่อง (บันทึกไว้ตอนไม่มีเน็ต) ขึ้น server อัตโนมัติ ทั้งตอนเปิดหน้านี้ และทันทีที่อุปกรณ์กลับมา
+  // ออนไลน์ (เบราว์เซอร์ยิง event "online" ให้เอง) โดยไม่ต้องให้ผู้ใช้กดอะไรเพิ่ม
+  useEffect(() => {
+    setPendingCount(getPendingRoutes().length);
+    const sync = () => {
+      void flushPendingRoutes(() => {
+        setPendingCount(getPendingRoutes().length);
+        void qc.invalidateQueries({ queryKey: ["route", "history"] });
+      });
+    };
+    sync();
+    window.addEventListener("online", sync);
+    return () => window.removeEventListener("online", sync);
+  }, [qc]);
+
   const start = useCallback(async () => {
     setError(null);
+    setNotice(null);
     if (typeof navigator === "undefined" || !navigator.geolocation) {
       setError("อุปกรณ์นี้ไม่รองรับการระบุตำแหน่ง (GPS)");
       return;
     }
+    // FIX: เดิมต้องรอ apiRouteStart() (เรียก server) สำเร็จก่อนถึงจะเริ่มจับ GPS ได้ — ถ้าตอนนั้นไม่มี
+    // เน็ต/server ตอบช้า ผู้ใช้กด "เริ่ม" แล้วไม่เกิดอะไรขึ้นเลย (ตรงกับปัญหา "เชื่อมต่อเซิร์ฟเวอร์ไม่
+    // สำเร็จ" ที่เจอ) ตามที่ขอ "ใช้ได้ทั้งมีเน็ตและไม่มีเน็ต" — เริ่มจับ GPS ทันทีในเครื่องก่อนเสมอ ไม่รอ
+    // เน็ต แล้วค่อยเรียก apiRouteStart() แบบ background เก็บ routeId จริงไว้ใช้ตอนกดหยุด (ถ้าเรียกไม่ได้
+    // ก็ไม่เป็นไร เดี๋ยวไปหา routeId ใหม่ตอนกดหยุดอีกที หรือ fallback เป็นบันทึกในเครื่องรอซิงค์)
+    serverRouteIdRef.current = null;
+    setRouteId(`local-${Date.now()}`);
+    setSeconds(0);
+    setPoints([]);
+    setBusy(false);
+    watchRef.current = navigator.geolocation.watchPosition(
+      (pos) =>
+        setPoints((ps) => {
+          // FIX: บั๊กใหญ่ 🔴 — เดิมรับพิกัด GPS ทุกจุดที่ browser ส่งมาโดยไม่กรองเลย แม้ยืนอยู่
+          // กับที่สัญญาณ GPS ก็มักเพี้ยน/สั่นไปมาในระยะไม่กี่เมตรตามธรรมชาติของ GPS มือถือ พอเอา
+          // จุดเพี้ยนๆ พวกนี้มาคำนวณระยะทางรวมกันเรื่อยๆ ระยะทาง (และก้าวที่แปลงจากระยะทาง)
+          // เลยเพิ่มขึ้นเองทั้งที่ไม่ได้เดิน แก้โดย: (1) ทิ้งพิกัดที่ accuracy แย่เกิน 25 เมตร
+          // (สัญญาณไม่นิ่งพอเชื่อถือได้) (2) ทิ้งพิกัดที่ขยับจากจุดก่อนหน้าน้อยกว่า 3 เมตร (คือ noise
+          // ไม่ใช่การเดินจริง — คนเดินช้าสุดก็ยังขยับได้มากกว่านี้ในช่วงเวลาสุ่มตัวอย่างของ GPS)
+          if (pos.coords.accuracy != null && pos.coords.accuracy > 25) return ps;
+          const next = { lat: pos.coords.latitude, lng: pos.coords.longitude };
+          const last = ps[ps.length - 1];
+          if (last) {
+            const movedKm = haversineKm(last, next);
+            if (movedKm * 1000 < 3) return ps;
+          }
+          return [...ps, next];
+        }),
+      () => setError("ไม่สามารถเข้าถึงตำแหน่งได้ กรุณาอนุญาตสิทธิ์ GPS"),
+      { enableHighAccuracy: true, maximumAge: 1000, timeout: 15000 },
+    );
+    // เรียก server แบบ background ไม่บล็อก UI — สำเร็จก็เก็บ routeId จริงไว้เงียบๆ, ไม่สำเร็จก็ไม่ต้อง
+    // โชว์ error แดงกวนใจระหว่างวิ่ง (เดี๋ยวไปจัดการตอนกดหยุดอีกที ตามที่ขอให้ใช้งานได้แม้ไม่มีเน็ต)
     try {
-      setBusy(true);
       const id = await apiRouteStart({ goalKm: goalKm ?? 0 });
-      setRouteId(id || "temp");
-      setSeconds(0);
-      setPoints([]);
-      watchRef.current = navigator.geolocation.watchPosition(
-        (pos) =>
-          setPoints((ps) => {
-            // FIX: บั๊กใหญ่ 🔴 — เดิมรับพิกัด GPS ทุกจุดที่ browser ส่งมาโดยไม่กรองเลย แม้ยืนอยู่
-            // กับที่สัญญาณ GPS ก็มักเพี้ยน/สั่นไปมาในระยะไม่กี่เมตรตามธรรมชาติของ GPS มือถือ พอเอา
-            // จุดเพี้ยนๆ พวกนี้มาคำนวณระยะทางรวมกันเรื่อยๆ ระยะทาง (และก้าวที่แปลงจากระยะทาง)
-            // เลยเพิ่มขึ้นเองทั้งที่ไม่ได้เดิน แก้โดย: (1) ทิ้งพิกัดที่ accuracy แย่เกิน 25 เมตร
-            // (สัญญาณไม่นิ่งพอเชื่อถือได้) (2) ทิ้งพิกัดที่ขยับจากจุดก่อนหน้าน้อยกว่า 3 เมตร (คือ noise
-            // ไม่ใช่การเดินจริง — คนเดินช้าสุดก็ยังขยับได้มากกว่านี้ในช่วงเวลาสุ่มตัวอย่างของ GPS)
-            if (pos.coords.accuracy != null && pos.coords.accuracy > 25) return ps;
-            const next = { lat: pos.coords.latitude, lng: pos.coords.longitude };
-            const last = ps[ps.length - 1];
-            if (last) {
-              const movedKm = haversineKm(last, next);
-              if (movedKm * 1000 < 3) return ps;
-            }
-            return [...ps, next];
-          }),
-        () => setError("ไม่สามารถเข้าถึงตำแหน่งได้ กรุณาอนุญาตสิทธิ์ GPS"),
-        { enableHighAccuracy: true, maximumAge: 1000, timeout: 15000 },
-      );
-    } catch (e) {
-      setError(e instanceof Error ? e.message : "เริ่มบันทึกเส้นทางไม่สำเร็จ");
-    } finally {
-      setBusy(false);
+      if (id) serverRouteIdRef.current = id;
+    } catch {
+      // ไม่มีเน็ต/server ไม่ตอบ — ปล่อยผ่าน จะลองใหม่ตอนกดหยุด
     }
   }, [goalKm]);
 
@@ -598,19 +636,47 @@ function GpsTracker() {
       setRouteId(null);
       return;
     }
+    const finalPoints = points;
+    const finalSeconds = seconds;
+    setError(null);
+    setNotice(null);
     try {
       setBusy(true);
-      await apiRouteStop({ routeId, path: points, durationSeconds: seconds });
+      // ถ้าตอน start() ยังไม่ได้ routeId จริงจาก server (ออฟไลน์ตอนนั้น) ลองขอใหม่อีกครั้งตอนนี้
+      // ก่อนค่อย fallback ไปบันทึกในเครื่อง เผื่อเน็ตกลับมาแล้วระหว่างวิ่ง
+      let realRouteId = serverRouteIdRef.current;
+      if (!realRouteId) {
+        try {
+          realRouteId = await apiRouteStart({ goalKm: goalKm ?? 0 });
+        } catch {
+          realRouteId = null;
+        }
+      }
+      if (!realRouteId) throw new Error("offline");
+      await apiRouteStop({ routeId: realRouteId, path: finalPoints, durationSeconds: finalSeconds });
       void qc.invalidateQueries({ queryKey: ["route"] });
       void qc.invalidateQueries({ queryKey: ["pedometer"] });
       void qc.invalidateQueries({ queryKey: ["stats"] });
     } catch (e) {
-      setError(e instanceof Error ? e.message : "บันทึกเส้นทางไม่สำเร็จ");
+      // FIX: เพิ่มใหม่ — ตามที่ขอ "ใช้ได้ทั้งมีเน็ตและไม่มีเน็ต" ถ้าบันทึกขึ้น server ไม่สำเร็จ (ไม่มีเน็ต/
+      // server ล่มชั่วคราว) ไม่ทำข้อมูลการวิ่งหาย — คำนวณระยะทาง/kcal ในเครื่องแล้วเก็บลงคิวรอซิงค์แทน
+      // โชว์เป็นข้อความสำเร็จ (เขียว) ไม่ใช่ error (แดง) เพราะจากมุมผู้ใช้ "บันทึกได้แล้ว" จริงๆ
+      const isNetworkIssue = e instanceof Error && (e.message === "offline" || /เชื่อมต่อเซิร์ฟเวอร์|fetch/i.test(e.message));
+      if (isNetworkIssue) {
+        const distanceKm = finalPoints.slice(1).reduce((sum, p, i) => sum + haversineKm(finalPoints[i]!, p), 0);
+        const kcal = estimateKcalBurnedClient(distanceKm, finalSeconds);
+        enqueuePendingRoute({ path: finalPoints, durationSeconds: finalSeconds, distanceKm, kcal });
+        setPendingCount(getPendingRoutes().length);
+        setNotice(`บันทึกในเครื่องแล้ว (${distanceKm.toFixed(2)} กม. · ${kcal} kcal) — จะซิงค์ขึ้นระบบอัตโนมัติเมื่อมีเน็ต`);
+      } else {
+        setError(e instanceof Error ? e.message : "บันทึกเส้นทางไม่สำเร็จ");
+      }
     } finally {
       setBusy(false);
       setRouteId(null);
+      serverRouteIdRef.current = null;
     }
-  }, [routeId, points, seconds, qc]);
+  }, [routeId, points, seconds, qc, goalKm]);
 
   // FIX: เพิ่มใหม่ — เดิมไม่มีทาง "มาร์กเป้าหมาย/แชร์โลเคชั่น" ได้เลย ไม่ว่าจะกดปุ่มหรือสั่งด้วยเสียง
   // ฟังก์ชันนี้จับพิกัดปัจจุบัน (ไม่ต้องรอ route กำลังบันทึกอยู่ก็ใช้ได้) แล้วสร้างลิงก์ Google Maps
@@ -683,7 +749,9 @@ function GpsTracker() {
           <div className="min-w-0 flex-1">
             <p className="font-display text-3xl font-bold tabular-nums">{fmtDuration(seconds)}</p>
             <p className="truncate text-xs text-muted-foreground">
-              {routeId ? `กำลังติดตาม · เก็บพิกัดแล้ว ${points.length} จุด` : "พร้อมเริ่มบันทึกเส้นทาง"}
+              {routeId
+                ? `${liveDistanceKm.toFixed(2)} กม. · ${liveKcal} kcal · ${points.length} จุด`
+                : "พร้อมเริ่มบันทึกเส้นทาง"}
             </p>
           </div>
           <button
@@ -720,6 +788,14 @@ function GpsTracker() {
         )}
         {error && (
           <p className="mt-3 rounded-2xl bg-destructive/10 px-3 py-2.5 text-sm text-destructive">{error}</p>
+        )}
+        {notice && (
+          <p className="mt-3 rounded-2xl bg-mint-soft px-3 py-2.5 text-sm text-mint">{notice}</p>
+        )}
+        {pendingCount > 0 && (
+          <p className="mt-2 text-center text-xs text-muted-foreground">
+            มี {pendingCount} เส้นทางรอซิงค์ขึ้นระบบ (จะซิงค์อัตโนมัติเมื่อมีเน็ต)
+          </p>
         )}
         {routeId && (
           <div className="mt-4">

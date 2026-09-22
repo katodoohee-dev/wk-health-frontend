@@ -15,6 +15,21 @@ export function haversineKm(a: { lat: number; lng: number }, b: { lat: number; l
   return R * 2 * Math.atan2(Math.sqrt(s), Math.sqrt(1 - s));
 }
 
+/** สูตรเดียวกับ backend (src/services/pedometer.ts) เป๊ะๆ — ใช้โชว์สถิติแบบ real-time ระหว่างวิ่ง
+ *  โดยไม่ต้องรอเน็ต/รอเรียก server ตอนจบ ตัวเลขสุดท้ายจาก server (หลังซิงค์) จะตรงกับที่โชว์ระหว่างวิ่ง */
+function speedToMets(kmh: number): number {
+  if (kmh >= 6.4) return 5.0;
+  if (kmh >= 4.8) return 3.5;
+  return 2.8;
+}
+export function estimateKcalBurnedClient(distanceKm: number, seconds: number, weightKg = 65): number {
+  if (seconds <= 0) return 0;
+  const hours = seconds / 3600;
+  const kmh = distanceKm / hours;
+  const mets = speedToMets(kmh || 0);
+  return Math.round(mets * weightKg * hours);
+}
+
 /** แปลงองศาทิศเป็นคำพูดภาษาไทย ให้ TTS พูดเป็นธรรมชาติ */
 export function compassThai(deg: number) {
   const dirs = ["เหนือ", "ตะวันออกเฉียงเหนือ", "ตะวันออก", "ตะวันออกเฉียงใต้", "ใต้", "ตะวันตกเฉียงใต้", "ตะวันตก", "ตะวันตกเฉียงเหนือ"];
