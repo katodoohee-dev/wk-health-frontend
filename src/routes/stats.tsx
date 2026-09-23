@@ -1,6 +1,7 @@
-import { createFileRoute } from "@tanstack/react-router";
+﻿import { createFileRoute } from "@tanstack/react-router";
 import { useQuery } from "@tanstack/react-query";
-import { Area, AreaChart, Bar, BarChart, Cell, Pie, PieChart, ResponsiveContainer, Tooltip, XAxis } from "recharts";
+import { Area, AreaChart, Cell, Pie, PieChart, ResponsiveContainer, Tooltip, XAxis } from "recharts";
+import { LightningStepChart } from "@/components/app/lightning-step-chart";
 import { TrendingDown, TrendingUp } from "lucide-react";
 import { PageHeader, GlassCard, SectionTitle } from "@/components/app/ui-bits";
 import { ErrorState, LoadingState, Skeleton } from "@/components/app/states";
