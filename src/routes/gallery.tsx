@@ -9,9 +9,9 @@ import { API_BASE_URL, apiGallery } from "@/lib/api";
 export const Route = createFileRoute("/gallery")({
   head: () => ({
     meta: [
-      { title: "แกลเลอรีรูปอาหาร — WK Health App" },
+      { title: "แกลเลอรีรูปอาหาร — Weeker" },
       { name: "description", content: "ย้อนดูรูปอาหารที่เคยสแกนไว้ทั้งหมดเรียงตามเวลา" },
-      { property: "og:title", content: "แกลเลอรีรูปอาหาร — WK Health App" },
+      { property: "og:title", content: "แกลเลอรีรูปอาหาร — Weeker" },
       { property: "og:description", content: "ไทม์ไลน์รูปอาหารที่คุณเคยสแกน" },
     ],
   }),

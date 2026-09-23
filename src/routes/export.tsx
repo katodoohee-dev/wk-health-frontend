@@ -10,7 +10,7 @@ import { apiExportRequest, apiExportHistory } from "@/lib/api-new-features";
 export const Route = createFileRoute("/export")({
   head: () => ({
     meta: [
-      { title: "ส่งออกข้อมูล — WK Health App" },
+      { title: "ส่งออกข้อมูล — Weeker" },
       { name: "description", content: "ส่งออกข้อมูลสุขภาพของคุณเป็น PDF หรือ CSV และตั้งค่าสำรองข้อมูลอัตโนมัติ" },
     ],
   }),

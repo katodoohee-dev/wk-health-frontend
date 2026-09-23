@@ -9,9 +9,9 @@ import { apiMoodList, apiMoodRecommend } from "@/lib/api";
 export const Route = createFileRoute("/mood")({
   head: () => ({
     meta: [
-      { title: "เมนูตามอารมณ์ — WK Health App" },
+      { title: "เมนูตามอารมณ์ — Weeker" },
       { name: "description", content: "เลือกอารมณ์วันนี้ แล้วรับเมนูอาหารที่เหมาะกับความรู้สึกและร่างกายคุณ" },
-      { property: "og:title", content: "เมนูตามอารมณ์ — WK Health App" },
+      { property: "og:title", content: "เมนูตามอารมณ์ — Weeker" },
       { property: "og:description", content: "วันนี้รู้สึกยังไง? เราจัดเมนูที่เหมาะให้" },
     ],
   }),

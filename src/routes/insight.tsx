@@ -9,9 +9,9 @@ import { apiInsightWeekly } from "@/lib/api-new-features";
 export const Route = createFileRoute("/insight")({
   head: () => ({
     meta: [
-      { title: "Weekly Insight — WK Health App" },
+      { title: "Weekly Insight — Weeker" },
       { name: "description", content: "สรุปผลลัพธ์รายสัปดาห์จากข้อมูลจริงในระบบ พร้อมคำแนะนำที่เหมาะกับคุณ" },
-      { property: "og:title", content: "Weekly Insight — WK Health App" },
+      { property: "og:title", content: "Weekly Insight — Weeker" },
       { property: "og:description", content: "ดูภาพรวมสัปดาห์นี้ของคุณ" },
     ],
   }),

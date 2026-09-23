@@ -19,9 +19,9 @@ function writeLocalAvatar(v: string) { try { window.localStorage.setItem(AVATAR_
 export const Route = createFileRoute("/profile")({
   head: () => ({
     meta: [
-      { title: "โปรไฟล์ & BMI — WK Health App" },
+      { title: "โปรไฟล์ & BMI — Weeker" },
       { name: "description", content: "จัดการโปรไฟล์ เป้าหมายแคลอรี และคำนวณค่าดัชนีมวลกาย (BMI) พร้อมคำแนะนำ" },
-      { property: "og:title", content: "โปรไฟล์ & BMI — WK Health App" },
+      { property: "og:title", content: "โปรไฟล์ & BMI — Weeker" },
       { property: "og:description", content: "คำนวณ BMI และตั้งเป้าหมายแคลอรีของคุณ" },
     ],
   }),

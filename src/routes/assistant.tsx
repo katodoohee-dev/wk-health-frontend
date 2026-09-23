@@ -13,9 +13,9 @@ const assistantSuggestions = ["สรุปการกินวันนี้�
 export const Route = createFileRoute("/assistant")({
   head: () => ({
     meta: [
-      { title: "ผู้ช่วย AI โภชนาการ — WK Health App" },
+      { title: "ผู้ช่วย AI โภชนาการ — Weeker" },
       { name: "description", content: "แชทกับผู้ช่วย AI เพื่อวางแผนมื้ออาหาร ถามเรื่องแคลอรีและสุขภาพ" },
-      { property: "og:title", content: "ผู้ช่วย AI โภชนาการ — WK Health App" },
+      { property: "og:title", content: "ผู้ช่วย AI โภชนาการ — Weeker" },
       { property: "og:description", content: "แชทถามเรื่องอาหาร แคลอรี และการวางแผนมื้อ" },
     ],
   }),

@@ -11,9 +11,9 @@ import { apiMusicAdd, apiMusicDelete, apiMusicHistory, apiMusicLibrary, parseYou
 export const Route = createFileRoute("/music")({
   head: () => ({
     meta: [
-      { title: "เพลย์ลิสต์ — WK Health App" },
+      { title: "เพลย์ลิสต์ — Weeker" },
       { name: "description", content: "เปิดเพลงคลอระหว่างออกกำลังกาย รองรับลิงก์ YouTube และไฟล์เสียงตรง เล่นต่อได้ทุกหน้า" },
-      { property: "og:title", content: "เพลย์ลิสต์ — WK Health App" },
+      { property: "og:title", content: "เพลย์ลิสต์ — Weeker" },
       { property: "og:description", content: "ฟังเพลงคลอระหว่างใช้แอป รองรับ YouTube และไฟล์เสียง" },
     ],
   }),

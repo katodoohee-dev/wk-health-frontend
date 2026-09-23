@@ -10,9 +10,9 @@ import { apiStatsToday, apiStatsWeekly } from "@/lib/api";
 export const Route = createFileRoute("/stats")({
   head: () => ({
     meta: [
-      { title: "สถิติสุขภาพ — WK Health App" },
+      { title: "สถิติสุขภาพ — Weeker" },
       { name: "description", content: "กราฟสรุปแคลอรี สารอาหาร และกิจกรรมรายสัปดาห์แบบเข้าใจง่าย" },
-      { property: "og:title", content: "สถิติสุขภาพ — WK Health App" },
+      { property: "og:title", content: "สถิติสุขภาพ — Weeker" },
       { property: "og:description", content: "กราฟสรุปแคลอรีและกิจกรรมรายสัปดาห์" },
     ],
   }),

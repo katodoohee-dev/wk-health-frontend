@@ -23,7 +23,7 @@ import { renderWeekShareImage, shareOrDownloadImage } from "@/lib/share-image";
 export const Route = createFileRoute("/friends")({
   head: () => ({
     meta: [
-      { title: "เพื่อนและ Streak — WK Health App" },
+      { title: "เพื่อนและ Streak — Weeker" },
       { name: "description", content: "ดู streak ของเพื่อน ให้กำลังใจกัน และแชร์สรุปสัปดาห์ของคุณ" },
     ],
   }),

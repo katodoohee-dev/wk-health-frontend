@@ -8,7 +8,7 @@ import { apiSaveMeal } from "@/lib/meal-save";
 export const Route = createFileRoute("/barcode")({
   head: () => ({
     meta: [
-      { title: "สแกนบาร์โค้ด — WK Health App" },
+      { title: "สแกนบาร์โค้ด — Weeker" },
       { name: "description", content: "สแกนบาร์โค้ดจากกล้องหรือรูปภาพเพื่อค้นหาโภชนาการและบันทึกเมนู" },
     ],
   }),

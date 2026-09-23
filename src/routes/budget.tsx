@@ -8,9 +8,9 @@ import { apiBudgetPlan, type BudgetPlan } from "@/lib/api";
 export const Route = createFileRoute("/budget")({
   head: () => ({
     meta: [
-      { title: "วางแผนเมนูตามงบ — WK Health App" },
+      { title: "วางแผนเมนูตามงบ — Weeker" },
       { name: "description", content: "กำหนดงบต่อเดือนและเงื่อนไขสุขภาพ ระบบจัดชุดเมนูที่คุ้มค่าและดีต่อสุขภาพให้" },
-      { property: "og:title", content: "วางแผนเมนูตามงบ — WK Health App" },
+      { property: "og:title", content: "วางแผนเมนูตามงบ — Weeker" },
       { property: "og:description", content: "จัดชุดมื้ออาหารให้พอดีทั้งงบและแคลอรี" },
     ],
   }),

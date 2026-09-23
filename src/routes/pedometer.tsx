@@ -30,9 +30,9 @@ import { shareOrDownloadImage } from "@/lib/share-image";
 export const Route = createFileRoute("/pedometer")({
   head: () => ({
     meta: [
-      { title: "นับก้าวเดิน — WK Health App" },
+      { title: "นับก้าวเดิน — Weeker" },
       { name: "description", content: "ติดตามจำนวนก้าว ระยะทาง แคลอรีที่เผาผลาญ และนาทีแอคทีฟในแต่ละวัน" },
-      { property: "og:title", content: "นับก้าวเดิน — WK Health App" },
+      { property: "og:title", content: "นับก้าวเดิน — Weeker" },
       { property: "og:description", content: "ติดตามก้าวเดิน ระยะทาง และแคลอรีที่เผาผลาญ" },
     ],
   }),

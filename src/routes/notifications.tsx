@@ -10,7 +10,7 @@ import { apiNotificationSettings, apiNotificationUpdate, apiNotificationTest } f
 export const Route = createFileRoute("/notifications")({
   head: () => ({
     meta: [
-      { title: "การแจ้งเตือน — WK Health App" },
+      { title: "การแจ้งเตือน — Weeker" },
       { name: "description", content: "ตั้งค่าการแจ้งเตือนมื้ออาหารและ streak ให้เหมาะกับพฤติกรรมของคุณ" },
     ],
   }),

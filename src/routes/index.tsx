@@ -13,8 +13,8 @@ import { apiCheckin, apiCheckinToday, apiDiary, apiPedometerToday, apiStatsToday
 export const Route = createFileRoute("/")({
   head: () => ({
     meta: [
-      { title: "WK Health — Health OS" },
-      { name: "description", content: "แดชบอร์ดสุขภาพแบบใหม่ของ WK Health พร้อมข้อมูลจริงจาก API" },
+      { title: "Weeker — Health OS" },
+      { name: "description", content: "แดชบอร์ดสุขภาพแบบใหม่ของ Weeker พร้อมข้อมูลจริงจาก API" },
     ],
   }),
   component: Home,

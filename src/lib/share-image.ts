@@ -95,7 +95,7 @@ export async function renderWeekShareImage(data: WeekShareData): Promise<Blob> {
 
   ctx.font = "400 26px 'Segoe UI', system-ui, sans-serif";
   ctx.fillStyle = "rgba(15,23,42,0.55)";
-  ctx.fillText("WK Health App", WIDTH / 2, 175);
+  ctx.fillText("Weeker", WIDTH / 2, 175);
 
   // stats
   const stats: { label: string; value: string }[] = [
@@ -142,7 +142,7 @@ export async function renderWeekShareImage(data: WeekShareData): Promise<Blob> {
     ctx.textAlign = "center";
     ctx.font = "500 24px 'Segoe UI', system-ui, sans-serif";
     ctx.fillStyle = "rgba(255,255,255,0.92)";
-    ctx.fillText("แสกนเปิดเว็บ WK Health", WIDTH / 2, qrY + qrBoxSize + 42);
+    ctx.fillText("แสกนเปิดเว็บ Weeker", WIDTH / 2, qrY + qrBoxSize + 42);
   }
 
   // footer
@@ -166,7 +166,7 @@ export async function shareOrDownloadImage(blob: Blob, filename: string) {
   // Twitter/X ฯลฯ) จะขึ้นเป็นลิงก์กดเข้าเว็บได้จริงในโพสต์/ข้อความที่ส่ง — Instagram/Facebook Stories
   // และ TikTok ไม่รองรับส่วนนี้ (ดูเหตุผลในคอมเมนต์ที่ render ด้านบน) แต่แอปอื่นๆ ส่วนใหญ่รองรับ
   const shareUrl = typeof window !== "undefined" ? window.location.origin : undefined;
-  const shareData = { files: [file], title: "สรุปสัปดาห์ของฉัน — WK Health App", text: "สรุปสัปดาห์ของฉันจาก WK Health App", url: shareUrl };
+  const shareData = { files: [file], title: "สรุปสัปดาห์ของฉัน — Weeker", text: "สรุปสัปดาห์ของฉันจาก Weeker", url: shareUrl };
 
   if (typeof navigator !== "undefined" && "canShare" in navigator && navigator.canShare?.({ files: [file] })) {
     try {

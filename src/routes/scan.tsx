@@ -9,9 +9,9 @@ import { apiSaveMeal } from "@/lib/meal-save";
 export const Route = createFileRoute("/scan")({
   head: () => ({
     meta: [
-      { title: "สแกนอาหาร — WK Health App" },
+      { title: "สแกนอาหาร — Weeker" },
       { name: "description", content: "ถ่ายรูปอาหารเพื่อตรวจแคลอรีและสารอาหารอัตโนมัติด้วย AI" },
-      { property: "og:title", content: "สแกนอาหาร — WK Health App" },
+      { property: "og:title", content: "สแกนอาหาร — Weeker" },
       { property: "og:description", content: "ถ่ายรูปอาหาร รู้แคลอรีและสารอาหารทันที" },
     ],
   }),

@@ -10,9 +10,9 @@ import { apiDeleteDiary, apiDiary, apiStatsToday, todayISO } from "@/lib/api";
 export const Route = createFileRoute("/diary")({
   head: () => ({
     meta: [
-      { title: "ไดอารีการกิน — WK Health App" },
+      { title: "ไดอารีการกิน — Weeker" },
       { name: "description", content: "บันทึกมื้ออาหารรายวัน ดูแคลอรีและสารอาหารที่ได้รับในแต่ละมื้อ" },
-      { property: "og:title", content: "ไดอารีการกิน — WK Health App" },
+      { property: "og:title", content: "ไดอารีการกิน — Weeker" },
       { property: "og:description", content: "บันทึกมื้ออาหารรายวันพร้อมสรุปแคลอรีและสารอาหาร" },
     ],
   }),

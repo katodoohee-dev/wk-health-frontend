@@ -9,9 +9,9 @@ import { apiSaveMeal } from "@/lib/meal-save";
 export const Route = createFileRoute("/nlp")({
   head: () => ({
     meta: [
-      { title: "วิเคราะห์ข้อความอาหาร (NLP) — WK Health App" },
+      { title: "วิเคราะห์ข้อความอาหาร (NLP) — Weeker" },
       { name: "description", content: "พิมพ์บรรยายสิ่งที่กิน แล้วให้ AI แยกรายการอาหารและคำนวณแคลอรีให้อัตโนมัติ" },
-      { property: "og:title", content: "วิเคราะห์ข้อความอาหาร (NLP) — WK Health App" },
+      { property: "og:title", content: "วิเคราะห์ข้อความอาหาร (NLP) — Weeker" },
       { property: "og:description", content: "พิมพ์บรรยายอาหาร แล้วรู้แคลอรีทันที" },
     ],
   }),

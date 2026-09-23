@@ -84,10 +84,10 @@ export async function connectHealthProvider(
   }
 
   if (provider === "healthkit") {
-    throw new Error("Apple HealthKit ต้องเชื่อมผ่านแอป WK Health บน iPhone/iPad");
+    throw new Error("Apple HealthKit ต้องเชื่อมผ่านแอป Weeker บน iPhone/iPad");
   }
   if (provider === "health-connect") {
-    throw new Error("Health Connect ต้องเชื่อมผ่านแอป WK Health บน Android");
+    throw new Error("Health Connect ต้องเชื่อมผ่านแอป Weeker บน Android");
   }
   throw new Error("ยังไม่ได้ตั้งค่า Health Bridge/OAuth สำหรับผู้ให้บริการนี้");
 }

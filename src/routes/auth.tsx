@@ -7,9 +7,9 @@ import { ThemeToggle } from "@/components/app/theme-toggle";
 export const Route = createFileRoute("/auth")({
   head: () => ({
     meta: [
-      { title: "เข้าสู่ระบบ — WK Health App" },
-      { name: "description", content: "เข้าสู่ระบบหรือสมัครสมาชิก WK Health App เพื่อบันทึกมื้ออาหารและติดตามสุขภาพของคุณ" },
-      { property: "og:title", content: "เข้าสู่ระบบ — WK Health App" },
+      { title: "เข้าสู่ระบบ — Weeker" },
+      { name: "description", content: "เข้าสู่ระบบหรือสมัครสมาชิก Weeker เพื่อบันทึกมื้ออาหารและติดตามสุขภาพของคุณ" },
+      { property: "og:title", content: "เข้าสู่ระบบ — Weeker" },
       { property: "og:description", content: "เข้าสู่ระบบเพื่อเริ่มบันทึกแคลอรีและติดตามสุขภาพ" },
     ],
   }),
@@ -56,7 +56,7 @@ function AuthPage() {
     <div className="rise-in flex min-h-[80vh] flex-col justify-center py-8">
       <div className="mb-6 flex items-start justify-between gap-3">
         <div className="min-w-0">
-          <h1 className="font-display text-2xl font-bold">WK Health App</h1>
+          <h1 className="font-display text-2xl font-bold">Weeker</h1>
           <p className="text-sm text-muted-foreground">{mode === "login" ? "ยินดีต้อนรับกลับมา" : "สร้างบัญชีเพื่อเริ่มดูแลสุขภาพ"}</p>
         </div>
         <ThemeToggle />

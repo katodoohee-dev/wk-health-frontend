@@ -19,9 +19,9 @@ import {
 export const Route = createFileRoute("/workout")({
   head: () => ({
     meta: [
-      { title: "ออกกำลังกาย — WK Health App" },
+      { title: "ออกกำลังกาย — Weeker" },
       { name: "description", content: "สร้างตารางออกกำลังกายด้วย AI บันทึกท่าที่ทำ และดูแคลอรีที่เผาผลาญวันนี้" },
-      { property: "og:title", content: "ออกกำลังกาย — WK Health App" },
+      { property: "og:title", content: "ออกกำลังกาย — Weeker" },
       { property: "og:description", content: "ตารางออกกำลังกาย AI พร้อมบันทึกและสถิติการเผาผลาญ" },
     ],
   }),
