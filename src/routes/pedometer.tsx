@@ -876,6 +876,7 @@ function Stat({
 function ShareRunModal({ routeId, onClose }: { routeId: string; onClose: () => void }) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const [lineColor, setLineColor] = useState("#e0201a");
+  const [electric, setElectric] = useState(true);
   const [bgImage, setBgImage] = useState<HTMLImageElement | null>(null);
   const [blob, setBlob] = useState<Blob | null>(null);
   const [renderError, setRenderError] = useState<string | null>(null);
@@ -932,6 +933,7 @@ function ShareRunModal({ routeId, onClose }: { routeId: string; onClose: () => v
       durationSeconds: detail.data.durationSeconds,
       path: detail.data.path,
       lineColor,
+      electric,
       backgroundImage: bgImage,
       date: detail.data.date ? new Date(detail.data.date) : new Date(),
       transform: layout,
@@ -940,7 +942,7 @@ function ShareRunModal({ routeId, onClose }: { routeId: string; onClose: () => v
       .catch((err) => { if (!cancelled) setRenderError(err instanceof Error ? err.message : "สร้างรูปตัวอย่างไม่สำเร็จ"); })
       .finally(() => { if (!cancelled) setRendering(false); });
     return () => { cancelled = true; };
-  }, [detail.data, lineColor, bgImage, layout]);
+  }, [detail.data, lineColor, electric, bgImage, layout]);
 
   const handleBgUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -1040,6 +1042,15 @@ function ShareRunModal({ routeId, onClose }: { routeId: string; onClose: () => v
               aria-label="เลือกสีเส้นทาง"
             />
           </label>
+          <button
+            onClick={() => setElectric((v) => !v)}
+            aria-pressed={electric}
+            className={`press flex items-center gap-1.5 rounded-xl px-3 py-2.5 text-xs font-medium ${electric ? "bg-mint-gradient text-primary-foreground shadow-glow" : "glass text-muted-foreground"}`}
+          >
+            ⚡ สายฟ้า
+          </button>
+        </div>
+        <div className="flex items-center gap-2">
           <label className="press glass flex flex-1 cursor-pointer items-center justify-center gap-2 rounded-xl px-3 py-2.5 text-xs text-muted-foreground">
             <ImageIcon className="size-3.5" /> พื้นหลังเอง
             <input type="file" accept="image/*" onChange={handleBgUpload} className="hidden" />
