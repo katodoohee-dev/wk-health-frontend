@@ -371,13 +371,20 @@ export async function shareOrDownloadImage(blob: Blob, filename: string) {
     }
   }
 
+/** วาดพรีวิวลง canvas element ที่มีอยู่แล้วโดยตรง (สำหรับแสดงตัวอย่างสดตอนเลือกสีแต่ละชั้นก่อนแชร์จริง) */
+export async function renderWeekSharePreview(canvas: HTMLCanvasElement, data: WeekShareData) {
+  const blob = await renderWeekShareImage(data);
   const url = URL.createObjectURL(blob);
-  const a = document.createElement("a");
-  a.href = url;
-  a.download = filename;
-  document.body.appendChild(a);
-  a.click();
-  a.remove();
+  const img = new Image();
+  await new Promise<void>((resolve, reject) => {
+    img.onload = () => resolve();
+    img.onerror = () => reject(new Error("โหลดพรีวิวไม่สำเร็จ"));
+    img.src = url;
+  });
+  canvas.width = img.width;
+  canvas.height = img.height;
+  const ctx = canvas.getContext("2d");
+  ctx?.drawImage(img, 0, 0);
   URL.revokeObjectURL(url);
-  return "downloaded" as const;
+  return blob;
 }
