@@ -21,6 +21,83 @@ export interface RunSharePoint {
   lng: number;
 }
 
+// FIX: เพิ่มใหม่ตามที่ขอ — เอฟเฟกต์ "สายฟ้าเกาะเส้นทาง" วาดแขนงฟ้าผ่าแบบ fractal (หักมุมสุ่มไปเรื่อยๆ
+// แตกกิ่งย่อยได้) แยกออกจากจุดต่างๆ บนเส้นทางวิ่ง พร้อม glow (shadowBlur) ให้ดูเรืองแสงเหมือนไฟฟ้าจริง
+function drawLightningBranch(
+  ctx: CanvasRenderingContext2D,
+  x: number,
+  y: number,
+  angleDeg: number,
+  length: number,
+  depth: number,
+  color: string
+) {
+  if (depth <= 0 || length < 5) return;
+  const segments = 3 + Math.floor(Math.random() * 2);
+  let cx = x;
+  let cy = y;
+  let angle = angleDeg;
+  ctx.beginPath();
+  ctx.moveTo(cx, cy);
+  for (let i = 0; i < segments; i++) {
+    angle += (Math.random() - 0.5) * 55;
+    const segLen = length / segments;
+    cx += Math.cos((angle * Math.PI) / 180) * segLen;
+    cy += Math.sin((angle * Math.PI) / 180) * segLen;
+    ctx.lineTo(cx, cy);
+  }
+  ctx.strokeStyle = color;
+  ctx.lineWidth = Math.max(1, depth * 1.4);
+  ctx.stroke();
+  if (Math.random() < 0.55) {
+    drawLightningBranch(ctx, cx, cy, angle + (Math.random() < 0.5 ? 45 : -45), length * 0.55, depth - 1, color);
+  }
+}
+
+/** วาดสายฟ้าเกาะตามเส้นทางทั้งเส้น — สุ่ม seed คงที่จาก path ให้รูปหน้าตาเดิมทุกครั้งที่ re-render (ไม่กระพริบตอนขยับ/ลาก) */
+function drawLightningAlongPath(
+  ctx: CanvasRenderingContext2D,
+  points: { x: number; y: number }[]
+) {
+  if (points.length < 2) return;
+  // seeded PRNG ง่ายๆ จาก mulberry32 — ให้ผลลัพธ์เดิมทุกครั้ง (deterministic) ไม่สุ่มใหม่ทุก re-render
+  let seed = Math.round(points[0]!.x * 1000 + points[0]!.y);
+  const rand = () => {
+    seed |= 0; seed = (seed + 0x6d2b79f5) | 0;
+    let t = Math.imul(seed ^ (seed >>> 15), 1 | seed);
+    t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t;
+    return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+  };
+  const origRandom = Math.random;
+  // สลับ Math.random ชั่วคราวเป็นตัว seeded เฉพาะตอนวาดสายฟ้า (คืนค่าเดิมทันทีหลังวาดเสร็จ กันกระทบส่วนอื่น)
+  Math.random = rand;
+  try {
+    ctx.save();
+    ctx.lineCap = "round";
+    ctx.lineJoin = "round";
+    // ชั้น glow กว้างๆ สีฟ้าอมม่วง เรืองแสงรอบเส้นทางทั้งเส้น
+    ctx.shadowBlur = 24;
+    ctx.shadowColor = "rgba(120,200,255,0.9)";
+    for (let i = 2; i < points.length - 2; i += 5) {
+      const p = points[i]!;
+      const prev = points[i - 2]!;
+      const dirAngle = (Math.atan2(p.y - prev.y, p.x - prev.x) * 180) / Math.PI;
+      const branchCount = 1 + Math.floor(rand() * 2);
+      for (let b = 0; b < branchCount; b++) {
+        const side = rand() < 0.5 ? -1 : 1;
+        const branchAngle = dirAngle + side * (70 + rand() * 35);
+        const len = 26 + rand() * 46;
+        ctx.globalAlpha = 0.55 + rand() * 0.4;
+        drawLightningBranch(ctx, p.x, p.y, branchAngle, len, 3, "rgba(200,235,255,0.95)");
+      }
+    }
+    ctx.globalAlpha = 1;
+    ctx.restore();
+  } finally {
+    Math.random = origRandom;
+  }
+}
+
 export interface ElementTransform {
   x: number; // px offset บน canvas 1080x1920 (บวก = ขวา/ล่าง)
   y: number;
@@ -36,6 +113,8 @@ export interface RunShareOptions {
   date?: Date;
   // FIX: เพิ่มใหม่ตามที่ขอ — ให้ผู้ใช้ลาก/ขยับ/ขยายองค์ประกอบแต่ละชิ้น (การ์ดสถิติ, เส้นทาง, QR)
   // เองได้บนพรีวิวจริง แทนที่ตำแหน่ง/ขนาดจะตายตัวเหมือนเดิม ไม่ใส่มา = ใช้ตำแหน่งเดิมทุกอย่าง (ไม่กระทบของเก่า)
+  // FIX: เพิ่มใหม่ตามที่ขอ — เปิด/ปิดเอฟเฟกต์สายฟ้าเกาะเส้นทาง (default true ตามที่ขอ)
+  electric?: boolean;
   transform?: { card?: ElementTransform; route?: ElementTransform; qr?: ElementTransform };
 }
 
@@ -392,6 +471,15 @@ export async function renderRunShareImage(opts: RunShareOptions): Promise<Blob> 
     ctx.strokeStyle = "rgba(255,255,255,0.35)";
     ctx.lineWidth = 5;
     strokePath(-4);
+
+    // FIX: เพิ่มใหม่ตามที่ขอ — สายฟ้าเกาะเส้นทาง (default เปิด ปิดได้ผ่าน opts.electric = false)
+    if (opts.electric !== false) {
+      const screenPoints = opts.path.map((_, i) => {
+        const s = toScreen(i);
+        return { x: s.x, y: s.y - lift };
+      });
+      drawLightningAlongPath(ctx, screenPoints);
+    }
 
     // จุดเริ่มต้น (blob กลมใหญ่ ตามดีไซน์ต้นแบบ) — ทำเป็นทรงกลม 3D ด้วย radial gradient
     const start = toScreen(0);
