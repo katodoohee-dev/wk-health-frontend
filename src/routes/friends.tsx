@@ -18,7 +18,7 @@ import {
   apiFriendSendMessage,
   type Friend,
 } from "@/lib/api-new-features";
-import { renderWeekShareImage, shareOrDownloadImage } from "@/lib/share-image";
+import { renderWeekShareImage, renderWeekSharePreview, shareOrDownloadImage, DEFAULT_LIGHTNING_COLORS, type LightningColors } from "@/lib/share-image";
 import { apiStatsWeekly } from "@/lib/api";
 
 export const Route = createFileRoute("/friends")({
@@ -91,24 +91,10 @@ function FriendsPage() {
 
   const sorted = [...(friends.data ?? [])].sort((a, b) => b.streak - a.streak);
 
-  const [shareResult, setShareResult] = useState<"shared" | "downloaded" | null>(null);
-  const share = useMutation({
-    mutationFn: async () => {
-      const blob = await renderWeekShareImage({
-        streak: week.data?.streak ?? 0,
-        avgKcal: week.data?.avgKcal ?? 0,
-        daysOnGoal: week.data?.daysOnGoal ?? 0,
-        weeklySteps: weeklySteps.data?.map((d) => d.steps),
-      });
-      return shareOrDownloadImage(blob, `wk-health-week-summary-${new Date().toISOString().slice(0, 10)}.png`);
-    },
-    onSuccess: (result) => {
-      if (result !== "cancelled") {
-        setShareResult(result);
-        setTimeout(() => setShareResult(null), 3000);
-      }
-    },
-  });
+  // FIX: บั๊กใหญ่ 🔴 — เดิมกดปุ่มแชร์แล้วยิง renderWeekShareImage + shareOrDownloadImage ทันทีโดยไม่มี
+  // จุดให้เลือกสีเอฟเฟกก่อนเลย ตามที่ขอ "เปลี่ยนสีเอฟเฟกได้ทุกสี ทุกเฉด ทุกชั้น" ต้องมีหน้าต่างให้เลือกสี
+  // ก่อนค่อยแชร์จริง เลยเปลี่ยนเป็นเปิดโมดัลแทน (ดู ShareWeekModal ด้านล่าง)
+  const [shareModalOpen, setShareModalOpen] = useState(false);
 
   return (
     <div className="rise-in">
@@ -119,21 +105,14 @@ function FriendsPage() {
         <div className="flex items-center justify-between">
           <p className="font-display font-semibold">สรุปสัปดาห์ของคุณ</p>
           <button
-            onClick={() => share.mutate()}
-            disabled={share.isPending || week.isLoading}
+            onClick={() => setShareModalOpen(true)}
+            disabled={week.isLoading}
             className="press glass grid size-9 place-items-center rounded-xl disabled:opacity-50"
             aria-label="แชร์เป็นรูป"
           >
-            {share.isPending ? <Loader2 className="size-4 animate-spin" /> : <Share2 className="size-4" />}
+            <Share2 className="size-4" />
           </button>
         </div>
-        {shareResult && (
-          <p className="mt-2 flex items-center gap-1 text-xs text-mint">
-            <Check className="size-3.5" />
-            {shareResult === "shared" ? "แชร์รูปสำเร็จ" : "บันทึกรูปลงเครื่องแล้ว"}
-          </p>
-        )}
-        {share.isError && <p className="mt-2 text-xs text-destructive">สร้างรูปไม่สำเร็จ ลองใหม่อีกครั้ง</p>}
         {week.isLoading ? (
           <Skeleton className="mt-3 h-20 w-full rounded-2xl" />
         ) : week.isError ? (
@@ -350,6 +329,15 @@ function FriendsPage() {
 
       {/* FIX: เพิ่มใหม่ — ช่องแชทคุยกับเพื่อนในแอปตามที่ขอ */}
       {chattingFriend && <FriendChatModal friend={chattingFriend} onClose={() => setChattingFriend(null)} />}
+      {shareModalOpen && (
+        <ShareWeekModal
+          streak={week.data?.streak ?? 0}
+          avgKcal={week.data?.avgKcal ?? 0}
+          daysOnGoal={week.data?.daysOnGoal ?? 0}
+          weeklySteps={weeklySteps.data?.map((d) => d.steps)}
+          onClose={() => setShareModalOpen(false)}
+        />
+      )}
     </div>
   );
 }
@@ -429,6 +417,140 @@ function FriendChatModal({ friend, onClose }: { friend: Friend; onClose: () => v
           </button>
         </form>
         {send.isError && <p className="px-3 pb-2 text-xs text-destructive">ส่งข้อความไม่สำเร็จ ลองใหม่อีกครั้ง</p>}
+      </div>
+    </div>
+  );
+}
+
+// FIX: เพิ่มใหม่ — ตามที่ขอ "เปลี่ยนสีเอฟเฟกได้ทุกสี ทุกเฉด ทุกชั้น" โมดัลนี้ให้เลือกสีทั้ง 8 จุดของ
+// กราฟสายฟ้า 5 ชั้น (บางชั้นมีมากกว่า 1 สี เช่นเส้นหลักไล่สี 3 จุด) พร้อมพรีวิวสดก่อนกดแชร์จริง
+const LIGHTNING_COLOR_FIELDS: { key: keyof LightningColors; label: string }[] = [
+  { key: "outerGlow", label: "Outer glow (ชั้น 1)" },
+  { key: "midGlow", label: "Mid glow (ชั้น 2)" },
+  { key: "shadow3d", label: "เงา 3D (ชั้น 3)" },
+  { key: "coreStart", label: "เส้นหลัก จุดเริ่ม" },
+  { key: "coreMid", label: "เส้นหลัก จุดกลาง" },
+  { key: "coreEnd", label: "เส้นหลัก จุดปลาย" },
+  { key: "highlight", label: "Highlight (ชั้น 5)" },
+  { key: "sparkGlow", label: "แสงรอบจุดข้อมูล" },
+];
+
+function ShareWeekModal({
+  streak,
+  avgKcal,
+  daysOnGoal,
+  weeklySteps,
+  onClose,
+}: {
+  streak: number;
+  avgKcal: number;
+  daysOnGoal: number;
+  weeklySteps?: number[];
+  onClose: () => void;
+}) {
+  const canvasRef = useRef<HTMLCanvasElement>(null);
+  const [colors, setColors] = useState<LightningColors>(DEFAULT_LIGHTNING_COLORS);
+  const [blob, setBlob] = useState<Blob | null>(null);
+  const [rendering, setRendering] = useState(false);
+  const [renderError, setRenderError] = useState<string | null>(null);
+  const [shareBusy, setShareBusy] = useState(false);
+  const [shareResult, setShareResult] = useState<"shared" | "downloaded" | null>(null);
+  const [shareError, setShareError] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (!canvasRef.current) return;
+    let cancelled = false;
+    setRendering(true);
+    setRenderError(null);
+    renderWeekSharePreview(canvasRef.current, { streak, avgKcal, daysOnGoal, weeklySteps, lightningColors: colors })
+      .then((b) => { if (!cancelled) setBlob(b); })
+      .catch((err) => { if (!cancelled) setRenderError(err instanceof Error ? err.message : "สร้างรูปตัวอย่างไม่สำเร็จ"); })
+      .finally(() => { if (!cancelled) setRendering(false); });
+    return () => { cancelled = true; };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [streak, avgKcal, daysOnGoal, weeklySteps, colors]);
+
+  const handleShare = async () => {
+    if (!blob) return;
+    setShareBusy(true);
+    setShareError(null);
+    try {
+      const result = await shareOrDownloadImage(blob, `wk-health-week-summary-${new Date().toISOString().slice(0, 10)}.png`);
+      if (result !== "cancelled") {
+        setShareResult(result);
+        setTimeout(() => setShareResult(null), 3000);
+      }
+    } catch {
+      setShareError("แชร์ไม่สำเร็จ ลองใหม่อีกครั้ง");
+    } finally {
+      setShareBusy(false);
+    }
+  };
+
+  return (
+    <div className="fixed inset-0 z-[220] flex items-end justify-center bg-black/60 p-4 sm:items-center" onClick={onClose}>
+      <div
+        className="glass-strong flex max-h-[92vh] w-full max-w-sm flex-col gap-3 overflow-y-auto rounded-3xl p-5"
+        onClick={(e) => e.stopPropagation()}
+      >
+        <div className="flex items-center justify-between">
+          <p className="font-display font-semibold">แชร์สรุปสัปดาห์ ⚡</p>
+          <button onClick={onClose} className="press glass grid size-8 place-items-center rounded-xl" aria-label="ปิด">
+            <X className="size-4" />
+          </button>
+        </div>
+
+        <div className="relative overflow-hidden rounded-2xl bg-muted">
+          <canvas ref={canvasRef} className="w-full" />
+          {rendering && (
+            <div className="absolute inset-0 grid place-items-center bg-black/30">
+              <Loader2 className="size-6 animate-spin text-white" />
+            </div>
+          )}
+        </div>
+        {renderError && <p className="text-xs text-destructive">{renderError}</p>}
+
+        <div>
+          <div className="mb-2 flex items-center justify-between">
+            <p className="text-xs font-medium text-muted-foreground">สีเอฟเฟกสายฟ้า (เลือกได้ทุกชั้น ทุกเฉด)</p>
+            <button
+              onClick={() => setColors(DEFAULT_LIGHTNING_COLORS)}
+              className="press text-xs font-medium text-mint"
+            >
+              รีเซ็ตค่าเริ่มต้น
+            </button>
+          </div>
+          <div className="grid grid-cols-2 gap-2">
+            {LIGHTNING_COLOR_FIELDS.map((f) => (
+              <label key={f.key} className="glass flex items-center gap-2 rounded-xl px-2.5 py-2 text-[11px]">
+                <input
+                  type="color"
+                  value={colors[f.key]}
+                  onChange={(e) => setColors((c) => ({ ...c, [f.key]: e.target.value }))}
+                  className="size-7 shrink-0 cursor-pointer rounded-md border-0 bg-transparent p-0"
+                  aria-label={f.label}
+                />
+                <span className="truncate text-muted-foreground">{f.label}</span>
+              </label>
+            ))}
+          </div>
+        </div>
+
+        {shareResult && (
+          <p className="flex items-center gap-1 text-xs text-mint">
+            <Check className="size-3.5" />
+            {shareResult === "shared" ? "แชร์รูปสำเร็จ" : "บันทึกรูปลงเครื่องแล้ว"}
+          </p>
+        )}
+        {shareError && <p className="text-xs text-destructive">{shareError}</p>}
+
+        <button
+          onClick={handleShare}
+          disabled={!blob || rendering || shareBusy}
+          className="press bg-mint-gradient flex items-center justify-center gap-2 rounded-xl py-3 text-sm font-medium text-primary-foreground shadow-glow disabled:opacity-50"
+        >
+          {shareBusy ? <Loader2 className="size-4 animate-spin" /> : <Share2 className="size-4" />} แชร์รูปนี้
+        </button>
       </div>
     </div>
   );
