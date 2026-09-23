@@ -69,7 +69,7 @@ export async function renderWeekShareImage(data: WeekShareData): Promise<Blob> {
   // FIX: เพิ่มใหม่ — ตามที่ขอ "ลิงก์/ชื่อเว็บโผล่มุมซ้ายบน" ของรูปที่แชร์ลงสตอรี่ (ไม่ใช่ลิงก์กดได้จริง —
   // Instagram/Facebook/TikTok ล็อกฟีเจอร์ลิงก์กดได้จากภายนอกไว้ ต้องเป็นแอปที่จดทะเบียนกับ Meta/TikTok
   // เท่านั้น เว็บทำเองไม่ได้ นี่คือทางที่ทำได้จริง: เผาชื่อเว็บลงในรูปให้คนเห็นแล้วจำ/พิมพ์ตามเอง)
-  const siteUrl = typeof window !== "undefined" ? window.location.host : "wk-health-frontend.onrender.com";
+  const siteUrl = typeof window !== "undefined" ? window.location.host : "weeker.onrender.com";
   const badgePadX = 22;
   const badgeH = 52;
   ctx.font = "600 26px 'Segoe UI', system-ui, sans-serif";

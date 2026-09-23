@@ -251,7 +251,7 @@ export async function renderRunShareImage(opts: RunShareOptions): Promise<Blob> 
   ctx.fillStyle = "rgba(255,255,255,0.72)";
   ctx.font = "500 30px 'Segoe UI', system-ui, sans-serif";
   ctx.textAlign = "left";
-  ctx.fillText("WK RUNNER", cardX + 44, cardY + 74);
+  ctx.fillText("WEEKER RUN", cardX + 44, cardY + 74);
   ctx.textAlign = "right";
   const dateStr = (opts.date ?? new Date()).toLocaleDateString("en-GB", { day: "2-digit", month: "short", year: "numeric" });
   ctx.fillText(dateStr, cardX + cardW - 44, cardY + 74);
@@ -380,7 +380,7 @@ export async function renderRunShareImage(opts: RunShareOptions): Promise<Blob> 
   }
 
   // FIX: ฝัง URL ไปพร้อมรูปตามที่ขอ — badge ชื่อเว็บ + QR สแกนเปิดเว็บ (แบบเดียวกับรูปสรุปสัปดาห์)
-  const siteUrl = typeof window !== "undefined" ? window.location.host : "wk-health-frontend.onrender.com";
+  const siteUrl = typeof window !== "undefined" ? window.location.host : "weeker.onrender.com";
   const isDarkBg = !!opts.backgroundImage; // มีรูปพื้นหลังเอง เดาว่าอาจเข้มกว่าเดิม ใช้ badge โปร่งเข้มเสมอ ให้อ่านง่ายไม่ว่าพื้นหลังจะเป็นสีอะไร
   const badgePadX = 22;
   const badgeH = 52;
