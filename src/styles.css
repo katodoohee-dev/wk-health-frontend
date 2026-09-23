@@ -246,6 +246,27 @@
 .wk-floating-volume { right: 16px; bottom: calc(148px + env(safe-area-inset-bottom)); }
 .wk-floating-music { left: 16px; max-width: calc(100vw - 32px); }
 
+/* FIX: เพิ่มใหม่ — ปุ่มพับเก็บปุ่มควบคุมเสียง (เล็กมากตามที่ขอ) ใช้ position:fixed ของตัวเองแยก
+   ไม่พึ่งพา parent div ในการจัดตำแหน่ง เพราะ VoiceControl (ปุ่มไมค์) render ผ่าน React Portal ออกไป
+   document.body ตรงๆ อยู่แล้ว — ถ้าปุ่มพับเก็บอยู่ใน flow ปกติของ FloatingControls จะไม่ได้อยู่ติด
+   กับปุ่มไมค์/ลำโพงจริงบนจอ (คนละตำแหน่งใน DOM) ต้อง fixed ชี้ตำแหน่งเองตรงๆ เหมือนปุ่มอื่นในกลุ่มนี้ */
+.wk-voice-controls-fold {
+  position: fixed;
+  z-index: 61;
+  right: 4px;
+  bottom: calc(198px + env(safe-area-inset-bottom));
+  width: 16px;
+  height: 16px;
+  display: grid;
+  place-items: center;
+  border-radius: 999px;
+  background: var(--surface-2, oklch(0.94 0 0));
+  color: var(--muted-foreground, oklch(0.5 0 0));
+  border: 1px solid var(--hairline, oklch(0.88 0 0));
+  opacity: 0.7;
+}
+.wk-voice-controls-fold:active { opacity: 1; }
+
 .wk-floating-fab {
   display: flex;
   width: 52px;

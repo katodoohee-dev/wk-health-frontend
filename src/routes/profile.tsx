@@ -6,6 +6,7 @@ import { Link } from "@tanstack/react-router";
 import { PageHeader, GlassCard, SectionTitle } from "@/components/app/ui-bits";
 import { useAuth } from "@/lib/auth";
 import { apiBmi, apiUpdateMe, num } from "@/lib/api";
+import { isVoiceControlsEnabled, setVoiceControlsEnabled } from "@/lib/voice-controls-visibility";
 
 const AVATAR_OPTIONS = ["🙂", "😄", "😎", "🥳", "🧘", "🏃", "🚴", "🏋️", "🐱", "🐶", "🦊", "🐼", "🐸", "🦉", "🌱", "🔥"];
 // FIX: เพิ่มใหม่ — เก็บ avatar สำรองไว้ในเครื่อง เผื่อ backend PATCH /api/auth/me ยังไม่รองรับ
@@ -34,6 +35,7 @@ function ProfilePage() {
   const [weight, setWeight] = useState(String(num(user?.["weightKg"], 60)));
   const [height, setHeight] = useState(String(num(user?.["heightCm"], 170)));
   const [avatar, setAvatar] = useState(String(user?.["avatar"] ?? readLocalAvatar() ?? "🙂"));
+  const [voiceControlsOn, setVoiceControlsOn] = useState(isVoiceControlsEnabled);
   const [avatarOpen, setAvatarOpen] = useState(false);
   const [photoError, setPhotoError] = useState("");
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -140,6 +142,26 @@ function ProfilePage() {
           <ChevronRight className="size-4 shrink-0 text-muted-foreground" />
         </GlassCard>
       </Link>
+
+      <GlassCard className="mt-4 p-5">
+        <SectionTitle title="ตั้งค่า" />
+        <div className="flex items-center justify-between gap-3">
+          <div className="min-w-0">
+            <p className="truncate text-sm font-medium">ปุ่มควบคุมเสียงลอย (ไมค์/ลำโพง)</p>
+            <p className="truncate text-xs text-muted-foreground">
+              {voiceControlsOn ? "เปิดอยู่ — เห็นปุ่มไมค์และลำโพงลอยในแอป" : "ปิดอยู่ — ไม่เห็นปุ่มไมค์/ลำโพงลอยในแอปจนกว่าจะเปิดที่นี่"}
+            </p>
+          </div>
+          <button
+            onClick={() => { const next = !voiceControlsOn; setVoiceControlsEnabled(next); setVoiceControlsOn(next); }}
+            aria-pressed={voiceControlsOn}
+            aria-label="เปิด/ปิดปุ่มควบคุมเสียงลอย"
+            className={`press relative h-7 w-12 shrink-0 rounded-full transition-colors ${voiceControlsOn ? "bg-mint" : "bg-muted"}`}
+          >
+            <span className={`absolute top-0.5 size-6 rounded-full bg-white shadow transition-transform ${voiceControlsOn ? "translate-x-5" : "translate-x-0.5"}`} />
+          </button>
+        </div>
+      </GlassCard>
 
       <GlassCard className="mt-4 p-5">
         <SectionTitle title="คำนวณ BMI" />
