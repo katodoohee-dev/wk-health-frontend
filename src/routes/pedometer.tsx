@@ -24,7 +24,7 @@ import {
   type GeoPoint,
 } from "@/lib/api";
 // FIX: เพิ่มใหม่ — ตามที่ขอ "แชร์สถิติการวิ่งพร้อมเส้นทาง" เลือกสีเส้น/พื้นหลังเองได้
-import { renderRunSharePreview, loadImageFromFile } from "@/lib/share-run-image";
+import { renderRunSharePreview, loadImageFromFile, SHARE_CANVAS_WIDTH, SHARE_CANVAS_HEIGHT, SHARE_LAYOUT_BOXES, type ElementTransform } from "@/lib/share-run-image";
 import { shareOrDownloadImage } from "@/lib/share-image";
 
 export const Route = createFileRoute("/pedometer")({
@@ -884,6 +884,42 @@ function ShareRunModal({ routeId, onClose }: { routeId: string; onClose: () => v
   const [shareResult, setShareResult] = useState<"shared" | "downloaded" | null>(null);
   const [shareError, setShareError] = useState<string | null>(null);
 
+  // FIX: เพิ่มใหม่ตามที่ขอ — ให้ลาก/ขยับ/ขยายการ์ดสถิติ, เส้นทาง, QR เองได้บนพรีวิว
+  // เก็บ transform (offset px บน canvas 1080x1920 + scale) แยกต่อองค์ประกอบ
+  const [layout, setLayout] = useState<{ card: ElementTransform; route: ElementTransform; qr: ElementTransform }>({
+    card: { x: 0, y: 0, scale: 1 },
+    route: { x: 0, y: 0, scale: 1 },
+    qr: { x: 0, y: 0, scale: 1 },
+  });
+  const [activeEl, setActiveEl] = useState<"card" | "route" | "qr" | null>(null);
+  const previewWrapRef = useRef<HTMLDivElement>(null);
+  const dragRef = useRef<{ el: "card" | "route" | "qr"; startX: number; startY: number; origX: number; origY: number; moved: boolean } | null>(null);
+
+  const beginDrag = (el: "card" | "route" | "qr") => (e: React.PointerEvent) => {
+    e.stopPropagation();
+    (e.target as HTMLElement).setPointerCapture(e.pointerId);
+    dragRef.current = { el, startX: e.clientX, startY: e.clientY, origX: layout[el].x, origY: layout[el].y, moved: false };
+  };
+  const onDragMove = (e: React.PointerEvent) => {
+    const d = dragRef.current;
+    if (!d || !previewWrapRef.current) return;
+    const rect = previewWrapRef.current.getBoundingClientRect();
+    // แปลง px บนหน้าจอ -> px บน canvas จริง (1080x1920) ตามอัตราส่วนที่ preview ถูกย่อแสดง
+    const scaleRatio = SHARE_CANVAS_WIDTH / rect.width;
+    const dxScreen = e.clientX - d.startX;
+    const dyScreen = e.clientY - d.startY;
+    if (Math.abs(dxScreen) > 2 || Math.abs(dyScreen) > 2) d.moved = true;
+    setLayout((prev) => ({ ...prev, [d.el]: { ...prev[d.el], x: d.origX + dxScreen * scaleRatio, y: d.origY + dyScreen * scaleRatio } }));
+  };
+  const endDrag = (el: "card" | "route" | "qr") => () => {
+    if (dragRef.current && !dragRef.current.moved) setActiveEl((cur) => (cur === el ? null : el));
+    dragRef.current = null;
+  };
+  const nudgeScale = (el: "card" | "route" | "qr", delta: number) => {
+    setLayout((prev) => ({ ...prev, [el]: { ...prev[el], scale: Math.max(0.5, Math.min(2, +(prev[el].scale + delta).toFixed(2))) } }));
+  };
+  const resetLayout = () => setLayout({ card: { x: 0, y: 0, scale: 1 }, route: { x: 0, y: 0, scale: 1 }, qr: { x: 0, y: 0, scale: 1 } });
+
   const detail = useQuery({ queryKey: ["route", "detail", routeId], queryFn: () => apiRouteDetail(routeId) });
 
   useEffect(() => {
@@ -898,12 +934,13 @@ function ShareRunModal({ routeId, onClose }: { routeId: string; onClose: () => v
       lineColor,
       backgroundImage: bgImage,
       date: detail.data.date ? new Date(detail.data.date) : new Date(),
+      transform: layout,
     })
       .then((b) => { if (!cancelled) setBlob(b); })
       .catch((err) => { if (!cancelled) setRenderError(err instanceof Error ? err.message : "สร้างรูปตัวอย่างไม่สำเร็จ"); })
       .finally(() => { if (!cancelled) setRendering(false); });
     return () => { cancelled = true; };
-  }, [detail.data, lineColor, bgImage]);
+  }, [detail.data, lineColor, bgImage, layout]);
 
   const handleBgUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -952,14 +989,43 @@ function ShareRunModal({ routeId, onClose }: { routeId: string; onClose: () => v
         ) : detail.isError ? (
           <ErrorState error={detail.error} onRetry={() => void detail.refetch()} />
         ) : (
-          <div className="relative overflow-hidden rounded-2xl bg-muted">
-            <canvas ref={canvasRef} className="w-full" />
+          <div ref={previewWrapRef} className="relative overflow-hidden rounded-2xl bg-muted" onPointerMove={onDragMove}>
+            <canvas ref={canvasRef} className="w-full" onClick={() => setActiveEl(null)} />
             {rendering && (
               <div className="absolute inset-0 grid place-items-center bg-black/30">
                 <Loader2 className="size-6 animate-spin text-white" />
               </div>
             )}
+            {/* FIX: เพิ่มใหม่ตามที่ขอ — กรอบใสวางทับตำแหน่งจริงของแต่ละองค์ประกอบ แตะเพื่อเลือก
+                ลากเพื่อขยับ พอเลือกแล้วจะมีปุ่ม +/- ขยาย/ย่อโผล่ขึ้นมาให้ */}
+            {(["card", "route", "qr"] as const).map((el) => {
+              const base = SHARE_LAYOUT_BOXES[el];
+              const t = layout[el];
+              const leftPct = ((base.x + t.x - (base.w * (t.scale - 1)) / 2) / SHARE_CANVAS_WIDTH) * 100;
+              const topPct = ((base.y + t.y - (base.h * (t.scale - 1)) / 2) / SHARE_CANVAS_HEIGHT) * 100;
+              const wPct = (base.w * t.scale / SHARE_CANVAS_WIDTH) * 100;
+              const hPct = (base.h * t.scale / SHARE_CANVAS_HEIGHT) * 100;
+              return (
+                <div
+                  key={el}
+                  onPointerDown={beginDrag(el)}
+                  onPointerUp={endDrag(el)}
+                  style={{ left: `${leftPct}%`, top: `${topPct}%`, width: `${wPct}%`, height: `${hPct}%` }}
+                  className={`absolute cursor-move touch-none rounded-xl border-2 transition-colors ${activeEl === el ? "border-primary bg-primary/10" : "border-transparent hover:border-white/30"}`}
+                />
+              );
+            })}
+            {activeEl && (
+              <div className="glass-strong absolute top-2 right-2 flex items-center gap-1 rounded-xl p-1" onPointerDown={(e) => e.stopPropagation()}>
+                <button onClick={() => nudgeScale(activeEl, -0.1)} className="press grid size-7 place-items-center rounded-lg text-sm font-bold" aria-label="ย่อ">−</button>
+                <span className="px-1 text-[11px] tabular-nums text-muted-foreground">{Math.round(layout[activeEl].scale * 100)}%</span>
+                <button onClick={() => nudgeScale(activeEl, 0.1)} className="press grid size-7 place-items-center rounded-lg text-sm font-bold" aria-label="ขยาย">+</button>
+              </div>
+            )}
           </div>
+        )}
+        {(layout.card.x !== 0 || layout.card.y !== 0 || layout.card.scale !== 1 || layout.route.x !== 0 || layout.route.y !== 0 || layout.route.scale !== 1 || layout.qr.x !== 0 || layout.qr.y !== 0 || layout.qr.scale !== 1) && (
+          <button onClick={resetLayout} className="press glass self-end rounded-lg px-3 py-1.5 text-[11px] text-muted-foreground">รีเซ็ตตำแหน่ง/ขนาด</button>
         )}
         {renderError && <p className="text-xs text-destructive">{renderError}</p>}
 
