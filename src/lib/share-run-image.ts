@@ -21,6 +21,12 @@ export interface RunSharePoint {
   lng: number;
 }
 
+export interface ElementTransform {
+  x: number; // px offset บน canvas 1080x1920 (บวก = ขวา/ล่าง)
+  y: number;
+  scale: number; // 1 = ขนาดเดิม
+}
+
 export interface RunShareOptions {
   distanceKm: number;
   durationSeconds: number;
@@ -28,10 +34,25 @@ export interface RunShareOptions {
   lineColor?: string; // hex เช่น "#e0201a" ค่า default แดงตามดีไซน์ต้นแบบ
   backgroundImage?: HTMLImageElement | null;
   date?: Date;
+  // FIX: เพิ่มใหม่ตามที่ขอ — ให้ผู้ใช้ลาก/ขยับ/ขยายองค์ประกอบแต่ละชิ้น (การ์ดสถิติ, เส้นทาง, QR)
+  // เองได้บนพรีวิวจริง แทนที่ตำแหน่ง/ขนาดจะตายตัวเหมือนเดิม ไม่ใส่มา = ใช้ตำแหน่งเดิมทุกอย่าง (ไม่กระทบของเก่า)
+  transform?: { card?: ElementTransform; route?: ElementTransform; qr?: ElementTransform };
 }
 
-const WIDTH = 1080;
-const HEIGHT = 1920; // อัตราส่วน IG Story (9:16) พอดี
+// ขนาด canvas คงที่ (IG Story 9:16) — export ให้ UI ฝั่ง React คำนวณกรอบลาก/ขยับให้ตรงกับที่วาดจริงเป๊ะ
+export const SHARE_CANVAS_WIDTH = 1080;
+export const SHARE_CANVAS_HEIGHT = 1920;
+
+// ตำแหน่ง/ขนาด "ฐาน" (ก่อนใส่ transform) ของแต่ละองค์ประกอบ บน canvas 1080x1920 — ให้ UI (ShareRunModal)
+// ใช้วาดกรอบลาก/ขยับทับพรีวิวให้ตรงตำแหน่งจริงเป๊ะ โดยไม่ต้อง hardcode ตัวเลขซ้ำสองที่
+export const SHARE_LAYOUT_BOXES = {
+  card: { x: 64, y: 110, w: 1080 - 64 * 2, h: 340 },
+  route: { x: 90, y: 110 + 340 + 90, w: 1080 - 90 * 2, h: 1000 },
+  qr: { x: 1080 / 2 - 140, y: 1920 - 90 - 52 - (210 + 36) - 30, w: 280, h: (210 + 36) + 30 + 52 },
+} as const;
+
+const WIDTH = SHARE_CANVAS_WIDTH;
+const HEIGHT = SHARE_CANVAS_HEIGHT;
 
 function roundRect(ctx: CanvasRenderingContext2D, x: number, y: number, w: number, h: number, r: number) {
   ctx.beginPath();
@@ -240,10 +261,15 @@ export async function renderRunShareImage(opts: RunShareOptions): Promise<Blob> 
   }
 
   // การ์ดสถิติสีเข้มโค้งมน (ตามดีไซน์ต้นแบบ)
-  const cardX = 64;
-  const cardY = 110;
-  const cardW = WIDTH - cardX * 2;
-  const cardH = 340;
+  const cardX = SHARE_LAYOUT_BOXES.card.x;
+  const cardY = SHARE_LAYOUT_BOXES.card.y;
+  const cardW = SHARE_LAYOUT_BOXES.card.w;
+  const cardH = SHARE_LAYOUT_BOXES.card.h;
+  const cardT = opts.transform?.card ?? { x: 0, y: 0, scale: 1 };
+  ctx.save();
+  ctx.translate(cardX + cardW / 2 + cardT.x, cardY + cardH / 2 + cardT.y);
+  ctx.scale(cardT.scale, cardT.scale);
+  ctx.translate(-(cardX + cardW / 2), -(cardY + cardH / 2));
   ctx.fillStyle = "rgba(18,18,20,0.95)";
   roundRect(ctx, cardX, cardY, cardW, cardH, 36);
   ctx.fill();
@@ -266,13 +292,19 @@ export async function renderRunShareImage(opts: RunShareOptions): Promise<Blob> 
   ctx.textAlign = "center";
   ctx.font = "500 62px 'Segoe UI', system-ui, sans-serif";
   ctx.fillText(`PACE ${formatRunPace(opts.durationSeconds, opts.distanceKm)}`, cardX + cardW / 2, cardY + 300);
+  ctx.restore(); // ปิด transform การ์ด
 
   // เส้นทางจริงจาก GPS — โปรเจกต์ equirectangular ง่ายๆ (x = lng*cos(lat), y = lat) แล้วสเกลให้พอดี
-  const pathAreaX = 90;
-  const pathAreaY = cardY + cardH + 90;
-  const pathAreaW = WIDTH - pathAreaX * 2;
-  const pathAreaH = 1000;
+  const pathAreaX = SHARE_LAYOUT_BOXES.route.x;
+  const pathAreaY = SHARE_LAYOUT_BOXES.route.y;
+  const pathAreaW = SHARE_LAYOUT_BOXES.route.w;
+  const pathAreaH = SHARE_LAYOUT_BOXES.route.h;
   const lineColor = opts.lineColor || "#e0201a";
+  const routeT = opts.transform?.route ?? { x: 0, y: 0, scale: 1 };
+  ctx.save();
+  ctx.translate(pathAreaX + pathAreaW / 2 + routeT.x, pathAreaY + pathAreaH / 2 + routeT.y);
+  ctx.scale(routeT.scale, routeT.scale);
+  ctx.translate(-(pathAreaX + pathAreaW / 2), -(pathAreaY + pathAreaH / 2));
 
   // FIX: เพิ่มใหม่ — พยายามดึงแผนที่จริงย่อๆ ของบริเวณที่วิ่งมาแปะเป็นพื้นหลังของกรอบเส้นทาง
   // (ถ้าผู้ใช้ไม่ได้อัปโหลดรูปพื้นหลังเองไว้ก่อนแล้ว) โหลดไม่สำเร็จก็ไม่เป็นไร ใช้พื้นเดิมต่อ
@@ -378,10 +410,18 @@ export async function renderRunShareImage(opts: RunShareOptions): Promise<Blob> 
     ctx.fillStyle = blobGrad;
     ctx.fill();
   }
+  ctx.restore(); // ปิด transform เส้นทาง
 
   // FIX: ฝัง URL ไปพร้อมรูปตามที่ขอ — badge ชื่อเว็บ + QR สแกนเปิดเว็บ (แบบเดียวกับรูปสรุปสัปดาห์)
   const siteUrl = typeof window !== "undefined" ? window.location.host : "weeker.onrender.com";
   const isDarkBg = !!opts.backgroundImage; // มีรูปพื้นหลังเอง เดาว่าอาจเข้มกว่าเดิม ใช้ badge โปร่งเข้มเสมอ ให้อ่านง่ายไม่ว่าพื้นหลังจะเป็นสีอะไร
+  const qrT = opts.transform?.qr ?? { x: 0, y: 0, scale: 1 };
+  const qrBoxCenterX = SHARE_LAYOUT_BOXES.qr.x + SHARE_LAYOUT_BOXES.qr.w / 2;
+  const qrBoxCenterY = SHARE_LAYOUT_BOXES.qr.y + SHARE_LAYOUT_BOXES.qr.h / 2;
+  ctx.save();
+  ctx.translate(qrBoxCenterX + qrT.x, qrBoxCenterY + qrT.y);
+  ctx.scale(qrT.scale, qrT.scale);
+  ctx.translate(-qrBoxCenterX, -qrBoxCenterY);
   const badgePadX = 22;
   const badgeH = 52;
   ctx.font = "600 26px 'Segoe UI', system-ui, sans-serif";
@@ -411,6 +451,7 @@ export async function renderRunShareImage(opts: RunShareOptions): Promise<Blob> 
     ctx.fill();
     ctx.drawImage(qrImg, qrX + qrBoxPad, qrY + qrBoxPad, qrSize, qrSize);
   }
+  ctx.restore(); // ปิด transform QR/badge
 
   return await new Promise<Blob>((resolve, reject) => {
     canvas.toBlob((blob) => {
