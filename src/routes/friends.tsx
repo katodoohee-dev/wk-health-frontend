@@ -19,6 +19,7 @@ import {
   type Friend,
 } from "@/lib/api-new-features";
 import { renderWeekShareImage, shareOrDownloadImage } from "@/lib/share-image";
+import { apiStatsWeekly } from "@/lib/api";
 
 export const Route = createFileRoute("/friends")({
   head: () => ({
@@ -55,6 +56,8 @@ function FriendsPage() {
   const friends = useQuery({ queryKey: ["friends", "list"], queryFn: apiFriendsList, enabled: isAuthenticated });
   const invite = useQuery({ queryKey: ["friends", "invite"], queryFn: apiFriendsInviteCode, enabled: isAuthenticated });
   const week = useQuery({ queryKey: ["stats", "week-summary"], queryFn: apiStatsWeekSummary, enabled: isAuthenticated });
+  // FIX: เพิ่มใหม่ — ก้าวเดินรายวัน 7 วันล่าสุด สำหรับกราฟสายฟ้า 5 ชั้นในรูปแชร์ (ตามที่คุยดีไซน์กันไว้)
+  const weeklySteps = useQuery({ queryKey: ["stats", "weekly"], queryFn: apiStatsWeekly, enabled: isAuthenticated });
 
   const locationSharing = useQuery({
     queryKey: ["friends", "location-sharing"],
@@ -95,6 +98,7 @@ function FriendsPage() {
         streak: week.data?.streak ?? 0,
         avgKcal: week.data?.avgKcal ?? 0,
         daysOnGoal: week.data?.daysOnGoal ?? 0,
+        weeklySteps: weeklySteps.data?.map((d) => d.steps),
       });
       return shareOrDownloadImage(blob, `wk-health-week-summary-${new Date().toISOString().slice(0, 10)}.png`);
     },
