@@ -6,10 +6,42 @@ export interface WeekShareData {
   avgKcal: number;
   daysOnGoal: number;
   userName?: string;
-  // FIX: เพิ่มใหม่ — ตามที่คุยกันเรื่องดีไซน์ "สายฟ้า 5 เส้น" สำหรับเส้นสถิติก้าวเดิน
-  // ส่งมาเป็นตัวเลขก้าวเดิน 7 วันล่าสุด เรียงจากเก่าไปใหม่ (index 0 = 6 วันก่อน ... index 6 = วันนี้)
-  // ถ้าไม่ส่งมา จะข้ามส่วนกราฟสายฟ้าไปเงียบๆ (รูปยังสร้างได้ปกติ แค่ไม่มีกราฟ)
   weeklySteps?: number[];
+  // FIX: เพิ่มใหม่ — ตามที่ขอ "เปลี่ยนสีเอฟเฟกได้ทุกสี ทุกเฉด ทุกชั้น" เลยแยกสีแต่ละชั้นของกราฟสายฟ้า
+  // ออกมาเป็น config ต่างหาก ไม่ hardcode ม่วง/ฟ้าไว้ตายตัวอีกต่อไป — ถ้าไม่ส่งมาใช้ default เดิม
+  lightningColors?: LightningColors;
+}
+
+/** สีของกราฟสายฟ้าแต่ละชั้น เลือกได้อิสระทุกชั้น ทุกเฉด (ส่งเป็น hex เช่น "#8b5cf6") */
+export interface LightningColors {
+  outerGlow: string; // ชั้น 1: เบลอกว้างสุด
+  midGlow: string; // ชั้น 2: เบลอปานกลาง
+  shadow3d: string; // ชั้น 3: เงา 3D เยื้องลงขวา
+  coreStart: string; // ชั้น 4: จุดเริ่มไล่สีของเส้นหลัก
+  coreMid: string; // ชั้น 4: จุดกลางไล่สีของเส้นหลัก
+  coreEnd: string; // ชั้น 4: จุดปลายไล่สีของเส้นหลัก
+  highlight: string; // ชั้น 5: ไฮไลต์บางกลางเส้น
+  sparkGlow: string; // แสงเรืองรอบจุดข้อมูล (spark burst)
+}
+
+export const DEFAULT_LIGHTNING_COLORS: LightningColors = {
+  outerGlow: "#8b5cf6",
+  midGlow: "#38bdf8",
+  shadow3d: "#0f175a",
+  coreStart: "#a78bfa",
+  coreMid: "#38bdf8",
+  coreEnd: "#f0f9ff",
+  highlight: "#ffffff",
+  sparkGlow: "#e0f2fe",
+};
+
+// แปลง hex เป็น "r,g,b" สำหรับประกอบ rgba(...) ตอนต้องคุมความโปร่งใสของแต่ละชั้น
+function hexToRgb(hex: string): string {
+  const h = hex.replace("#", "");
+  const full = h.length === 3 ? h.split("").map((c) => c + c).join("") : h;
+  const num = parseInt(full, 16);
+  if (Number.isNaN(num) || full.length !== 6) return "255,255,255";
+  return `${(num >> 16) & 255},${(num >> 8) & 255},${num & 255}`;
 }
 
 const WIDTH = 1080;
@@ -61,7 +93,8 @@ function drawLightningTrend(
   panelX: number,
   panelY: number,
   panelW: number,
-  panelH: number
+  panelH: number,
+  colors: LightningColors
 ) {
   // พื้นหลัง dark navy โค้งมน
   const bgGrad = ctx.createLinearGradient(panelX, panelY, panelX, panelY + panelH);
@@ -116,52 +149,52 @@ function drawLightningTrend(
   ctx.lineJoin = "round";
   ctx.lineCap = "round";
 
-  // ชั้น 1: Outer glow (ม่วง/น้ำเงินเข้ม เบลอกว้างสุด)
+  // ชั้น 1: Outer glow
   ctx.save();
-  ctx.strokeStyle = "rgba(139,92,246,0.35)";
+  ctx.strokeStyle = `rgba(${hexToRgb(colors.outerGlow)},0.35)`;
   ctx.lineWidth = 24;
-  ctx.shadowColor = "#8b5cf6";
+  ctx.shadowColor = colors.outerGlow;
   ctx.shadowBlur = 40;
   strokePath();
   ctx.restore();
 
-  // ชั้น 2: Mid glow (ฟ้าสด เบลอปานกลาง)
+  // ชั้น 2: Mid glow
   ctx.save();
-  ctx.strokeStyle = "rgba(56,189,248,0.55)";
+  ctx.strokeStyle = `rgba(${hexToRgb(colors.midGlow)},0.55)`;
   ctx.lineWidth = 14;
-  ctx.shadowColor = "#38bdf8";
+  ctx.shadowColor = colors.midGlow;
   ctx.shadowBlur = 20;
   strokePath();
   ctx.restore();
 
-  // ชั้น 3: เส้นเงา 3D (น้ำเงินกรมท่า เยื้องลงขวา 5px ให้มีมิติ)
+  // ชั้น 3: เส้นเงา 3D (เยื้องลงขวา 5px ให้มีมิติ)
   ctx.save();
   ctx.translate(5, 6);
-  ctx.strokeStyle = "rgba(15,23,90,0.65)";
+  ctx.strokeStyle = `rgba(${hexToRgb(colors.shadow3d)},0.65)`;
   ctx.lineWidth = 10;
   strokePath();
   ctx.restore();
 
-  // ชั้น 4: เส้นหลัก ไล่สี ม่วง→ฟ้า→ขาว
+  // ชั้น 4: เส้นหลัก ไล่สีตามที่เลือก
   const coreGrad = ctx.createLinearGradient(chartX, 0, chartX + chartW, 0);
-  coreGrad.addColorStop(0, "#a78bfa");
-  coreGrad.addColorStop(0.5, "#38bdf8");
-  coreGrad.addColorStop(1, "#f0f9ff");
+  coreGrad.addColorStop(0, colors.coreStart);
+  coreGrad.addColorStop(0.5, colors.coreMid);
+  coreGrad.addColorStop(1, colors.coreEnd);
   ctx.strokeStyle = coreGrad;
   ctx.lineWidth = 7;
   strokePath();
 
-  // ชั้น 5: Highlight ขาวสว่างบางกลางเส้น
-  ctx.strokeStyle = "rgba(255,255,255,0.85)";
+  // ชั้น 5: Highlight
+  ctx.strokeStyle = `rgba(${hexToRgb(colors.highlight)},0.85)`;
   ctx.lineWidth = 2.5;
   strokePath();
 
   // จุดข้อมูล = ประกายดาว (spark burst) เล็กๆ ที่แต่ละจุด
   points.forEach((p) => {
     ctx.save();
-    ctx.shadowColor = "#e0f2fe";
+    ctx.shadowColor = colors.sparkGlow;
     ctx.shadowBlur = 14;
-    ctx.fillStyle = "#ffffff";
+    ctx.fillStyle = colors.highlight;
     const r = 6;
     ctx.beginPath();
     for (let i = 0; i < 4; i++) {
@@ -289,7 +322,7 @@ export async function renderWeekShareImage(data: WeekShareData): Promise<Blob> {
   let afterY = cardY + cardH;
   if (includeChart) {
     const panelY = afterY + chartPanelGap;
-    drawLightningTrend(ctx, data.weeklySteps!, pad, panelY, WIDTH - pad * 2, chartPanelH);
+    drawLightningTrend(ctx, data.weeklySteps!, pad, panelY, WIDTH - pad * 2, chartPanelH, data.lightningColors ?? DEFAULT_LIGHTNING_COLORS);
     afterY = panelY + chartPanelH;
   }
 
