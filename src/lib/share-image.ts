@@ -371,6 +371,17 @@ export async function shareOrDownloadImage(blob: Blob, filename: string) {
     }
   }
 
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = filename;
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
+  URL.revokeObjectURL(url);
+  return "downloaded" as const;
+}
+
 /** วาดพรีวิวลง canvas element ที่มีอยู่แล้วโดยตรง (สำหรับแสดงตัวอย่างสดตอนเลือกสีแต่ละชั้นก่อนแชร์จริง) */
 export async function renderWeekSharePreview(canvas: HTMLCanvasElement, data: WeekShareData) {
   const blob = await renderWeekShareImage(data);
