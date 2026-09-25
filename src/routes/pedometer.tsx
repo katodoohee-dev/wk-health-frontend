@@ -24,7 +24,7 @@ import {
   type GeoPoint,
 } from "@/lib/api";
 // FIX: เพิ่มใหม่ — ตามที่ขอ "แชร์สถิติการวิ่งพร้อมเส้นทาง" เลือกสีเส้น/พื้นหลังเองได้
-import { renderRunSharePreview, loadImageFromFile, SHARE_CANVAS_WIDTH, SHARE_CANVAS_HEIGHT, SHARE_LAYOUT_BOXES, type ElementTransform } from "@/lib/share-run-image";
+import { renderRunSharePreview, loadImageFromFile, SHARE_CANVAS_WIDTH, SHARE_CANVAS_HEIGHT, SHARE_LAYOUT_BOXES, type ElementTransform, DEFAULT_LIGHTNING_COLORS, type LightningColors } from "@/lib/share-run-image";
 import { shareOrDownloadImage } from "@/lib/share-image";
 
 export const Route = createFileRoute("/pedometer")({
@@ -873,10 +873,25 @@ function Stat({
 
 /** FIX: เพิ่มใหม่ — โมดัลแชร์สถิติการวิ่งพร้อมเส้นทางจริง เลือกสีเส้น (วงล้อสีของระบบ) และพื้นหลังเองได้
     ตามดีไซน์ที่ผู้ใช้ส่งมา ดึงตัวเลข Dist/Time/Pace จากข้อมูลจริงที่บันทึกไว้ตอนจบการวิ่ง ไม่ปัดเพี้ยน */
+// FIX: เพิ่มใหม่ตามที่ขอ "เปลี่ยนสีเอฟเฟกวิ่งได้ทุกสี ทุกเฉด ทุกชั้น" — label เดียวกับที่ใช้ในหน้า
+// friends.tsx (กราฟสายฟ้าสรุปสัปดาห์) ให้ผู้ใช้คุ้นชื่อเดิม ไม่ต้องเรียนรู้ใหม่ระหว่างสองหน้า
+const RUN_LIGHTNING_COLOR_FIELDS: { key: keyof LightningColors; label: string }[] = [
+  { key: "outerGlow", label: "Outer glow (ชั้น 1)" },
+  { key: "midGlow", label: "Mid glow (ชั้น 2)" },
+  { key: "shadow3d", label: "เงา 3D (ชั้น 3)" },
+  { key: "coreStart", label: "เส้นหลัก จุดเริ่ม" },
+  { key: "coreMid", label: "เส้นหลัก จุดกลาง" },
+  { key: "coreEnd", label: "เส้นหลัก จุดปลาย" },
+  { key: "highlight", label: "Highlight (ชั้น 5)" },
+  { key: "sparkGlow", label: "แสงรอบจุดข้อมูล" },
+];
+
 function ShareRunModal({ routeId, onClose }: { routeId: string; onClose: () => void }) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
-  const [lineColor, setLineColor] = useState("#e0201a");
   const [electric, setElectric] = useState(true);
+  // FIX: เพิ่มใหม่ตามที่ขอ "เปลี่ยนสีเอฟเฟกวิ่งได้ทุกสี ทุกเฉด ทุกชั้น" — เก็บสีทั้ง 8 ชั้นแยกกัน
+  // เริ่มจาก default กลาง ๆ (ผู้ใช้ปรับทีละชั้นได้จริง ไม่ผูกกับ lineColor เดี่ยวอีกต่อไป)
+  const [colors, setColors] = useState<LightningColors>(DEFAULT_LIGHTNING_COLORS);
   const [bgImage, setBgImage] = useState<HTMLImageElement | null>(null);
   const [blob, setBlob] = useState<Blob | null>(null);
   const [renderError, setRenderError] = useState<string | null>(null);
@@ -932,8 +947,9 @@ function ShareRunModal({ routeId, onClose }: { routeId: string; onClose: () => v
       distanceKm: detail.data.distanceKm,
       durationSeconds: detail.data.durationSeconds,
       path: detail.data.path,
-      lineColor,
+      lineColor: colors.coreMid,
       electric,
+      lightningColors: colors,
       backgroundImage: bgImage,
       date: detail.data.date ? new Date(detail.data.date) : new Date(),
       transform: layout,
@@ -942,7 +958,7 @@ function ShareRunModal({ routeId, onClose }: { routeId: string; onClose: () => v
       .catch((err) => { if (!cancelled) setRenderError(err instanceof Error ? err.message : "สร้างรูปตัวอย่างไม่สำเร็จ"); })
       .finally(() => { if (!cancelled) setRendering(false); });
     return () => { cancelled = true; };
-  }, [detail.data, lineColor, electric, bgImage, layout]);
+  }, [detail.data, electric, colors, bgImage, layout]);
 
   const handleBgUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -1032,23 +1048,38 @@ function ShareRunModal({ routeId, onClose }: { routeId: string; onClose: () => v
         {renderError && <p className="text-xs text-destructive">{renderError}</p>}
 
         <div className="flex items-center gap-2">
-          <label className="glass flex items-center gap-2 rounded-xl px-3 py-2.5 text-xs">
-            <span className="text-muted-foreground">สีเส้นทาง</span>
-            <input
-              type="color"
-              value={lineColor}
-              onChange={(e) => setLineColor(e.target.value)}
-              className="size-8 cursor-pointer rounded-lg border-0 bg-transparent p-0"
-              aria-label="เลือกสีเส้นทาง"
-            />
-          </label>
           <button
             onClick={() => setElectric((v) => !v)}
             aria-pressed={electric}
-            className={`press flex items-center gap-1.5 rounded-xl px-3 py-2.5 text-xs font-medium ${electric ? "bg-mint-gradient text-primary-foreground shadow-glow" : "glass text-muted-foreground"}`}
+            className={`press flex flex-1 items-center justify-center gap-1.5 rounded-xl px-3 py-2.5 text-xs font-medium ${electric ? "bg-mint-gradient text-primary-foreground shadow-glow" : "glass text-muted-foreground"}`}
           >
-            ⚡ สายฟ้า
+            {electric ? "⚡ สายฟ้า (กดเพื่อสลับเป็น 3D ต้นฉบับ)" : "🌐 3D ต้นฉบับ (กดเพื่อสลับเป็นสายฟ้า)"}
           </button>
+        </div>
+        <div>
+          <div className="mb-2 flex items-center justify-between">
+            <p className="text-xs font-medium text-muted-foreground">สีเอฟเฟกต์ (เลือกได้ทุกสี ทุกเฉด ทุกชั้น)</p>
+            <button
+              onClick={() => setColors(DEFAULT_LIGHTNING_COLORS)}
+              className="press text-xs font-medium text-mint"
+            >
+              รีเซ็ตค่าเริ่มต้น
+            </button>
+          </div>
+          <div className="grid grid-cols-2 gap-2">
+            {RUN_LIGHTNING_COLOR_FIELDS.map((f) => (
+              <label key={f.key} className="glass flex items-center gap-2 rounded-xl px-2.5 py-2 text-[11px]">
+                <input
+                  type="color"
+                  value={colors[f.key]}
+                  onChange={(e) => setColors((c) => ({ ...c, [f.key]: e.target.value }))}
+                  className="size-7 shrink-0 cursor-pointer rounded-md border-0 bg-transparent p-0"
+                  aria-label={f.label}
+                />
+                <span className="truncate text-muted-foreground">{f.label}</span>
+              </label>
+            ))}
+          </div>
         </div>
         <div className="flex items-center gap-2">
           <label className="press glass flex flex-1 cursor-pointer items-center justify-center gap-2 rounded-xl px-3 py-2.5 text-xs text-muted-foreground">

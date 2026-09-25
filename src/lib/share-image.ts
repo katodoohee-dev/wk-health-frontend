@@ -36,7 +36,7 @@ export const DEFAULT_LIGHTNING_COLORS: LightningColors = {
 };
 
 // แปลง hex เป็น "r,g,b" สำหรับประกอบ rgba(...) ตอนต้องคุมความโปร่งใสของแต่ละชั้น
-function hexToRgb(hex: string): string {
+export function hexToRgb(hex: string): string {
   const h = hex.replace("#", "");
   const full = h.length === 3 ? h.split("").map((c) => c + c).join("") : h;
   const num = parseInt(full, 16);

@@ -16,6 +16,11 @@
  *    ไม่ทำให้สร้างรูปพัง
  */
 
+import { DEFAULT_LIGHTNING_COLORS, hexToRgb, type LightningColors } from "./share-image";
+
+export type { LightningColors };
+export { DEFAULT_LIGHTNING_COLORS };
+
 export interface RunSharePoint {
   lat: number;
   lng: number;
@@ -54,10 +59,12 @@ function drawLightningBranch(
   }
 }
 
-/** วาดสายฟ้าเกาะตามเส้นทางทั้งเส้น — สุ่ม seed คงที่จาก path ให้รูปหน้าตาเดิมทุกครั้งที่ re-render (ไม่กระพริบตอนขยับ/ลาก) */
+/** วาดสายฟ้าเกาะตามเส้นทางทั้งเส้น — สุ่ม seed คงที่จาก path ให้รูปหน้าตาเดิมทุกครั้งที่ re-render (ไม่กระพริบตอนขยับ/ลาก)
+ *  FIX: เพิ่มใหม่ตามที่ขอ — รับสีเป็น colors (LightningColors) แทน hardcode ฟ้า/ม่วง เลือกได้ทุกชั้นแล้ว */
 function drawLightningAlongPath(
   ctx: CanvasRenderingContext2D,
-  points: { x: number; y: number }[]
+  points: { x: number; y: number }[],
+  colors: LightningColors
 ) {
   if (points.length < 2) return;
   // seeded PRNG ง่ายๆ จาก mulberry32 — ให้ผลลัพธ์เดิมทุกครั้ง (deterministic) ไม่สุ่มใหม่ทุก re-render
@@ -75,9 +82,10 @@ function drawLightningAlongPath(
     ctx.save();
     ctx.lineCap = "round";
     ctx.lineJoin = "round";
-    // ชั้น glow กว้างๆ สีฟ้าอมม่วง เรืองแสงรอบเส้นทางทั้งเส้น
+    // ชั้น glow กว้างๆ เรืองแสงรอบเส้นทางทั้งเส้น (สีตามที่เลือก — outerGlow)
     ctx.shadowBlur = 24;
-    ctx.shadowColor = "rgba(120,200,255,0.9)";
+    ctx.shadowColor = colors.outerGlow;
+    const branchColor = `rgba(${hexToRgb(colors.midGlow)},0.95)`;
     for (let i = 2; i < points.length - 2; i += 5) {
       const p = points[i]!;
       const prev = points[i - 2]!;
@@ -88,7 +96,7 @@ function drawLightningAlongPath(
         const branchAngle = dirAngle + side * (70 + rand() * 35);
         const len = 26 + rand() * 46;
         ctx.globalAlpha = 0.55 + rand() * 0.4;
-        drawLightningBranch(ctx, p.x, p.y, branchAngle, len, 3, "rgba(200,235,255,0.95)");
+        drawLightningBranch(ctx, p.x, p.y, branchAngle, len, 3, branchColor);
       }
     }
     ctx.globalAlpha = 1;
@@ -115,6 +123,10 @@ export interface RunShareOptions {
   // เองได้บนพรีวิวจริง แทนที่ตำแหน่ง/ขนาดจะตายตัวเหมือนเดิม ไม่ใส่มา = ใช้ตำแหน่งเดิมทุกอย่าง (ไม่กระทบของเก่า)
   // FIX: เพิ่มใหม่ตามที่ขอ — เปิด/ปิดเอฟเฟกต์สายฟ้าเกาะเส้นทาง (default true ตามที่ขอ)
   electric?: boolean;
+  // FIX: เพิ่มใหม่ตามที่ขอ "เปลี่ยนสีเอฟเฟกวิ่งได้ทุกสี ทุกเฉด ทุกชั้น" — คุมสีทั้ง 8 ชั้นแยกกันได้
+  // (ใช้ type เดียวกับกราฟสายฟ้าสรุปสัปดาห์ใน share-image.ts ให้ UI เลือกสีใช้ร่วมกันแบบเดียวกันได้)
+  // ไม่ส่งมา = ไล่เฉดอัตโนมัติจาก lineColor เดียวเหมือนพฤติกรรมเดิม (ไม่กระทบของเก่า)
+  lightningColors?: LightningColors;
   transform?: { card?: ElementTransform; route?: ElementTransform; qr?: ElementTransform };
 }
 
@@ -188,6 +200,22 @@ function shadeColor(hex: string, amt: number): string {
   g = Math.max(0, Math.min(255, g));
   b = Math.max(0, Math.min(255, b));
   return `#${((1 << 24) + (r << 16) + (g << 8) + b).toString(16).slice(1)}`;
+}
+
+// FIX: เพิ่มใหม่ตามที่ขอ "เปลี่ยนสีเอฟเฟกวิ่งได้ทุกสี ทุกเฉด ทุกชั้น" — ถ้าผู้ใช้ยังไม่ได้เลือกสีทีละชั้น
+// เอง (ผ่าน opts.lightningColors) สร้างชุดสีทั้ง 8 ชั้นจาก lineColor เดียวให้อัตโนมัติ ยังดูกลมกลืน
+// เป็นธีมเดียวกันเหมือนพฤติกรรมเดิม — ถ้าอยากคุมทีละชั้นเป๊ะๆ ส่ง lightningColors มาตรงๆ จะ override หมด
+function deriveLightningColorsFromLine(lineColor: string): LightningColors {
+  return {
+    outerGlow: shadeColor(lineColor, 40),
+    midGlow: shadeColor(lineColor, 70),
+    shadow3d: shadeColor(lineColor, -90),
+    coreStart: shadeColor(lineColor, 60),
+    coreMid: lineColor,
+    coreEnd: shadeColor(lineColor, -30),
+    highlight: "#ffffff",
+    sparkGlow: shadeColor(lineColor, 80),
+  };
 }
 
 // FIX: เพิ่มใหม่ — แปลงพิกัด lat/lng เป็นตำแหน่ง pixel บน tile web mercator มาตรฐาน (เหมือน Leaflet/Google ใช้)
@@ -422,12 +450,13 @@ export async function renderRunShareImage(opts: RunShareOptions): Promise<Blob> 
       y: offsetY + drawH - ys[i]! * scale, // flip แกน y (เหนือ = บน) — ys อ้างอิงจาก minLat แล้ว จึงเริ่มที่ 0 เสมอ
     });
 
-    // FIX: เปลี่ยนจากเส้นแบนเส้นเดียวเป็นเส้น "3D" — วาดชั้นเงา/ฐานที่เลื่อนลงมาไล่สีเข้ม (extrusion)
-    // ให้ความรู้สึกว่าเส้นทางยกตัวขึ้นมาจากพื้นแผนที่มีความสูงจริงๆ แล้วค่อยวาดเส้นบนสุดพร้อมไฮไลต์
+    // FIX: เปลี่ยนจาก auto-shade จาก lineColor เดี่ยว เป็นใช้สีทั้ง 8 ชั้นจาก colors ตามที่ขอ
+    // "เปลี่ยนสีได้ทุกสี ทุกเฉด ทุกชั้น" — ไม่ได้เลือกทีละชั้นมาก็ derive อัตโนมัติจาก lineColor เหมือนเดิม
+    const colors: LightningColors = opts.lightningColors ?? deriveLightningColorsFromLine(lineColor);
     const lift = 22; // ความสูงที่ยกขึ้น (px) ยิ่งมากยิ่งดูนูน/3D ชัด
-    const baseColor = shadeColor(lineColor, -70); // เงา/ฐานเข้มกว่าสีจริงมาก
-    const midColor = shadeColor(lineColor, -30);
-    const highlightColor = shadeColor(lineColor, 60);
+    const baseColor = colors.shadow3d;
+    const midColor = colors.coreEnd;
+    const highlightColor = colors.coreStart;
 
     const strokePath = (yOffset: number) => {
       ctx.beginPath();
@@ -461,24 +490,25 @@ export async function renderRunShareImage(opts: RunShareOptions): Promise<Blob> 
     // เส้นบนสุด — ไล่เฉดจากสีจริงเป็นไฮไลต์สว่าง จำลองแสงตกกระทบด้านบนของเส้นทาง
     const grad = ctx.createLinearGradient(0, pathAreaY, 0, pathAreaY + pathAreaH);
     grad.addColorStop(0, highlightColor);
-    grad.addColorStop(0.5, lineColor);
+    grad.addColorStop(0.5, colors.coreMid);
     grad.addColorStop(1, midColor);
     ctx.strokeStyle = grad;
     ctx.lineWidth = 18;
     strokePath(0);
 
-    // เส้นไฮไลต์บางๆ เพิ่มความเงาให้ดูนูนเหมือนมีแสงสะท้อน
-    ctx.strokeStyle = "rgba(255,255,255,0.35)";
+    // เส้นไฮไลต์บางๆ เพิ่มความเงาให้ดูนูนเหมือนมีแสงสะท้อน (สี highlight ที่เลือกได้)
+    ctx.strokeStyle = `rgba(${hexToRgb(colors.highlight)},0.6)`;
     ctx.lineWidth = 5;
     strokePath(-4);
 
     // FIX: เพิ่มใหม่ตามที่ขอ — สายฟ้าเกาะเส้นทาง (default เปิด ปิดได้ผ่าน opts.electric = false)
+    // สีทุกชั้นของสายฟ้าตอนนี้เลือกเองได้ผ่าน colors เช่นกัน (outerGlow/midGlow)
     if (opts.electric !== false) {
       const screenPoints = opts.path.map((_, i) => {
         const s = toScreen(i);
         return { x: s.x, y: s.y - lift };
       });
-      drawLightningAlongPath(ctx, screenPoints);
+      drawLightningAlongPath(ctx, screenPoints, colors);
     }
 
     // จุดเริ่มต้น (blob กลมใหญ่ ตามดีไซน์ต้นแบบ) — ทำเป็นทรงกลม 3D ด้วย radial gradient
