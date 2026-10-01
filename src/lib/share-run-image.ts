@@ -35,7 +35,8 @@ function drawLightningBranch(
   angleDeg: number,
   length: number,
   depth: number,
-  color: string
+  color: string,
+  glowColor: string
 ) {
   if (depth <= 0 || length < 5) return;
   const segments = 3 + Math.floor(Math.random() * 2);
@@ -45,17 +46,22 @@ function drawLightningBranch(
   ctx.beginPath();
   ctx.moveTo(cx, cy);
   for (let i = 0; i < segments; i++) {
-    angle += (Math.random() - 0.5) * 55;
+    angle += (Math.random() - 0.5) * 50;
     const segLen = length / segments;
     cx += Math.cos((angle * Math.PI) / 180) * segLen;
     cy += Math.sin((angle * Math.PI) / 180) * segLen;
     ctx.lineTo(cx, cy);
   }
+  // FIX: ตามที่ขอ "สายฟ้าไม่สวยเลย" — ลอง render จริงดูแล้วพบว่าแขนงเดิมเป็นเส้นเปล่าไม่มีแสงของตัวเอง
+  // ดูเหมือนรอยขีดข่วน/เส้นเลือดฝอยมากกว่าสายฟ้า แก้โดยใส่ glow (shadowBlur/shadowColor) ให้ทุกแขนง
+  // เรืองแสงจริงเหมือนเส้นหลัก และหนาขึ้นเล็กน้อยให้เห็นชัด
+  ctx.shadowBlur = 10;
+  ctx.shadowColor = glowColor;
   ctx.strokeStyle = color;
-  ctx.lineWidth = Math.max(1, depth * 1.4);
+  ctx.lineWidth = Math.max(1.2, depth * 1.6);
   ctx.stroke();
-  if (Math.random() < 0.55) {
-    drawLightningBranch(ctx, cx, cy, angle + (Math.random() < 0.5 ? 45 : -45), length * 0.55, depth - 1, color);
+  if (Math.random() < 0.6) {
+    drawLightningBranch(ctx, cx, cy, angle + (Math.random() < 0.5 ? 45 : -45), length * 0.6, depth - 1, color, glowColor);
   }
 }
 
@@ -80,23 +86,37 @@ function drawLightningAlongPath(
   Math.random = rand;
   try {
     ctx.save();
+    // FIX: ตามที่ขอ "สายฟ้าแลบเท่ๆ ลายละเอียดจัดเต็ม" — เปลี่ยนเป็น additive blending (lighter) ให้แสง
+    // ที่ซ้อนกันสว่างเพิ่มขึ้นจริงแบบนีออน/พลาสม่า แทนที่จะแค่วางสีทับกันแบบ alpha ธรรมดาซึ่งทำให้ดูทึบ
+    // และหม่น ไม่เรืองแสงจริง
+    ctx.globalCompositeOperation = "lighter";
     ctx.lineCap = "round";
     ctx.lineJoin = "round";
-    // ชั้น glow กว้างๆ เรืองแสงรอบเส้นทางทั้งเส้น (สีตามที่เลือก — outerGlow)
-    ctx.shadowBlur = 24;
-    ctx.shadowColor = colors.outerGlow;
-    const branchColor = `rgba(${hexToRgb(colors.midGlow)},0.95)`;
-    for (let i = 2; i < points.length - 2; i += 5) {
+    const branchColor = `rgba(${hexToRgb(colors.sparkGlow)},0.9)`;
+    // ถี่ขึ้น (ทุก 4 จุดแทน 5) + แตกแขนงได้ลึกขึ้น (depth 4 แทน 3) ให้ลายละเอียดเยอะ/จัดเต็มสมจริงขึ้น
+    for (let i = 2; i < points.length - 2; i += 4) {
       const p = points[i]!;
       const prev = points[i - 2]!;
       const dirAngle = (Math.atan2(p.y - prev.y, p.x - prev.x) * 180) / Math.PI;
       const branchCount = 1 + Math.floor(rand() * 2);
       for (let b = 0; b < branchCount; b++) {
         const side = rand() < 0.5 ? -1 : 1;
-        const branchAngle = dirAngle + side * (70 + rand() * 35);
-        const len = 26 + rand() * 46;
-        ctx.globalAlpha = 0.55 + rand() * 0.4;
-        drawLightningBranch(ctx, p.x, p.y, branchAngle, len, 3, branchColor);
+        const branchAngle = dirAngle + side * (65 + rand() * 40);
+        const len = 34 + rand() * 56;
+        ctx.globalAlpha = 0.5 + rand() * 0.4;
+        drawLightningBranch(ctx, p.x, p.y, branchAngle, len, 4, branchColor, colors.midGlow);
+      }
+      // ประกายดาวเล็กๆ กระจายตามจุดแยกแขนง ให้ดูมีรายละเอียด/จัดเต็มขึ้นอีกชั้น
+      if (rand() < 0.7) {
+        const sparkR = 2.5 + rand() * 3;
+        ctx.save();
+        ctx.shadowBlur = 14;
+        ctx.shadowColor = colors.sparkGlow;
+        ctx.fillStyle = `rgba(${hexToRgb(colors.highlight)},0.95)`;
+        ctx.beginPath();
+        ctx.arc(p.x, p.y, sparkR, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.restore();
       }
     }
     ctx.globalAlpha = 1;
@@ -470,6 +490,27 @@ export async function renderRunShareImage(opts: RunShareOptions): Promise<Blob> 
 
     ctx.lineJoin = "round";
     ctx.lineCap = "round";
+
+    // FIX: ตามที่ขอ "สายฟ้าแลบเท่ๆ ลายละเอียดจัดเต็ม" — ลอง render จริงดูแล้วพบว่าเดิมเส้นหลักไม่มีแสง
+    // เรืองของตัวเองเลย (มีแค่แขนงสายฟ้าที่เรืองแสง) ทำให้ดูเป็นท่อทึบมากกว่าสายฟ้า เพิ่ม glow แท้ๆ รอบ
+    // เส้นหลัก 2 ชั้น (outer กว้างฟุ้ง + mid แคบเข้มกว่า) ด้วย additive blending (lighter) ให้แสงสว่าง
+    // จริงแบบนีออน — ใส่เฉพาะตอนเปิดโหมดสายฟ้าเท่านั้น (โหมด "3D ต้นฉบับ" ยังคงไม่มี glow เหมือนเดิม
+    // แยกสไตล์สองแบบให้ต่างกันชัดเจนตามที่ขอ "เลือกได้ว่าจะแชร์แบบไหน")
+    if (opts.electric !== false) {
+      ctx.save();
+      ctx.globalCompositeOperation = "lighter";
+      ctx.filter = "blur(30px)";
+      ctx.strokeStyle = colors.outerGlow;
+      ctx.globalAlpha = 0.8;
+      ctx.lineWidth = 46;
+      strokePath(0);
+      ctx.filter = "blur(14px)";
+      ctx.strokeStyle = colors.midGlow;
+      ctx.globalAlpha = 0.9;
+      ctx.lineWidth = 26;
+      strokePath(0);
+      ctx.restore();
+    }
 
     // ชั้นเงาตกกระทบบนพื้นแผนที่ (เบลอเข้ม บอกตำแหน่งที่เส้นลอยอยู่เหนือพื้น)
     ctx.save();
