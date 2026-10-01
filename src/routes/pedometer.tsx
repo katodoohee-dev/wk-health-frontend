@@ -1007,8 +1007,8 @@ function ShareRunModal({ routeId, onClose }: { routeId: string; onClose: () => v
         ) : detail.isError ? (
           <ErrorState error={detail.error} onRetry={() => void detail.refetch()} />
         ) : (
-          <div ref={previewWrapRef} className="relative overflow-hidden rounded-2xl bg-muted" onPointerMove={onDragMove}>
-            <canvas ref={canvasRef} className="w-full" onClick={() => setActiveEl(null)} />
+          <div ref={previewWrapRef} className="relative aspect-[9/16] w-full overflow-hidden rounded-2xl bg-muted" onPointerMove={onDragMove}>
+            <canvas ref={canvasRef} className="absolute inset-0 size-full" onClick={() => setActiveEl(null)} />
             {rendering && (
               <div className="absolute inset-0 grid place-items-center bg-black/30">
                 <Loader2 className="size-6 animate-spin text-white" />
