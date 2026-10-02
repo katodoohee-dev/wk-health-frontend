@@ -26,54 +26,19 @@ export interface RunSharePoint {
   lng: number;
 }
 
-// FIX: เพิ่มใหม่ตามที่ขอ — เอฟเฟกต์ "สายฟ้าเกาะเส้นทาง" วาดแขนงฟ้าผ่าแบบ fractal (หักมุมสุ่มไปเรื่อยๆ
-// แตกกิ่งย่อยได้) แยกออกจากจุดต่างๆ บนเส้นทางวิ่ง พร้อม glow (shadowBlur) ให้ดูเรืองแสงเหมือนไฟฟ้าจริง
-function drawLightningBranch(
-  ctx: CanvasRenderingContext2D,
-  x: number,
-  y: number,
-  angleDeg: number,
-  length: number,
-  depth: number,
-  color: string,
-  glowColor: string
-) {
-  if (depth <= 0 || length < 5) return;
-  const segments = 3 + Math.floor(Math.random() * 2);
-  let cx = x;
-  let cy = y;
-  let angle = angleDeg;
-  ctx.beginPath();
-  ctx.moveTo(cx, cy);
-  for (let i = 0; i < segments; i++) {
-    angle += (Math.random() - 0.5) * 50;
-    const segLen = length / segments;
-    cx += Math.cos((angle * Math.PI) / 180) * segLen;
-    cy += Math.sin((angle * Math.PI) / 180) * segLen;
-    ctx.lineTo(cx, cy);
-  }
-  // FIX: ตามที่ขอ "สายฟ้าไม่สวยเลย" — ลอง render จริงดูแล้วพบว่าแขนงเดิมเป็นเส้นเปล่าไม่มีแสงของตัวเอง
-  // ดูเหมือนรอยขีดข่วน/เส้นเลือดฝอยมากกว่าสายฟ้า แก้โดยใส่ glow (shadowBlur/shadowColor) ให้ทุกแขนง
-  // เรืองแสงจริงเหมือนเส้นหลัก และหนาขึ้นเล็กน้อยให้เห็นชัด
-  ctx.shadowBlur = 10;
-  ctx.shadowColor = glowColor;
-  ctx.strokeStyle = color;
-  ctx.lineWidth = Math.max(1.2, depth * 1.6);
-  ctx.stroke();
-  if (Math.random() < 0.6) {
-    drawLightningBranch(ctx, cx, cy, angle + (Math.random() < 0.5 ? 45 : -45), length * 0.6, depth - 1, color, glowColor);
-  }
-}
-
-/** วาดสายฟ้าเกาะตามเส้นทางทั้งเส้น — สุ่ม seed คงที่จาก path ให้รูปหน้าตาเดิมทุกครั้งที่ re-render (ไม่กระพริบตอนขยับ/ลาก)
- *  FIX: เพิ่มใหม่ตามที่ขอ — รับสีเป็น colors (LightningColors) แทน hardcode ฟ้า/ม่วง เลือกได้ทุกชั้นแล้ว */
-function drawLightningAlongPath(
+/** วาดจุดเรืองแสง (sparkle) ประปรายไม่กี่จุดตามเส้นทาง — สุ่ม seed คงที่จาก path ให้ตำแหน่งเดิมทุกครั้ง
+ *  ที่ re-render (ไม่กระพริบตอนขยับ/ลาก)
+ *  FIX: ตามที่ขอ "ประสานกันสวยงาม...ดูสะอาด" — ก่อนหน้านี้ใช้แขนงฟ้าผ่าแบบ fractal แตกกิ่งออกจากเส้นหลัก
+ *  เยอะมาก ลอง render จริงดูแล้วเห็นว่าดูรกไม่ปะติดปะต่อกับเส้นหลัก (เลือกตัวเลือก "ตัดแขนงออกเกือบหมด
+ *  เน้นเส้นหลักเรืองแสงสวยๆ") จึงตัดการวาดเส้นแขนงแบบ fractal ออกทั้งหมด เหลือแค่จุดเรืองแสงกลมๆ (radial
+ *  glow) ไม่กี่จุดวางอยู่ "บน" เส้นหลักเป๊ะ ให้ความรู้สึกเหมือนประกายไฟฟ้าวิ่งผ่าน โดยไม่สร้างเส้นแยกออก
+ *  มาให้ดูรก — ประสานเป็นเนื้อเดียวกับเส้นหลักจริงๆ */
+function drawCleanSparkles(
   ctx: CanvasRenderingContext2D,
   points: { x: number; y: number }[],
   colors: LightningColors
 ) {
   if (points.length < 2) return;
-  // seeded PRNG ง่ายๆ จาก mulberry32 — ให้ผลลัพธ์เดิมทุกครั้ง (deterministic) ไม่สุ่มใหม่ทุก re-render
   let seed = Math.round(points[0]!.x * 1000 + points[0]!.y);
   const rand = () => {
     seed |= 0; seed = (seed + 0x6d2b79f5) | 0;
@@ -81,49 +46,28 @@ function drawLightningAlongPath(
     t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t;
     return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
   };
-  const origRandom = Math.random;
-  // สลับ Math.random ชั่วคราวเป็นตัว seeded เฉพาะตอนวาดสายฟ้า (คืนค่าเดิมทันทีหลังวาดเสร็จ กันกระทบส่วนอื่น)
-  Math.random = rand;
-  try {
-    ctx.save();
-    // FIX: ตามที่ขอ "สายฟ้าแลบเท่ๆ ลายละเอียดจัดเต็ม" — เปลี่ยนเป็น additive blending (lighter) ให้แสง
-    // ที่ซ้อนกันสว่างเพิ่มขึ้นจริงแบบนีออน/พลาสม่า แทนที่จะแค่วางสีทับกันแบบ alpha ธรรมดาซึ่งทำให้ดูทึบ
-    // และหม่น ไม่เรืองแสงจริง
-    ctx.globalCompositeOperation = "lighter";
-    ctx.lineCap = "round";
-    ctx.lineJoin = "round";
-    const branchColor = `rgba(${hexToRgb(colors.sparkGlow)},0.9)`;
-    // ถี่ขึ้น (ทุก 4 จุดแทน 5) + แตกแขนงได้ลึกขึ้น (depth 4 แทน 3) ให้ลายละเอียดเยอะ/จัดเต็มสมจริงขึ้น
-    for (let i = 2; i < points.length - 2; i += 4) {
-      const p = points[i]!;
-      const prev = points[i - 2]!;
-      const dirAngle = (Math.atan2(p.y - prev.y, p.x - prev.x) * 180) / Math.PI;
-      const branchCount = 1 + Math.floor(rand() * 2);
-      for (let b = 0; b < branchCount; b++) {
-        const side = rand() < 0.5 ? -1 : 1;
-        const branchAngle = dirAngle + side * (65 + rand() * 40);
-        const len = 34 + rand() * 56;
-        ctx.globalAlpha = 0.5 + rand() * 0.4;
-        drawLightningBranch(ctx, p.x, p.y, branchAngle, len, 4, branchColor, colors.midGlow);
-      }
-      // ประกายดาวเล็กๆ กระจายตามจุดแยกแขนง ให้ดูมีรายละเอียด/จัดเต็มขึ้นอีกชั้น
-      if (rand() < 0.7) {
-        const sparkR = 2.5 + rand() * 3;
-        ctx.save();
-        ctx.shadowBlur = 14;
-        ctx.shadowColor = colors.sparkGlow;
-        ctx.fillStyle = `rgba(${hexToRgb(colors.highlight)},0.95)`;
-        ctx.beginPath();
-        ctx.arc(p.x, p.y, sparkR, 0, Math.PI * 2);
-        ctx.fill();
-        ctx.restore();
-      }
-    }
-    ctx.globalAlpha = 1;
-    ctx.restore();
-  } finally {
-    Math.random = origRandom;
+  ctx.save();
+  ctx.globalCompositeOperation = "lighter";
+  // เลือกแค่ 3-5 จุดกระจายสม่ำเสมอตลอดทั้งเส้นทาง (ไม่ใช่ทุกไม่กี่จุดเหมือนเดิม) ให้ดูสะอาด ไม่รก
+  const sparkCount = Math.min(5, Math.max(3, Math.floor(points.length / 10)));
+  const step = Math.floor(points.length / (sparkCount + 1));
+  for (let k = 1; k <= sparkCount; k++) {
+    const idx = Math.min(points.length - 2, k * step);
+    const p = points[idx]!;
+    const r = 4 + rand() * 3;
+    const glow = ctx.createRadialGradient(p.x, p.y, 0, p.x, p.y, r * 2.2);
+    glow.addColorStop(0, `rgba(${hexToRgb(colors.highlight)},0.95)`);
+    glow.addColorStop(1, `rgba(${hexToRgb(colors.sparkGlow)},0)`);
+    ctx.fillStyle = glow;
+    ctx.beginPath();
+    ctx.arc(p.x, p.y, r * 2.2, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.fillStyle = `rgba(${hexToRgb(colors.highlight)},0.95)`;
+    ctx.beginPath();
+    ctx.arc(p.x, p.y, r * 0.5, 0, Math.PI * 2);
+    ctx.fill();
   }
+  ctx.restore();
 }
 
 export interface ElementTransform {
@@ -499,15 +443,15 @@ export async function renderRunShareImage(opts: RunShareOptions): Promise<Blob> 
     if (opts.electric !== false) {
       ctx.save();
       ctx.globalCompositeOperation = "lighter";
-      ctx.filter = "blur(30px)";
+      ctx.filter = "blur(36px)";
       ctx.strokeStyle = colors.outerGlow;
-      ctx.globalAlpha = 0.8;
-      ctx.lineWidth = 46;
+      ctx.globalAlpha = 0.85;
+      ctx.lineWidth = 54;
       strokePath(0);
-      ctx.filter = "blur(14px)";
+      ctx.filter = "blur(16px)";
       ctx.strokeStyle = colors.midGlow;
-      ctx.globalAlpha = 0.9;
-      ctx.lineWidth = 26;
+      ctx.globalAlpha = 0.95;
+      ctx.lineWidth = 28;
       strokePath(0);
       ctx.restore();
     }
@@ -538,7 +482,7 @@ export async function renderRunShareImage(opts: RunShareOptions): Promise<Blob> 
     strokePath(0);
 
     // เส้นไฮไลต์บางๆ เพิ่มความเงาให้ดูนูนเหมือนมีแสงสะท้อน (สี highlight ที่เลือกได้)
-    ctx.strokeStyle = `rgba(${hexToRgb(colors.highlight)},0.6)`;
+    ctx.strokeStyle = `rgba(${hexToRgb(colors.highlight)},0.7)`;
     ctx.lineWidth = 5;
     strokePath(-4);
 
@@ -549,7 +493,7 @@ export async function renderRunShareImage(opts: RunShareOptions): Promise<Blob> 
         const s = toScreen(i);
         return { x: s.x, y: s.y - lift };
       });
-      drawLightningAlongPath(ctx, screenPoints, colors);
+      drawCleanSparkles(ctx, screenPoints, colors);
     }
 
     // จุดเริ่มต้น (blob กลมใหญ่ ตามดีไซน์ต้นแบบ) — ทำเป็นทรงกลม 3D ด้วย radial gradient
